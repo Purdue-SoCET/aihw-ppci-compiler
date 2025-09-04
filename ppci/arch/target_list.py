@@ -15,6 +15,7 @@ from .riscv import RiscvArch
 from .stm8 import Stm8Arch
 from .x86_64 import X86_64Arch
 from .xtensa import XtensaArch
+from .myriscv import MyRiscvArch
 
 target_classes = [
     ArmArch,
@@ -30,6 +31,7 @@ target_classes = [
     Stm8Arch,
     X86_64Arch,
     XtensaArch,
+    MyRiscvArch,
 ]
 
 
