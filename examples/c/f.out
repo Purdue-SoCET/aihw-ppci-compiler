@@ -1,0 +1,51 @@
+{
+  "arch": "x86_64",
+  "images": [],
+  "relocations": [],
+  "sections": [
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": [
+        "55488bec4881ec180000005340897dfc408975f8408b45fc408b5df84003",
+        "c35b4881c4180000005dc3"
+      ],
+      "name": "code"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "add",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 1,
+      "name": "add_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0xc"
+    },
+    {
+      "binding": "local",
+      "id": 2,
+      "name": "add_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x1f"
+    }
+  ]
+}
