@@ -1,23 +1,32 @@
-from ppci.arch.arch import Architecture
 from ppci.arch.riscv.arch import RiscvArch
+from ppci.arch.myriscv.instructions import isa as myisa
+from ppci.arch.riscv.instructions import isa as riscv_isa
 from ppci.arch.myriscv import registers as my_registers
-from ppci.arch.myriscv.instructions import ThetaInstruction, instruction_classes
-from ppci.arch.riscv.instructions import RiscvInstruction
+from ppci.arch.registers import RegisterClass
 
-class MyRiscvArch(RiscvArch):  # Inherit from standard RiscvArch
+class MyRiscvArch(RiscvArch):
     name = 'myriscv'
 
-    # Use our custom register bank
-    register_classes = [my_registers.register_bank]
-
-    # Combine standard RISC-V instructions with our custom one
-    # We get all the parent's instructions and add our new one
     def __init__(self, options=None):
         super().__init__(options)
-        # Add the Theta instruction to the instruction set recognized by this arch
-        self.isa.instruction_classes.extend(instruction_classes)
+        # Add the Theta instruction to the instruction set
+        self.isa = riscv_isa + myisa
 
-    # This is a placeholder for a more advanced integration.
-    # A future step would be to modify 'gen_instructions' to select the 'theta'
-    # instruction for a specific operation (like an intrinsic).
-    # For now, the instruction can only be used via inline assembly.
+        # Override with our custom register bank
+        self.registers = my_registers.register_bank
+
+        # Define register classes properly
+        self.info.register_classes = [
+            RegisterClass(
+                'reg',
+                [reg for reg in self.registers if reg.num >= 1 and reg.num <= 31],  # x1 to x31
+                self.registers[1]  # x1 as default
+            )
+        ]
+
+    def get_register(self, name):
+        """Get register by name from our custom bank"""
+        for reg in self.registers:
+            if reg.name == name:
+                return reg
+        raise KeyError(f"Register {name} not found")

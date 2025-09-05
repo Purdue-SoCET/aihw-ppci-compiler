@@ -18,6 +18,7 @@ from .xtensa import XtensaArch
 from .myriscv import MyRiscvArch
 
 target_classes = [
+    MyRiscvArch,
     ArmArch,
     AvrArch,
     ExampleArch,
@@ -31,8 +32,9 @@ target_classes = [
     Stm8Arch,
     X86_64Arch,
     XtensaArch,
-    MyRiscvArch,
 ]
+
+print(target_classes[0])
 
 
 target_class_map = {t.name: t for t in target_classes}
