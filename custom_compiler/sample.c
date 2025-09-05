@@ -11,7 +11,7 @@ int main() {
     // The inline assembly block
     // Format: asm volatile ("assembly code" : outputs : inputs : clobbers)
     asm(
-        "theta %0, %1, %2"  // %0 will be replaced by the first constraint, %1 by the second, etc.
+        "theta x10, x11, x12"  // %0 will be replaced by the first constraint, %1 by the second, etc.
         : "=r" (result)     // Output operand: Write-only ('=') register ('r'), stored in 'result'
         : "r" (input1), "r" (input2) // Input operands: in registers, from 'input1' and 'input2'
         :
