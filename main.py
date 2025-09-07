@@ -1,8 +1,10 @@
 from ppci.api import cc
+from ppci.lang.c import c_to_ir
+from ppci.ir import Module
 
 def main():
     with open("custom_compiler/sample.c", "r") as f:
-        cc(f, "myriscv", debug=True)
+        c_to_ir(f, "riscv").display()
 
 if __name__ == "__main__":
     main()
