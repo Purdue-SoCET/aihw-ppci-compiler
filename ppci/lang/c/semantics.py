@@ -958,6 +958,10 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
+    def on_theta(self, arg1, arg2, location):
+        expr = expressions.Theta(arg1, arg2, self.int_type, False, location)
+        return expr
+
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""
         return expressions.Cast(casted_expr, to_typ, False, location)
