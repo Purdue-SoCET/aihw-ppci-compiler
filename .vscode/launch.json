@@ -2,15 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug pytests",
-            "type": "debugpy",
+            "name": "Debug main.py",
+            "type": "python",
             "request": "launch",
-            "module": "pytest",
-            "args": [
-                "test",
-                "-k",
-                "python_table_get"
-            ],
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal"
         }
     ]
 }
