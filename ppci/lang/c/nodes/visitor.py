@@ -146,6 +146,9 @@ class Visitor:
         elif isinstance(node, expressions.CompoundLiteral):
             self.visit(node.typ)
             self.visit(node.init)
+        elif isinstance(node, expressions.Theta):
+            self.visit(node.arg1)
+            self.visit(node.arg2)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 
