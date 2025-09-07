@@ -1102,7 +1102,6 @@ class CParser(RecursiveDescentParser):
         """Parse a primary expression"""
         if self.peek == "ID":
             identifier = self.consume("ID")
-            print("Hello!")
             expr = self.semantics.on_variable_access(
                 identifier.val, identifier.loc
             )
@@ -1171,17 +1170,12 @@ class CParser(RecursiveDescentParser):
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
         elif self.peek == "theta":
             location = self.consume("theta").loc
-            if self.peek == "(":
-                self.consume("(")
-                if self.is_declaration_statement():
-                    typ = self.parse_typename()
-                else:
-                    typ = self.parse_expression()
-                self.consume(")")
-                expr = self.semantics.on_sizeof(typ, location)
-            else:
-                sizeof_expr = self.parse_primary_expression()
-                expr = self.semantics.on_sizeof(sizeof_expr, location)
+            self.consume("(")
+            arg1 = self.consume("ID").val
+            self.consume(",")
+            arg2 = self.consume("ID").val
+            self.consume(")")
+            expr = self.semantics.on_theta(arg1, arg2, location)
         elif self.peek == "(":
             loc = self.consume("(").loc
             # Is this a type cast?
