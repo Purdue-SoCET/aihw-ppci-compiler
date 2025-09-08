@@ -1171,11 +1171,13 @@ class CParser(RecursiveDescentParser):
         elif self.peek == "theta":
             location = self.consume("theta").loc
             self.consume("(")
-            arg1 = self.consume("ID").val
-            self.consume(",")
-            arg2 = self.consume("ID").val
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            expr = self.semantics.on_theta(args[0], args[1], location)
             self.consume(")")
-            expr = self.semantics.on_theta(arg1, arg2, location)
         elif self.peek == "(":
             loc = self.consume("(").loc
             # Is this a type cast?
