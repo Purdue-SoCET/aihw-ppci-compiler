@@ -1013,6 +1013,8 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
+            elif isinstance(expr, expressions.Theta):
+                value = self.gen_theta(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1527,6 +1529,13 @@ class CCodeGenerator:
 
         # Calculate address:
         return self.builder.emit_add(base, offset, ir.ptr)
+
+    def gen_theta(self, expr: expressions.Theta):
+        arg1 = expr.arg1
+        arg2 = expr.arg2
+        value = self.builder.emit(ir.Theta(arg1, arg2))
+        return value
+
 
     def gen_builtin(self, expr: expressions.BuiltIn):
         """Generate appropriate built-in functionality"""

@@ -136,6 +136,9 @@ class CContext:
             raise NotImplementedError(str(typ))
         return size
 
+    def theta(self, arg1, arg2):
+        return 
+
     def alignment(self, typ: types.CType):
         """Given a type, determine its alignment in bytes"""
         assert isinstance(typ, types.CType)
