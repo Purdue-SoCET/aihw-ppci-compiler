@@ -1176,7 +1176,7 @@ class CParser(RecursiveDescentParser):
                 args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
-            expr = self.semantics.on_theta(args[0], args[1], location)
+            expr = self.semantics.on_theta(args[0], args[1], args[2], location)
             self.consume(")")
         elif self.peek == "(":
             loc = self.consume("(").loc

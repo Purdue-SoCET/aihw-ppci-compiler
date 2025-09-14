@@ -177,12 +177,13 @@ class Sizeof(CExpression):
         return f"Sizeof {self.sizeof_typ}"
 
 class Theta(CExpression):
-    def __init__(self, arg1, arg2, typ, lvalue, location):
+    def __init__(self, argr, arg1, arg2, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
         self.arg1 = arg1
         self.arg2 = arg2
+        self.argr = argr
     def __repr__(self):
-        return f"Theta({self.arg1}, {self.arg2})"
+        return f"Theta({self.argr}, {self.arg1}, {self.arg2})"
 
 class ArrayIndex(CExpression):
     """Array indexing"""
