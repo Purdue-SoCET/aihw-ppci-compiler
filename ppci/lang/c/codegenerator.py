@@ -1531,8 +1531,8 @@ class CCodeGenerator:
         return self.builder.emit_add(base, offset, ir.ptr)
 
     def gen_theta(self, expr: expressions.Theta):
-        arg1 = expr.arg1
-        arg2 = expr.arg2
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
         value = self.builder.emit(ir.Theta(arg1, arg2))
         return value
 
