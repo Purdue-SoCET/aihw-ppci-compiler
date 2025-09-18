@@ -1,4 +1,4 @@
-"""RISC-V architecture."""
+"""AMP architecture."""
 
 import io
 
@@ -10,7 +10,7 @@ from ..data_instructions import DByte, DZero, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
-from .asm_printer import RiscvAsmPrinter
+from .asm_printer import AMPAsmPrinter
 from .instructions import (
     Addi,
     Align,
@@ -58,8 +58,8 @@ from .registers import (
     R27,
     SP,
     Register,
-    RiscvFRegister,
-    RiscvRegister,
+    AMPFRegister,
+    AMPRegister,
     gdb_registers,
     register_classes_hwfp,
     register_classes_swfp,
@@ -85,7 +85,7 @@ def isinsrange(bits, val) -> bool:
     return bool(val <= (msb - 1) and (val >= ll))
 
 
-class RiscvAssembler(BaseAssembler):
+class AMPAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
         self.lit_pool = []
@@ -109,8 +109,8 @@ class RiscvAssembler(BaseAssembler):
         return label_name
 
 
-class RiscvArch(Architecture):
-    name = "riscv"
+class AMPArch(Architecture):
+    name = "AMP"
     option_names = ("rvc", "rvf", "rvfx")
 
     def __init__(self, options=None):
@@ -141,8 +141,8 @@ class RiscvArch(Architecture):
         self.isa.dsinst = DZero
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
-        self.asm_printer = RiscvAsmPrinter()
-        self.assembler = RiscvAssembler()
+        self.asm_printer = AMPAsmPrinter()
+        self.assembler = AMPAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
         self.info = ArchInfo(
@@ -182,12 +182,12 @@ class RiscvArch(Architecture):
 
     def branch(self, reg, lab):
         if self.has_option("rvc"):
-            if isinstance(lab, RiscvRegister):
+            if isinstance(lab, AMPRegister):
                 return CBlr(reg, lab, 0, clobbers=self.caller_save)
             else:
                 return CBl(reg, lab, clobbers=self.caller_save)
         else:
-            if isinstance(lab, RiscvRegister):
+            if isinstance(lab, AMPRegister):
                 return Blr(reg, lab, 0, clobbers=self.caller_save)
             else:
                 return Bl(reg, lab, clobbers=self.caller_save)
@@ -234,15 +234,15 @@ class RiscvArch(Architecture):
             return CMovr(dst, src, ismove=True)
         else:
             if (
-                isinstance(dst, RiscvFRegister)
-                and isinstance(src, RiscvFRegister)
+                isinstance(dst, AMPFRegister)
+                and isinstance(src, AMPFRegister)
                 and self.has_option("rvf")
             ):
                 return movf(dst, src)
             else:
                 return Movr(dst, src, ismove=True)
 
-    def gen_riscv_memcpy(self, dst, src, tmp, size):
+    def gen_AMP_memcpy(self, dst, src, tmp, size):
         # Called before register allocation
         # Major crappy memcpy, can be improved!
         for idx in range(size):
@@ -266,16 +266,16 @@ class RiscvArch(Architecture):
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, (RiscvRegister, RiscvFRegister)):
+            if isinstance(arg_loc, (AMPRegister, AMPFRegister)):
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
                 stack_size += arg_loc.size
-                if isinstance(arg, RiscvRegister):
+                if isinstance(arg, AMPRegister):
                     yield Sw(arg, arg_loc.offset, SP)
                 elif isinstance(arg, StackLocation):
-                    p1 = frame.new_reg(RiscvRegister)
-                    p2 = frame.new_reg(RiscvRegister)
-                    v3 = frame.new_reg(RiscvRegister)
+                    p1 = frame.new_reg(AMPRegister)
+                    p2 = frame.new_reg(AMPRegister)
+                    v3 = frame.new_reg(AMPRegister)
 
                     # Destination location:
                     # Remember that the LR and FP are pushed in between
@@ -287,7 +287,7 @@ class RiscvArch(Architecture):
                         self.fp,
                         arg.offset + round_up(frame.stacksize + 8) - 8,
                     )
-                    yield from self.gen_riscv_memcpy(p1, p2, v3, arg.size)
+                    yield from self.gen_AMP_memcpy(p1, p2, v3, arg.size)
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
@@ -320,7 +320,7 @@ class RiscvArch(Architecture):
             if isinstance(arg_loc, Register):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
-                if isinstance(arg, RiscvRegister):
+                if isinstance(arg, AMPRegister):
                     Code = Lw(arg, arg_loc.offset, FP)
                     Code.fprel = True
                     yield Code
