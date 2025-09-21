@@ -1,14 +1,14 @@
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
-from .tokens import AmpToken, AmpMIToken
+from .tokens import *
 from .registers import (
     AmpRegister
 )
 
 isa = Isa()
 
-class AmpInstruction(Instruction):
-    tokens = [AmpToken]
+class AmpRInstruction(Instruction):
+    tokens = [AmpRToken]
     isa = isa
 
 def make_r(mnemonic, opcode):
@@ -16,7 +16,7 @@ def make_r(mnemonic, opcode):
     rn = Operand("rn", AmpRegister, read=True)
     rm = Operand("rm", AmpRegister, read=True)
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rn, ",", " ", rm])
-    tokens = [AmpToken]
+    tokens = [AmpRToken]
     patterns = {
         "opcode": opcode,
         "rd1": rd,
@@ -37,7 +37,7 @@ def make_r(mnemonic, opcode):
         "opcode": opcode,
     }
     name = mnemonic.title() + "R"
-    return type(name, (AmpInstruction,), members)
+    return type(name, (AmpRInstruction,), members)
 
 # R-types:
 Adds = make_r("add.s", 0b0000001)
@@ -54,19 +54,9 @@ Sras = make_r("sra.s", 0b0001011)
 Slts = make_r("slt.s", 0b0001100)
 Sltus = make_r("sltu.s", 0b0001101)
 
-
-class IBase(AmpInstruction):
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][41:48] = self.opcode
-        tokens[0][33:41] = self.rd.num
-        tokens[0][25:33] = self.rs1.num
-        tokens[0][17:25] = self.rs2.num
-        # TODO: reserved?
-        self.offset = self.offset & 0xFFF
-        tokens[0][5:17] = self.tokens
-        # TODO: schdImm?
-        return tokens[0].encode()
+class AmpIInstruction(Instruction):
+    tokens = [AmpIToken]
+    isa = isa
 
 def make_i(mnemonic, opcode):
     rd = Operand("rd", AmpRegister, write=True)
@@ -74,6 +64,7 @@ def make_i(mnemonic, opcode):
     offset = Operand("offset", int)
     fprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
+    tokens = [AmpIToken]
     members = {
         "syntax": syntax,
         "fprel": fprel,
@@ -82,7 +73,7 @@ def make_i(mnemonic, opcode):
         "offset": offset,
         "opcode": opcode
     }
-    return type(mnemonic + "_ins", (IBase,), members)
+    return type(mnemonic + "_ins", (AmpIInstruction,), members)
 
 # I-types:
 Addis = make_i("addi.s", 0b0010010)
