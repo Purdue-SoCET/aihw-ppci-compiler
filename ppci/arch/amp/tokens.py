@@ -1,59 +1,13 @@
 from ..token import Token, bit, bit_concat, bit_range
 
-# WIP!!!!!!
-# TODO: convert rest of RiscV to AMP
-
 class AmpToken(Token):
     class Info:
-        size = 32
+        size = 64
 
-    opcode = bit_range(0, 7)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    rs2 = bit_range(20, 25)
-    funct7 = bit_range(25, 32)
-
-
-class AmpIToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    imm = bit_range(20, 32)
-
-
-class RiscvSToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    rs2 = bit_range(20, 25)
-    imm = bit_concat(bit_range(25, 32), bit_range(7, 12))
-
-
-class RiscvSBToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    rs2 = bit_range(20, 25)
-    imm = bit(31) + bit(7) + bit_range(25, 31) + bit_range(8, 12)
-
-
-class RiscvcToken(Token):
-    class Info:
-        size = 16
-
-    op = bit_range(0, 2)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(13, 16)
-    imm = bit(12) + bit_range(2, 7)
-    offset = bit_range(10, 13, signed=True) + bit_range(2, 7)
+    reserved = bit_range(48, 63)
+    opcode = bit_range(41, 47)
+    rd = bit_range(33, 40)
+    rs1 = bit_range(25, 32)
+    rs2 = bit_range(17, 24)
+    imm12 = bit_range(5, 16)
+    schdImm = bit_range(0, 4)
