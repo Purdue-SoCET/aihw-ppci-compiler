@@ -2,9 +2,13 @@
 
 
 int main() {
-    int a1 = 4;
-    int a2 = 3;
-    int ar;
-    theta(ar, a1, a2);
-    return 0;
+   unsigned int input1 = 10;
+   unsigned int input2 = 20;
+   unsigned int output;
+   asm(
+        "add.s %0, %1, %2"
+        : "=r"(output)
+        : "r"(input1), "r"(input2)
+        :
+    );
 }
