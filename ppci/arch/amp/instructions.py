@@ -131,3 +131,9 @@ def make_br(mnemonic, opcode):
         "tokens" : tokens
     }
     return type(mnemonic + "_ins", (AmpBRInstruction,), members)
+
+# Branch instructions (BR-types):
+Beqs = make_br("beq.s", 0b0001110)
+Bnes = make_br("bne.s", 0b0001111)
+Blts = make_br("blt.s", 0b0010000)
+Bges = make_br("bge.s", 0b0010001)
