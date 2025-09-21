@@ -86,7 +86,7 @@ class AmpIToken(Token):
     imm12 = bit_range(5, 16)
     schdImm = bit_range(0, 4)
 
-class AmpMemToken(Token):
+class AmpMToken(Token):
     class Info:
         size = 64
 
