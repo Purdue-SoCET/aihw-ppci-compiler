@@ -22,7 +22,7 @@ class AmpMIToken(Token):
     imm28 = bit_range(5, 32)
     schdImm = bit_range(0, 4)
 
-class AmpMIToken(Token):
+class AmpJToken(Token):
     class Info:
         size = 64
 
@@ -32,3 +32,29 @@ class AmpMIToken(Token):
     rs1 = bit_range(25, 32)
     imm20 = bit_range(5, 24)
     schdImm = bit_range(0, 4)
+    #WIP
+
+class AmpFenceToken(Token):
+    class Info:
+        size = 64
+
+    reserved = bit_range(48, 63)
+    opcode = bit_range(41, 47)
+    #WIP
+
+
+class AmpHaltToken(Token):
+    class Info:
+        size = 64
+
+    reserved = bit_range(48, 63)
+    opcode = bit_range(41, 47)
+    #WIP
+
+class AmpNOPToken(Token):
+    class Info:
+        size = 64
+
+    reserved = bit_range(48, 63)
+    opcode = bit_range(41, 47)
+    #WIP
