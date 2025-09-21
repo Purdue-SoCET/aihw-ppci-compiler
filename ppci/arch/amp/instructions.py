@@ -18,12 +18,14 @@ def make_r(mnemonic, opcode):
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rn, ",", " ", rm])
     tokens = [AmpToken]
     patterns = {
-        "opcode": 0b0110011,
+        "opcode": opcode,
         "rd1": rd,
         "rs1": rn,
         "rs2": rm,
         "imm12": 0b000000000000
         # could be not zeros (should probably ask)
+        # what does RESERVED mean?
+        # Need schdImm?
     }
     members = {
         "syntax": syntax,
@@ -34,10 +36,10 @@ def make_r(mnemonic, opcode):
         "tokens": tokens,
         "opcode": opcode,
     }
-    name = mnemonic.title() + "RegRegReg"
+    name = mnemonic.title() + "R"
     return type(name, (AmpInstruction,), members)
 
-# Arithmetic and logical instructions
+# R-types:
 Adds = make_r("add.s", 0b0000001)
 Subs = make_r("sub.s", 0b0000010)
 Muls = make_r("mul.s", 0b0000011)
@@ -51,3 +53,4 @@ Srls = make_r("srl.s", 0b0001010)
 Sras = make_r("sra.s", 0b0001011)
 Slts = make_r("slt.s", 0b0001100)
 Sltus = make_r("sltu.s", 0b0001101)
+
