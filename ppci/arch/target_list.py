@@ -16,6 +16,7 @@ from .stm8 import Stm8Arch
 from .x86_64 import X86_64Arch
 from .xtensa import XtensaArch
 from .myriscv import MyRiscvArch
+from .amp import AMPArch
 
 target_classes = [
     MyRiscvArch,
