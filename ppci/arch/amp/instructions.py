@@ -54,3 +54,47 @@ Sras = make_r("sra.s", 0b0001011)
 Slts = make_r("slt.s", 0b0001100)
 Sltus = make_r("sltu.s", 0b0001101)
 
+
+class IBase(AmpInstruction):
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][41:48] = self.opcode
+        tokens[0][33:41] = self.rd.num
+        tokens[0][25:33] = self.rs1.num
+        tokens[0][17:25] = self.rs2.num
+        # TODO: reserved?
+        self.offset = self.offset & 0xFFF
+        tokens[0][5:17] = self.tokens
+        # TODO: schdImm?
+        return tokens[0].encode()
+
+def make_i(mnemonic, opcode):
+    rd = Operand("rd", AmpRegister, write=True)
+    rs1 = Operand("rs1", AmpRegister, read=True)
+    offset = Operand("offset", int)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "rd": rd,
+        "rs1": rs1,
+        "offset": offset,
+        "opcode": opcode
+    }
+    return type(mnemonic + "_ins", (IBase,), members)
+
+# I-types:
+Addis = make_i("addi.s", 0b0010010)
+Subis = make_i("subi.s", 0b0010011)
+Mulis = make_i("muli.s", 0b0010100)
+Divis = make_i("divi.s", 0b0010101)
+Modis = make_i("modi.s", 0b0010110)
+Oris = make_i("ori.s", 0b0010111)
+Andis = make_i("andi.s", 0b0011000)
+Xoris = make_i("xori.s", 0b0011001)
+Sllis = make_i("slli.s", 0b0011010)
+Srlis = make_i("srli.s", 0b0011011)
+Srais = make_i("srai.s", 0b0011100)
+Sltis = make_i("slti.s", 0b0011101)
+Sltuis = make_i("sltui.s", 0b0011110)
