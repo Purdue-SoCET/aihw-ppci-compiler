@@ -65,13 +65,21 @@ def make_i(mnemonic, opcode):
     fprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
     tokens = [AmpIToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "imm12": offset
+    }
     members = {
         "syntax": syntax,
         "fprel": fprel,
         "rd": rd,
         "rs1": rs1,
         "offset": offset,
-        "opcode": opcode
+        "opcode": opcode,
+        "patterns": patterns,
+        "tokens" : tokens
     }
     return type(mnemonic + "_ins", (AmpIInstruction,), members)
 
