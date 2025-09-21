@@ -97,3 +97,37 @@ Srlis = make_i("srli.s", 0b0011011)
 Srais = make_i("srai.s", 0b0011100)
 Sltis = make_i("slti.s", 0b0011101)
 Sltuis = make_i("sltui.s", 0b0011110)
+
+
+class AmpBRInstruction(Instruction):
+    tokens = [AmpBRToken]
+    isa = isa
+
+    def relocations(self):
+        # TODO: Fill in
+        pass
+
+def make_br(mnemonic, opcode):
+    rs1 = Operand("rs1", AmpRegister, read=True)
+    rs2 = Operand("rs2", AmpRegister, read=True)
+    imm12 = Operand("offset", int)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
+    tokens = [AmpBRToken]
+    patterns = {
+        "opcode": opcode,
+        "rs1": rs1,
+        "rs2": rs2,
+        "imm12": imm12
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "rs1": rs1,
+        "rs2": rs2,
+        "imm12": imm12,
+        "opcode": opcode,
+        "patterns": patterns,
+        "tokens" : tokens
+    }
+    return type(mnemonic + "_ins", (AmpBRInstruction,), members)
