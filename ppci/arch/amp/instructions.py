@@ -137,3 +137,61 @@ Beqs = make_br("beq.s", 0b0001110)
 Bnes = make_br("bne.s", 0b0001111)
 Blts = make_br("blt.s", 0b0010000)
 Bges = make_br("bge.s", 0b0010001)
+
+class AmpMInstruction(Instruction):
+    tokens = [AmpMToken]
+    isa = isa
+
+def make_m(mnemonic, opcode):
+    rd = Operand("rd", AmpRegister, write=True)
+    rs1 = Operand("rs1", AmpRegister, read=True)
+    offset = Operand("offset", int)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")"])
+    tokens = [AmpMToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "imm12": offset
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "rd": rd,
+        "rs1": rs1,
+        "offset": offset,
+        "opcode": opcode,
+        "patterns": patterns,
+        "tokens" : tokens
+    }
+    return type(mnemonic + "_ins", (AmpIInstruction,), members)
+
+Lws = make_m("lw.s", 0b0011111)
+Sws = make_m("sw.s", 0b0100000)
+
+class AmpMIInstruction(Instruction):
+    tokens = [AmpMIToken]
+    isa = isa
+
+def make_mi(mnemonic, opcode):
+    rd = Operand("rd", AmpRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm])
+    tokens = [AmpMIToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "imm": imm
+    }
+    members = {
+        "syntax": syntax,
+        "rd": rd,
+        "imm": imm,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+    }
+    return type(mnemonic + "_ins", (AmpMIInstruction,), members)
+
+Lis = make_mi("li.s", 0b0100001)
