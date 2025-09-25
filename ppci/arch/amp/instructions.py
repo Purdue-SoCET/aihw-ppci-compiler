@@ -195,3 +195,24 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AmpMIInstruction,), members)
 
 Lis = make_mi("li.s", 0b0100001)
+
+class AmpNOPInstruction:
+    tokens = [AmpNOPToken]
+    isa = isa
+
+def make_nop(mnemonic, opcode):
+    syntax = Syntax([mnemonic])
+    tokens = [AmpNOPToken]
+    patterns = {
+        "opcode": opcode
+    }
+    members = {
+        "syntax": syntax,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+    }
+    return type(mnemonic + "_ins", (AmpNOPInstruction,), members)
+
+Halt = make_nop("halt", 0b1111111)
+Fence = make_nop("fence", 0b0100100)
