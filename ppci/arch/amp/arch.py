@@ -148,8 +148,8 @@ class AMPArch(Architecture):
         # self.gdb_pc = PC
 
         ##!!! need help on ams printer implementation
-        if AMPASMPrinter:
-            self.asm_printer = AMPAsmPrinter()
+        # if AMPASMPrinter:
+        #     self.asm_printer = AMPAsmPrinter()
 
         ###!!!!
 

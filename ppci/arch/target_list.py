@@ -19,6 +19,7 @@ from .myriscv import MyRiscvArch
 from .amp import AMPArch
 
 target_classes = [
+    AMPArch,
     MyRiscvArch,
     ArmArch,
     AvrArch,
