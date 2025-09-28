@@ -5,7 +5,7 @@ from .tokens import *
 
 class BImm12Relocation(Relocation):
     name = "b_imm12"
-    token = AmpBRToken
+    token = AtallaBRToken
     field = "imm"
 
     def calc(self, sym_value, reloc_value):
@@ -25,7 +25,7 @@ class BImm12Relocation(Relocation):
 
 class BImm20Relocation(Relocation):
     name = "b_imm20"
-    token = AmpJToken
+    token = AtallaJToken
     field = "imm"
 
     def calc(self, sym_value, reloc_value):

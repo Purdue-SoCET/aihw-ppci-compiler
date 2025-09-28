@@ -3,7 +3,7 @@ from ..token import Token, bit_range
 #since our instruction defines imm12 everywhere we will use that in each of the classes.
 #we can change later but I'll add a quick fix for it right now
 
-class AmpSDMAToken(Token):
+class AtallaSDMAToken(Token):
     class Info:
         size = 64
 
@@ -14,7 +14,7 @@ class AmpSDMAToken(Token):
     imm12    = bit_range(15, 32)
     schdImm  = bit_range(0, 4)
 
-class AmpVMToken(Token):
+class AtallaVMToken(Token):
     class Info:
         size = 64
 
@@ -25,7 +25,7 @@ class AmpVMToken(Token):
     imm12    = bit_range(15, 32)
     schdImm  = bit_range(0, 4)
 
-class AmpSAMToken(Token):
+class AtallaSAMToken(Token):
     class Info:
         size = 64
 
@@ -36,7 +36,7 @@ class AmpSAMToken(Token):
     imm12    = bit_range(15, 32)
     schdImm  = bit_range(0, 4)
 
-class AmpTCAToken(Token):
+class AtallaTCAToken(Token):
     class Info:
         size = 64
 
@@ -49,7 +49,7 @@ class AmpTCAToken(Token):
 
 
 # Scalar
-class AmpRToken(Token):
+class AtallaRToken(Token):
     class Info:
         size = 64
 
@@ -60,7 +60,7 @@ class AmpRToken(Token):
     imm12    = bit_range(15, 32)
     schdImm  = bit_range(0, 4)
 
-class AmpBRToken(Token):
+class AtallaBRToken(Token):
     class Info:
         size = 64
 
@@ -71,7 +71,7 @@ class AmpBRToken(Token):
     imm12    = bit_range(5, 16)
     schdImm  = bit_range(0, 4)
 
-class AmpIToken(Token):
+class AtallaIToken(Token):
     class Info:
         size = 64
 
@@ -82,7 +82,7 @@ class AmpIToken(Token):
     imm12    = bit_range(5, 16)
     schdImm  = bit_range(0, 4)
 
-class AmpMToken(Token):
+class AtallaMToken(Token):
     class Info:
         size = 64
 
@@ -93,7 +93,7 @@ class AmpMToken(Token):
     imm12    = bit_range(5, 16)
     schdImm  = bit_range(0, 4)
 
-class AmpMIToken(Token):
+class AtallaMIToken(Token):
     class Info:
         size = 64
 
@@ -102,7 +102,7 @@ class AmpMIToken(Token):
     imm28    = bit_range(5, 48)
     schdImm  = bit_range(0, 4)
 
-class AmpJToken(Token):
+class AtallaJToken(Token):
     class Info:
         size = 64
 
@@ -112,7 +112,7 @@ class AmpJToken(Token):
     imm20    = bit_range(5, 24)
     schdImm  = bit_range(0, 4)
 
-class AmpFenceToken(Token):
+class AtallaFenceToken(Token):
     class Info:
         size = 64
 
@@ -120,7 +120,7 @@ class AmpFenceToken(Token):
     imm      = bit_range(15, 56)
     schdImm  = bit_range(0, 4)
 
-class AmpHaltToken(Token):
+class AtallaHaltToken(Token):
     class Info:
         size = 64
 
@@ -128,7 +128,7 @@ class AmpHaltToken(Token):
     imm      = bit_range(15, 56)
     schdImm  = bit_range(0, 4)
 
-class AmpNOPToken(Token):
+class AtallaNOPToken(Token):
     class Info:
         size = 64
 

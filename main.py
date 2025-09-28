@@ -5,7 +5,7 @@ from ppci.binutils.objectfile import print_object
 
 def main():
     with open("sample.c", "r") as f:
-        c_to_ir(f, "AMP").display()
+        c_to_ir(f, "atalla").display()
 
 
 if __name__ == "__main__":

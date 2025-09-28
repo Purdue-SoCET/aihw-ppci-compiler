@@ -16,10 +16,10 @@ from .stm8 import Stm8Arch
 from .x86_64 import X86_64Arch
 from .xtensa import XtensaArch
 from .myriscv import MyRiscvArch
-from .amp import AMPArch
+from .amp import AtallaArch
 
 target_classes = [
-    AMPArch,
+    AtallaArch,
     MyRiscvArch,
     ArmArch,
     AvrArch,

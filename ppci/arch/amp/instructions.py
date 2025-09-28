@@ -2,21 +2,21 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
 from .registers import (
-    AmpRegister
+    AtallaRegister
 )
 
 isa = Isa()
 
-class AmpRInstruction(Instruction):
-    tokens = [AmpRToken]
+class AtallaRInstruction(Instruction):
+    tokens = [AtallaRToken]
     isa = isa
 
 def make_r(mnemonic, opcode):
-    rd = Operand("rd", AmpRegister, write=True)
-    rn = Operand("rn", AmpRegister, read=True)
-    rm = Operand("rm", AmpRegister, read=True)
+    rd = Operand("rd", AtallaRegister, write=True)
+    rn = Operand("rn", AtallaRegister, read=True)
+    rm = Operand("rm", AtallaRegister, read=True)
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rn, ",", " ", rm])
-    tokens = [AmpRToken]
+    tokens = [AtallaRToken]
     patterns = {
         "opcode": opcode,
         "rd1": rd,
@@ -37,7 +37,7 @@ def make_r(mnemonic, opcode):
         "opcode": opcode,
     }
     name = mnemonic.title() + "R"
-    return type(name, (AmpRInstruction,), members)
+    return type(name, (AtallaRInstruction,), members)
 
 # R-types:
 Adds = make_r("add_s", 0b0000001)
@@ -54,17 +54,17 @@ Sras = make_r("sra_s", 0b0001011)
 Slts = make_r("slt_s", 0b0001100)
 Sltus = make_r("sltu_s", 0b0001101)
 
-class AmpIInstruction(Instruction):
-    tokens = [AmpIToken]
+class AtallaIInstruction(Instruction):
+    tokens = [AtallaIToken]
     isa = isa
 
 def make_i(mnemonic, opcode):
-    rd = Operand("rd", AmpRegister, write=True)
-    rs1 = Operand("rs1", AmpRegister, read=True)
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
     offset = Operand("offset", int)
     fprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
-    tokens = [AmpIToken]
+    tokens = [AtallaIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
@@ -81,7 +81,7 @@ def make_i(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AmpIInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaIInstruction,), members)
 
 # I-types:
 Addis = make_i("addi_s", 0b0010010)
@@ -99,8 +99,8 @@ Sltis = make_i("slti_s", 0b0011101)
 Sltuis = make_i("sltui_s", 0b0011110)
 
 
-class AmpBRInstruction(Instruction):
-    tokens = [AmpBRToken]
+class AtallaBRInstruction(Instruction):
+    tokens = [AtallaBRToken]
     isa = isa
 
     def relocations(self):
@@ -108,12 +108,12 @@ class AmpBRInstruction(Instruction):
         pass
 
 def make_br(mnemonic, opcode):
-    rs1 = Operand("rs1", AmpRegister, read=True)
-    rs2 = Operand("rs2", AmpRegister, read=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs2 = Operand("rs2", AtallaRegister, read=True)
     imm12 = Operand("offset", int)
     fprel = False
     syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
-    tokens = [AmpBRToken]
+    tokens = [AtallaBRToken]
     patterns = {
         "opcode": opcode,
         "rs1": rs1,
@@ -130,7 +130,7 @@ def make_br(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AmpBRInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
 
 # Branch instructions (BR-types):
 Beqs = make_br("beq_s", 0b0001110)
@@ -138,17 +138,17 @@ Bnes = make_br("bne_s", 0b0001111)
 Blts = make_br("blt_s", 0b0010000)
 Bges = make_br("bge_s", 0b0010001)
 
-class AmpMInstruction(Instruction):
-    tokens = [AmpMToken]
+class AtallaMInstruction(Instruction):
+    tokens = [AtallaMToken]
     isa = isa
 
 def make_m(mnemonic, opcode):
-    rd = Operand("rd", AmpRegister, write=True)
-    rs1 = Operand("rs1", AmpRegister, read=True)
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
     offset = Operand("offset", int)
     fprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")"])
-    tokens = [AmpMToken]
+    tokens = [AtallaMToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
@@ -165,20 +165,20 @@ def make_m(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AmpIInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaIInstruction,), members)
 
 Lws = make_m("lw_s", 0b0011111)
 Sws = make_m("sw_s", 0b0100000)
 
-class AmpMIInstruction(Instruction):
-    tokens = [AmpMIToken]
+class AtallaMIInstruction(Instruction):
+    tokens = [AtallaMIToken]
     isa = isa
 
 def make_mi(mnemonic, opcode):
-    rd = Operand("rd", AmpRegister, write=True)
+    rd = Operand("rd", AtallaRegister, write=True)
     imm = Operand("imm", int)
     syntax = Syntax([mnemonic, " ", rd, ",", " ", imm])
-    tokens = [AmpMIToken]
+    tokens = [AtallaMIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
@@ -192,17 +192,17 @@ def make_mi(mnemonic, opcode):
         "tokens": tokens,
         "opcode": opcode,
     }
-    return type(mnemonic + "_ins", (AmpMIInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 Lis = make_mi("li_s", 0b0100001)
 
-class AmpNOPInstruction:
-    tokens = [AmpNOPToken]
+class AtallaNOPInstruction:
+    tokens = [AtallaNOPToken]
     isa = isa
 
 def make_nop(mnemonic, opcode):
     syntax = Syntax([mnemonic])
-    tokens = [AmpNOPToken]
+    tokens = [AtallaNOPToken]
     patterns = {
         "opcode": opcode
     }
@@ -212,7 +212,7 @@ def make_nop(mnemonic, opcode):
         "tokens": tokens,
         "opcode": opcode,
     }
-    return type(mnemonic + "_ins", (AmpNOPInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
 Halt = make_nop("halt", 0b1111111)
 Fence = make_nop("fence", 0b0100100)

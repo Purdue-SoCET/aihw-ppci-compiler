@@ -1,7 +1,7 @@
 from ... import ir
 from ..registers import Register, RegisterClass
 
-class AmpRegister(Register):
+class AtallaRegister(Register):
     bitsize = 64
 
     def __repr__(self):
@@ -11,7 +11,7 @@ class AmpRegister(Register):
         else:
             return self.name
 
-class AmpProgramCounterRegister(Register):
+class AtallaProgramCounterRegister(Register):
     bitsize = 32
 
 
@@ -25,40 +25,40 @@ def register_range(a, b):
     return {get_register(n) for n in range(a.num, b.num + 1)}
 
 
-R0 = AmpRegister("x0", num=0, aka=("zero",))
-LR = AmpRegister("x1", num=1, aka=("ra",))
-SP = AmpRegister("x2", num=2, aka=("sp",))
-R3 = AmpRegister("x3", num=3, aka=("gp",))
-R4 = AmpRegister("x4", num=4, aka=("tp",))
-R5 = AmpRegister("x5", num=5, aka=("t0",))
-R6 = AmpRegister("x6", num=6, aka=("t1",))
-R7 = AmpRegister("x7", num=7, aka=("t2",))
-FP = AmpRegister("x8", num=8, aka=("s0", "fp"))
-R9 = AmpRegister("x9", num=9, aka=("s1",))
-R10 = AmpRegister("x10", num=10, aka=("a0",))
-R11 = AmpRegister("x11", num=11, aka=("a1",))
-R12 = AmpRegister("x12", num=12, aka=("a2",))
-R13 = AmpRegister("x13", num=13, aka=("a3",))
-R14 = AmpRegister("x14", num=14, aka=("a4",))
-R15 = AmpRegister("x15", num=15, aka=("a5",))
-R16 = AmpRegister("x16", num=16, aka=("a6",))
-R17 = AmpRegister("x17", num=17, aka=("a7",))
-R18 = AmpRegister("x18", num=18, aka=("s2",))
-R19 = AmpRegister("x19", num=19, aka=("s3",))
-R20 = AmpRegister("x20", num=20, aka=("s4",))
-R21 = AmpRegister("x21", num=21, aka=("s5",))
-R22 = AmpRegister("x22", num=22, aka=("s6",))
-R23 = AmpRegister("x23", num=23, aka=("s7",))
-R24 = AmpRegister("x24", num=24, aka=("s8",))
-R25 = AmpRegister("x25", num=25, aka=("s9",))
-R26 = AmpRegister("x26", num=26, aka=("s10",))
-R27 = AmpRegister("x27", num=27, aka=("s11",))
-R28 = AmpRegister("x28", num=28, aka=("t3",))
-R29 = AmpRegister("x29", num=29, aka=("t4",))
-R30 = AmpRegister("x30", num=30, aka=("t5",))
-R31 = AmpRegister("x31", num=31, aka=("t6",))
+R0 = AtallaRegister("x0", num=0, aka=("zero",))
+LR = AtallaRegister("x1", num=1, aka=("ra",))
+SP = AtallaRegister("x2", num=2, aka=("sp",))
+R3 = AtallaRegister("x3", num=3, aka=("gp",))
+R4 = AtallaRegister("x4", num=4, aka=("tp",))
+R5 = AtallaRegister("x5", num=5, aka=("t0",))
+R6 = AtallaRegister("x6", num=6, aka=("t1",))
+R7 = AtallaRegister("x7", num=7, aka=("t2",))
+FP = AtallaRegister("x8", num=8, aka=("s0", "fp"))
+R9 = AtallaRegister("x9", num=9, aka=("s1",))
+R10 = AtallaRegister("x10", num=10, aka=("a0",))
+R11 = AtallaRegister("x11", num=11, aka=("a1",))
+R12 = AtallaRegister("x12", num=12, aka=("a2",))
+R13 = AtallaRegister("x13", num=13, aka=("a3",))
+R14 = AtallaRegister("x14", num=14, aka=("a4",))
+R15 = AtallaRegister("x15", num=15, aka=("a5",))
+R16 = AtallaRegister("x16", num=16, aka=("a6",))
+R17 = AtallaRegister("x17", num=17, aka=("a7",))
+R18 = AtallaRegister("x18", num=18, aka=("s2",))
+R19 = AtallaRegister("x19", num=19, aka=("s3",))
+R20 = AtallaRegister("x20", num=20, aka=("s4",))
+R21 = AtallaRegister("x21", num=21, aka=("s5",))
+R22 = AtallaRegister("x22", num=22, aka=("s6",))
+R23 = AtallaRegister("x23", num=23, aka=("s7",))
+R24 = AtallaRegister("x24", num=24, aka=("s8",))
+R25 = AtallaRegister("x25", num=25, aka=("s9",))
+R26 = AtallaRegister("x26", num=26, aka=("s10",))
+R27 = AtallaRegister("x27", num=27, aka=("s11",))
+R28 = AtallaRegister("x28", num=28, aka=("t3",))
+R29 = AtallaRegister("x29", num=29, aka=("t4",))
+R30 = AtallaRegister("x30", num=30, aka=("t5",))
+R31 = AtallaRegister("x31", num=31, aka=("t6",))
 
-PC = AmpProgramCounterRegister("PC", num=32)
+PC = AtallaProgramCounterRegister("PC", num=32)
 
 registers = [
     R0,
@@ -94,7 +94,7 @@ registers = [
     R30,
     R31,
 ]
-AmpRegister.registers = registers
+AtallaRegister.registers = registers
 
 
 num2regmap = {r.num: r for r in registers}
@@ -129,14 +129,14 @@ gdb_registers = registers + [PC]
 #             R27,
 #         ],
 #     ),
-#     RegisterClass("freg", [ir.f32, ir.f64], AmpRegister, fregisters),
+#     RegisterClass("freg", [ir.f32, ir.f64], AtallaRegister, fregisters),
 # ]
 
 register_classes_swfp = [
     RegisterClass(
         "reg",
         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
-        AmpRegister,
+        AtallaRegister,
         [
             R9,
             R10,

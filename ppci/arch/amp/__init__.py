@@ -1,3 +1,3 @@
-from .arch import AMPArch
+from .arch import AtallaArch
 
-__all__ = ["AMPArch"]
+__all__ = ["AtallaArch"]

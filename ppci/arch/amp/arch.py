@@ -1,4 +1,4 @@
-"""AMP architecture."""
+"""Atalla architecture."""
 
 #so far we are only implementing scalar operations not including store and laod
 #operation. Store and Load require more implementation so for now lets get normal
@@ -15,7 +15,7 @@ from ..data_instructions import DByte, DZero, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
-#from .asm_printer import AMPAsmPrinter
+#from .asm_printer import AtallaAsmPrinter
 from .instructions import (
     #R-types
     Adds,
@@ -87,8 +87,8 @@ from .registers import (
     R30,
     R31,
     Register,
-    #AMPFRegister,
-    AmpRegister as AMPRegister,
+    #AtallaFRegister,
+    AtallaRegister as AtallaRegister,
     gdb_registers,
     #register_classes_hwfp,
     register_classes_swfp,
@@ -106,7 +106,7 @@ from .registers import (
 
 
 
-class AMPAssembler(BaseAssembler):
+class AtallaAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
     #     self.lit_pool = []
@@ -130,8 +130,8 @@ class AMPAssembler(BaseAssembler):
     #     return label_name
 
 
-class AMPArch(Architecture):
-    name = "AMP"
+class AtallaArch(Architecture):
+    name = "atalla"
 
     def __init__(self, options=None):
         super().__init__()
@@ -148,12 +148,12 @@ class AMPArch(Architecture):
         # self.gdb_pc = PC
 
         ##!!! need help on ams printer implementation
-        # if AMPASMPrinter:
-        #     self.asm_printer = AMPAsmPrinter()
+        # if AtallaASMPrinter:
+        #     self.asm_printer = AtallaAsmPrinter()
 
         ###!!!!
 
-        self.assembler = AMPAssembler()
+        self.assembler = AtallaAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
         self.info = ArchInfo(
@@ -181,7 +181,7 @@ class AMPArch(Architecture):
 
 
     # def branch(self, reg, lab):
-    #     if isinstance(lab, AMPRegister):
+    #     if isinstance(lab, AtallaRegister):
     #         return Blr(reg, lab, 0, clobbers=self.caller_save)
     #     else:
     #         return Bl(reg, lab, clobbers=self.caller_save)
@@ -228,7 +228,7 @@ class AMPArch(Architecture):
         return Addis(dst, src, 0)
 
     # don't need until implement memory
-    # def gen_AMP_memcpy(self, dst, src, tmp, size):
+    # def gen_Atalla_memcpy(self, dst, src, tmp, size):
     #     # Called before register allocation
     #     # Major crappy memcpy, can be improved!
     #     for idx in range(size):
@@ -268,16 +268,16 @@ class AMPArch(Architecture):
         # # Setup parameters:
         # for arg_loc, arg2 in zip(arg_locs, args):
         #     arg = arg2[1]
-        #     if isinstance(arg_loc, (AMPRegister, AMPFRegister)):
+        #     if isinstance(arg_loc, (AtallaRegister, AtallaFRegister)):
         #         yield self.move(arg_loc, arg)
         #     elif isinstance(arg_loc, StackLocation):
         #         stack_size += arg_loc.size
-        #         if isinstance(arg, AMPRegister):
+        #         if isinstance(arg, AtallaRegister):
         #             yield Sw(arg, arg_loc.offset, SP)
         #         elif isinstance(arg, StackLocation):
-        #             p1 = frame.new_reg(AMPRegister)
-        #             p2 = frame.new_reg(AMPRegister)
-        #             v3 = frame.new_reg(AMPRegister)
+        #             p1 = frame.new_reg(AtallaRegister)
+        #             p2 = frame.new_reg(AtallaRegister)
+        #             v3 = frame.new_reg(AtallaRegister)
 
         #             # Destination location:
         #             # Remember that the LR and FP are pushed in between
@@ -289,7 +289,7 @@ class AMPArch(Architecture):
         #                 self.fp,
         #                 arg.offset + round_up(frame.stacksize + 8) - 8,
         #             )
-        #             yield from self.gen_AMP_memcpy(p1, p2, v3, arg.size)
+        #             yield from self.gen_Atalla_memcpy(p1, p2, v3, arg.size)
         #     else:  # pragma: no cover
         #         raise NotImplementedError("Parameters in memory not impl")
 
@@ -307,7 +307,7 @@ class AMPArch(Architecture):
         #     retval_loc = self.determine_rv_location(rv[0])
         #     yield RegisterUseDef(defs=(retval_loc,))
         #     yield self.move(rv[1], retval_loc)
-        raise NotImplementedError("AMP scalar, gen_call not implemented")
+        raise NotImplementedError("Atalla scalar, gen_call not implemented")
 
     def gen_function_enter(self, args):
         # even without a stack PPCI still needs tge IR arguements. No loads yet so raise error
