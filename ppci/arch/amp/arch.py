@@ -50,6 +50,8 @@ from .instructions import (
     Bnes,
     Blts,
     Bges,
+    Lws,
+    Sws,
     #isa
     isa,
 )
@@ -109,15 +111,15 @@ from .registers import (
 class AtallaAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
-    #     self.lit_pool = []
-    #     self.lit_counter = 0
+        self.lit_pool = []
+        self.lit_counter = 0
 
-    # def flush(self):
-    #     if self.in_macro:
-    #         raise Exception()
-    #     while self.lit_pool:
-    #         i = self.lit_pool.pop(0)
-    #         self.emit(i)
+    def flush(self):
+        if self.in_macro:
+            raise Exception()
+        while self.lit_pool:
+            i = self.lit_pool.pop(0)
+            self.emit(i)
 
     # def add_literal(self, v):
     #     """For use in the pseudo instruction LDR r0, =SOMESYM"""
@@ -136,8 +138,8 @@ class AtallaArch(Architecture):
     def __init__(self, options=None):
         super().__init__()
         self.isa = isa + data_isa
-        # self.store = Sw
-        # self.load = Lw
+        self.store = Sws
+        self.load = Lws
         self.regclass = register_classes_swfp
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
