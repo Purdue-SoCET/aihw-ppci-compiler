@@ -50,8 +50,12 @@ from .instructions import (
     Bnes,
     Blts,
     Bges,
+    # Load, store
     Lws,
     Sws,
+    # Jumps
+    Bl,
+    Blr,
     #isa
     isa,
 )

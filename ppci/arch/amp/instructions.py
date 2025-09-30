@@ -4,8 +4,12 @@ from .tokens import *
 from .registers import (
     AtallaRegister
 )
+from relocations import BImm12Relocation, BImm20Relocation
 
 isa = Isa()
+
+isa.register_relocation(BImm12Relocation)
+isa.register_relocation(BImm20Relocation)
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -104,28 +108,27 @@ class AtallaBRInstruction(Instruction):
     isa = isa
 
     def relocations(self):
-        # TODO: Fill in
-        pass
+        return [BImm12Relocation(self.target)]
+
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
-    imm12 = Operand("offset", int)
+    target = Operand("offset", str)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", target])
     tokens = [AtallaBRToken]
     patterns = {
         "opcode": opcode,
         "rs1": rs1,
         "rs2": rs2,
-        "imm12": imm12
+        "target": target
     }
     members = {
         "syntax": syntax,
-        "fprel": fprel,
         "rs1": rs1,
         "rs2": rs2,
-        "imm12": imm12,
+        "target": target,
         "opcode": opcode,
         "patterns": patterns,
         "tokens" : tokens
@@ -214,5 +217,37 @@ def make_nop(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
+class AtallaJInstruction(Instruction):
+    tokens = [AtallaJToken]
+    isa = isa
+
+class Bl(AtallaJInstruction):
+    target = Operand("target", str)
+    rd = Operand("rd", AtallaRegister, write=True)
+    syntax = Syntax(["jal", " ", rd, ",", " ", target])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = 0b0100010
+        tokens[0][49:57] = self.rd.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [BImm20Relocation(self.target)]
+
+class Blr(AtallaJInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    offset = Operand("offset", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = 0b0100011
+        tokens[0][49:57] = self.rd.num
+        tokens[0][41:49] = self.rs1.num
+        tokens[0][5:25] = self.offset #TODO: fix bitspec
+        return tokens[0].encode()
+
 Halt = make_nop("halt", 0b1111111)
-Fence = make_nop("fence", 0b0100100)
+# Fence = make_nop("fence", 0b0100100)
