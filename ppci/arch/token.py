@@ -216,6 +216,7 @@ class TokenSequence:
     def set_field(self, field, value):
         """Set a given field in one of the tokens"""
         for token in self.tokens:
+            print(token)
             if hasattr(token, field):
                 setattr(token, field, value)
                 return

@@ -58,6 +58,7 @@ from .instructions import (
     Blr,
     #isa
     isa,
+    Align
 )
 from .registers import (
     R0,
@@ -105,10 +106,10 @@ from .registers import (
 # be left out for now. When we add memory and call/ret instructions
 # to the ISA we can extend (stack args, gen_call, etx.)
 
-# def isinsrange(bits, val) -> bool:
-#     msb = 1 << (bits - 1)
-#     ll = -msb
-#     return bool(val <= (msb - 1) and (val >= ll))
+def isinsrange(bits, val) -> bool:
+    msb = 1 << (bits - 1)
+    ll = -msb
+    return bool(val <= (msb - 1) and (val >= ll))
 
 
 
@@ -254,8 +255,54 @@ class AtallaArch(Architecture):
         """
         later we restore callee-saves, reload LR and FP, deallocate the stack
         """
-        return
-        yield
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            ssize = round_up(extras)
+            # if self.has_option("rvc") and isinsrange(10, ssize):
+            #     yield CAddi16sp(ssize)  # Reserve stack space
+            # else:
+            yield Addis(SP, SP, ssize)  # Reserve stack space
+
+        # Callee saved registers:
+        saved_registers = self.get_callee_saved(frame)
+        rsize = 4 * len(saved_registers)
+        rsize = round_up(rsize)
+
+        i = 0
+        for register in saved_registers:
+            i -= 4
+            # if self.has_option("rvc"):
+            #     yield CLwsp(register, i + rsize)
+            # else:
+            yield Lws(register, i + rsize, SP)
+
+        # if self.has_option("rvc") and isinsrange(10, rsize):
+        #     yield CAddi16sp(rsize)  # Reserve stack space
+        # else:
+        yield Addis(SP, SP, rsize)  # Reserve stack space
+
+        # if self.has_option("rvc"):
+        #     yield CLwsp(LR, 4)
+        #     yield CLwsp(FP, 0)
+        # else:
+        yield Lws(LR, 4, SP)
+        yield Lws(FP, 0, SP)
+
+        ssize = round_up(frame.stacksize + 8)
+        # if self.has_option("rvc") and isinsrange(10, ssize):
+        #     yield CAddi16sp(ssize)  # Free stack space
+        # else:
+        yield Addis(SP, SP, ssize)  # Free stack space
+
+        # Return
+        # if self.has_option("rvc"):
+        #     yield CJr(LR)
+        # else:
+        yield Blr(R0, LR, 0)
+
+        # Add final literal pool:
+        yield from self.litpool(frame)
+        yield Align(4)  # Align at 4 bytes
 
     # def peephole(self, frame):
     #     newinstructions = []
@@ -480,5 +527,5 @@ class AtallaArch(Architecture):
 #         return saved_registers
 
 
-# def round_up(s):
-#     return s + (16 - s % 16)
+def round_up(s):
+    return s + (16 - s % 16)
