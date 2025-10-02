@@ -273,6 +273,14 @@ class Align(PseudoAtallaInstruction):
         self.rep = self.syntax.render(self)
         yield Alignment(self.imm, self.rep)
 
+class Section(PseudoAtallaInstruction):
+    sec = Operand("sec", str)
+    syntax = Syntax([".", "section", " ", sec])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield SectionInstruction(self.sec, self.rep)
+
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
 @isa.pattern("stm", "MOVI32(reg)", size=2)
