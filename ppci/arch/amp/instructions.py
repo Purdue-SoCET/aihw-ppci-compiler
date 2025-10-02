@@ -2,9 +2,10 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
 from .registers import (
-    AtallaRegister
+    AtallaRegister,
+    R0
 )
-from relocations import BImm12Relocation, BImm20Relocation
+from .relocations import BImm12Relocation, BImm20Relocation
 
 isa = Isa()
 
@@ -251,3 +252,57 @@ class Blr(AtallaJInstruction):
 
 Halt = make_nop("halt", 0b1111111)
 # Fence = make_nop("fence", 0b0100100)
+
+@isa.pattern("reg", "ADDU32(reg, reg)", size=2)
+@isa.pattern("reg", "ADDI32(reg, reg)", size=2)
+def pattern_add_i32(context, tree, c0, c1):
+    d = context.new_reg(AtallaRegister)
+    context.emit(Adds(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "ADDU16(reg, reg)", size=2)
+@isa.pattern("reg", "ADDI16(reg, reg)", size=2)
+def pattern_add_i16(context, tree, c0, c1):
+    d = context.new_reg(AtallaRegister)
+    context.emit(Adds(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "ADDI8(reg, reg)", size=2)
+@isa.pattern("reg", "ADDU8(reg, reg)", size=2)
+def pattern_add8(context, tree, c0, c1):
+    d = context.new_reg(AtallaRegister)
+    context.emit(Adds(d, c0, c1))
+    return d
+
+@isa.pattern("stm", "JMP", size=4)
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    reg = R0
+    context.emit(Bl(reg, tgt.name, jumps=[tgt]))
+
+
+@isa.pattern("mem", "reg", size=10)
+def pattern_mem_reg(context, tree, c0):
+    return c0, 0
+
+@isa.pattern("stm", "STRU32(mem, reg)", size=2)
+@isa.pattern("stm", "STRI32(mem, reg)", size=2)
+@isa.pattern("stm", "STRF32(mem, reg)", size=10)
+@isa.pattern("stm", "STRF64(mem, reg)", size=10)
+def pattern_sw32(context, tree, c0, c1):
+    base_reg, offset = c0
+    Code = Sws(c1, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRU32(reg, reg)", size=2)
+@isa.pattern("stm", "STRI32(reg, reg)", size=2)
+@isa.pattern("stm", "STRF32(reg, reg)", size=10)
+@isa.pattern("stm", "STRF64(reg, reg)", size=10)
+def pattern_sw32_reg(context, tree, c0, c1):
+    base_reg = c0
+    Code = Sws(c1, 0, base_reg)
+    context.emit(Code)

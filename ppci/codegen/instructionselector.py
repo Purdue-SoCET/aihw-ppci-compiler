@@ -163,6 +163,7 @@ class TreeSelector:
         patterns and the corresponding code will be emitted"""
         self.sys.check_tree_defined(tree)
         self.burm_label(tree)
+        print(tree)
 
         if not tree.state.has_goal("stm"):  # pragma: no cover
             raise RuntimeError(f"Tree {tree} not covered")
