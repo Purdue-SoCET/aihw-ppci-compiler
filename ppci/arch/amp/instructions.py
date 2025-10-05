@@ -15,7 +15,7 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation
+from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation
 import struct
 
 isa = Isa()
