@@ -1112,5 +1112,36 @@ def pattern_xor_i32_const_reg(context, tree, c0):
 #     context.emit(jmp_ins)
 
 
+# ===== Pseudo-instructions =====
+def make_pseudo_bgt():
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs2 = Operand("rs2", AtallaRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["bgt", " ", rs1, ",", " ", rs2, ",", " ", target])
+    members = {
+        "syntax": syntax,
+        "rs1": rs1,
+        "rs2": rs2,
+        "target": target,
+    }
+    return type("Bgt", (Instruction,), members)
+
+def make_pseudo_ble():
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs2 = Operand("rs2", AtallaRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["ble", " ", rs1, ",", " ", rs2, ",", " ", target])
+    members = {
+        "syntax": syntax,
+        "rs1": rs1,
+        "rs2": rs2,
+        "target": target,
+    }
+    return type("Ble", (Instruction,), members)
+
+Bgt = make_pseudo_bgt()
+Ble = make_pseudo_ble()
+
+
 def round_up(s):
     return s + (16 - s % 16)
