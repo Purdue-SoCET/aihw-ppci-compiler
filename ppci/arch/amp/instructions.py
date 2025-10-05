@@ -14,6 +14,7 @@ from ..generic_instructions import (
     RegisterUseDef,
     SectionInstruction,
 )
+from ..data_instructions import Dd
 from .relocations import BImm12Relocation, BImm20Relocation
 import struct
 
@@ -261,6 +262,27 @@ class Blr(AtallaJInstruction):
         return tokens[0].encode()
 
 Halt = make_nop("halt", 0b1111111)
+
+def dcd(v):
+    if type(v) is int:
+        return Dd(v)
+    elif type(v) is str:
+        return Dcd2(v)
+    else:  # pragma: no cover
+        raise NotImplementedError()
+
+
+class Dcd2(AtallaRInstruction):
+    v = Operand("v", str)
+    syntax = Syntax(["dcd", "=", v])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:32] = 0
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [AbsAddr32Relocation(self.v)]
 
 class PseudoAtallaInstruction(ArtificialInstruction):
     isa = isa
