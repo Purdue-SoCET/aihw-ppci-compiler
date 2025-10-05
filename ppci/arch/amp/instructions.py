@@ -159,22 +159,22 @@ class AtallaMInstruction(Instruction):
 def make_m(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
-    offset = Operand("offset", int)
+    imm12 = Operand("imm12", int)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")"])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm12, "(", rs1, ")"])
     tokens = [AtallaMToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm12": offset
+        "imm12": imm12
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
         "rd": rd,
         "rs1": rs1,
-        "offset": offset,
+        "imm12": imm12,
         "opcode": opcode,
         "patterns": patterns,
         "tokens" : tokens

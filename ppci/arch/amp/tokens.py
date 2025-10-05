@@ -76,7 +76,7 @@ class AtallaIToken(Token):
         size = 64
 
     opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
+    rd      = bit_range(49, 56)
     rs1      = bit_range(41, 48)
     rs2      = bit_range(17, 24)
     imm12    = bit_range(5, 16)
@@ -87,7 +87,7 @@ class AtallaMToken(Token):
         size = 64
 
     opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
+    rd      = bit_range(49, 56)
     rs1      = bit_range(41, 48)
     rs2      = bit_range(17, 24)
     imm12    = bit_range(5, 16)
@@ -98,8 +98,8 @@ class AtallaMIToken(Token):
         size = 64
 
     opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    imm28    = bit_range(5, 48)
+    rd      = bit_range(49, 56)
+    imm    = bit_range(5, 48)
     schdImm  = bit_range(0, 4)
 
 class AtallaJToken(Token):
