@@ -135,3 +135,9 @@ class AtallaNOPToken(Token):
     opcode   = bit_range(57, 63)
     imm      = bit_range(15, 56)
     schdImm  = bit_range(0, 4)
+
+class DwordToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
