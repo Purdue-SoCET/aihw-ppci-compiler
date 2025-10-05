@@ -119,33 +119,34 @@ class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
     isa = isa
 
-    def relocations(self):
-        return [BImm12Relocation(self.target)]
 
+class BranchBase(AtallaBRInstruction):
+    imm12 = Operand("imm12", str)
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = self.opcode
+        tokens[0][41:49] = self.rs1.num
+        tokens[0][17:25] = self.rs2.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [BImm12Relocation(self.imm12)]
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
-    target = Operand("offset", str)
-    fprel = False
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", target])
-    tokens = [AtallaBRToken]
-    patterns = {
-        "opcode": opcode,
-        "rs1": rs1,
-        "rs2": rs2,
-        "target": target
-    }
+    imm12 = Operand("imm12", str)
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
+
     members = {
         "syntax": syntax,
         "rs1": rs1,
         "rs2": rs2,
-        "target": target,
+        "imm12": imm12,
         "opcode": opcode,
-        "patterns": patterns,
-        "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
+    return type(mnemonic + "_ins", (BranchBase,), members)
 
 # Branch instructions (BR-types):
 Beqs = make_br("beq_s", 0b0001110)
@@ -457,16 +458,16 @@ def pattern_const_f32(context, tree):
     return d
 
 # TODO: do branch pseudos
-# @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
-# def pattern_cjmpi(context, tree, c0, c1):
-#     op, yes_label, no_label = tree.value
-#     opnames = {"<": Blts, ">": Bgts, "==": Beqs, "!=": Bnes, ">=": Bges, "<=": Bles}
-#     Bop = opnames[op]
-#     jmp_ins = B(no_label.name, jumps=[no_label])
-#     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-#     context.emit(jmp_ins)
+@isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
+@isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
+@isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
+def pattern_cjmpi(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Blts, "==": Beqs, "!=": Bnes, ">=": Bges}
+    Bop = opnames[op]
+    jmp_ins = Bl(R0,no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
 
 
 # @isa.pattern("stm", "CJMPU8(reg, reg)", size=4)
