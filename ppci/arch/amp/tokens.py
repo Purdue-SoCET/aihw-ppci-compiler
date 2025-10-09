@@ -1,8 +1,5 @@
 from ..token import Token, bit_range
 
-#since our instruction defines imm12 everywhere we will use that in each of the classes.
-#we can change later but I'll add a quick fix for it right now
-
 class AtallaSDMAToken(Token):
     class Info:
         size = 64
@@ -141,3 +138,35 @@ class DwordToken(Token):
         size = 32
 
     value = bit_range(0, 32)
+
+class VMToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
+
+class VVToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
+
+class VSToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
+
+class VIToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
+
+class SAToken(Token):
+    class Info:
+        size = 32
+
+    value = bit_range(0, 32)
+
+
