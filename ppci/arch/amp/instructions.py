@@ -153,6 +153,8 @@ Beqs = make_br("beq_s", 0b0001110)
 Bnes = make_br("bne_s", 0b0001111)
 Blts = make_br("blt_s", 0b0010000)
 Bges = make_br("bge_s", 0b0010001)
+Bgts = make_br("bgt_s", 0b0010010)
+Bles = make_br("ble_s", 0b0010011)
 
 class AtallaMInstruction(Instruction):
     tokens = [AtallaMToken]
@@ -463,7 +465,7 @@ def pattern_const_f32(context, tree):
 @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
 def pattern_cjmpi(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Blts, "==": Beqs, "!=": Bnes, ">=": Bges}
+    opnames = {"<": Blts, "==": Beqs, "!=": Bnes, ">=": Bges, "<=": Bles, ">": Bgts}
     Bop = opnames[op]
     jmp_ins = Bl(R0,no_label.name, jumps=[no_label])
     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
