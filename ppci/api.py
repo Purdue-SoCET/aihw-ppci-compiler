@@ -261,6 +261,7 @@ def ir_to_stream(
     verify_module(ir_module)
 
     # Code generation:
+    ir_module.display()
     code_generator.generate(ir_module, output_stream, debug=debug)
 
 

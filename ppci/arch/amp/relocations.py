@@ -1,4 +1,4 @@
-from ...utils.bitfun import wrap_negative
+from ...utils.bitfun import wrap_negative, BitView
 from ..encoding import Relocation
 from .tokens import *
 
@@ -41,3 +41,13 @@ class BImm20Relocation(Relocation):
         assert hasattr(token, self.field)
         setattr(token, self.field, self.calc(sym_value, reloc_value))
         return token.encode()
+
+class AbsAddr32Relocation(Relocation):
+    name = "absaddr32"
+    token = AtallaRToken
+
+    def apply(self, sym_value, data, reloc_value):
+        offset = sym_value
+        bv = BitView(data, 0, 4)
+        bv[0:32] = offset
+        return data
