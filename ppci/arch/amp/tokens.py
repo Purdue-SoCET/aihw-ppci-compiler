@@ -1,172 +1,125 @@
 from ..token import Token, bit_range
 
-class AtallaSDMAToken(Token):
-    class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(33, 40)
-    imm12    = bit_range(15, 32)
-    schdImm  = bit_range(0, 4)
-
-class AtallaVMToken(Token):
-    class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(33, 40)
-    imm12    = bit_range(15, 32)
-    schdImm  = bit_range(0, 4)
-
-class AtallaSAMToken(Token):
-    class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(33, 40)
-    imm12    = bit_range(15, 32)
-    schdImm  = bit_range(0, 4)
-
-class AtallaTCAToken(Token):
-    class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(33, 40)
-    imm12    = bit_range(15, 32)
-    schdImm  = bit_range(0, 4)
-
-
-# Scalar
 class AtallaRToken(Token):
     class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(17, 24)
-    imm12    = bit_range(15, 32)
-    schdImm  = bit_range(0, 4)
+        size = 40
+    opcode = bit_range(0, 6)
+    rd1    = bit_range(7, 14)
+    rs1    = bit_range(15, 22)
+    rs2    = bit_range(23, 30)
+    reserved = bit_range(31, 39)
 
 class AtallaBRToken(Token):
     class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(17, 24)
-    imm12    = bit_range(5, 16)
-    schdImm  = bit_range(0, 4)
+        size = 40
+    opcode     = bit_range(0, 6)
+    incr_imm7  = bit_range(7, 13)
+    i1         = bit_range(14, 14)
+    rs1        = bit_range(15, 22)
+    rs2        = bit_range(23, 30)
+    imm9       = bit_range(31, 39)
 
 class AtallaIToken(Token):
     class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(17, 24)
-    imm12    = bit_range(5, 16)
-    schdImm  = bit_range(0, 4)
+        size = 40
+    opcode = bit_range(0, 6)
+    rd1    = bit_range(7, 14)
+    rs1    = bit_range(15, 22)
+    imm12  = bit_range(23, 34)
+    reserved = bit_range(35, 39)
 
 class AtallaMToken(Token):
     class Info:
-        size = 64
-
-    opcode   = bit_range(57, 63)
-    rd      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    rs2      = bit_range(17, 24)
-    imm12    = bit_range(5, 16)
-    schdImm  = bit_range(0, 4)
+        size = 40
+    opcode = bit_range(0, 6)
+    rd1    = bit_range(7, 14)
+    rs1    = bit_range(15, 22)
+    imm12  = bit_range(23, 34)
+    reserved = bit_range(35, 39)
 
 class AtallaMIToken(Token):
     class Info:
-        size = 64
+        size = 40
+    opcode = bit_range(0, 6)
+    rd1    = bit_range(7, 14)
+    imm25  = bit_range(15, 39)
 
-    opcode   = bit_range(57, 63)
-    rd      = bit_range(49, 56)
-    imm    = bit_range(5, 48)
-    schdImm  = bit_range(0, 4)
-
-class AtallaJToken(Token):
+class AtallaSToken(Token):
     class Info:
-        size = 64
+        size = 40
+    opcode = bit_range(0, 6)
+    imm    = bit_range(7, 39)
 
-    opcode   = bit_range(57, 63)
-    rd1      = bit_range(49, 56)
-    rs1      = bit_range(41, 48)
-    imm20    = bit_range(5, 24)
-    schdImm  = bit_range(0, 4)
+#vector
+class AtallaVVToken(Token):
 
-class AtallaFenceToken(Token):
     class Info:
-        size = 64
+        size = 40
+    opcode = bit_range(0, 6)
+    vd     = bit_range(7, 14)
+    vs1    = bit_range(15, 22)
+    vs2    = bit_range(23, 30)
+    mask   = bit_range(31, 34)
+    sac    = bit_range(35, 35)
+    reserved = bit_range(36, 39)
 
-    opcode   = bit_range(57, 63)
-    imm      = bit_range(15, 56)
-    schdImm  = bit_range(0, 4)
-
-class AtallaHaltToken(Token):
+class AtallaVSToken(Token):
     class Info:
-        size = 64
+        size = 40
+    opcode = bit_range(0, 6)
+    vd     = bit_range(7, 14)
+    vs1    = bit_range(15, 22)
+    rs1    = bit_range(23, 30)
+    mask   = bit_range(31, 34)
+    reserved = bit_range(35, 39)
 
-    opcode   = bit_range(57, 63)
-    imm      = bit_range(15, 56)
-    schdImm  = bit_range(0, 4)
-
-class AtallaNOPToken(Token):
+class AtallaVIToken(Token):
     class Info:
-        size = 64
+        size = 40
+    opcode = bit_range(0, 6)
+    vd     = bit_range(7, 14)
+    vs1    = bit_range(15, 22)
+    imm8   = bit_range(23, 30)
+    mask   = bit_range(31, 34)
+    imm5   = bit_range(35, 39)
 
-    opcode   = bit_range(57, 63)
-    imm      = bit_range(15, 56)
-    schdImm  = bit_range(0, 4)
-
-class DwordToken(Token):
+class AtallaVMemToken(Token):
     class Info:
-        size = 32
+        size = 40
+    opcode = bit_range(0, 6)
+    vd     = bit_range(7, 14)
+    rs1    = bit_range(15, 22)
+    tile_r_c_count = bit_range(23, 27)
+    rc         = bit_range(28, 28)
+    sp         = bit_range(29, 30)
+    mask       = bit_range(31, 34)
+    rc_id  = bit_range(35, 39)
 
-    value = bit_range(0, 32)
-
-class VMToken(Token):
+#next
+class AtallaSDMAToken(Token):
     class Info:
-        size = 32
+        size = 40
+    opcode = bit_range(0, 6)
+    rs1_rd1 = bit_range(7, 14)
+    rs2      = bit_range(15, 22)
+    num_rows = bit_range(23, 27)
+    num_cols = bit_range(28, 32)
+    sid = bit_range(33, 33)
+    reserved = bit_range(34, 39)
 
-    value = bit_range(0, 32)
 
-class VVToken(Token):
+class AtallaMTSToken(Token):
     class Info:
-        size = 32
+        size = 40
+    opcode = bit_range(0, 6)
+    rd1    = bit_range(7, 14)
+    vs1    = bit_range(15, 22)
+    reserved = bit_range(23, 39)
 
-    value = bit_range(0, 32)
-
-class VSToken(Token):
+class AtallaSTMToken(Token):
     class Info:
-        size = 32
-
-    value = bit_range(0, 32)
-
-class VIToken(Token):
-    class Info:
-        size = 32
-
-    value = bit_range(0, 32)
-
-class SAToken(Token):
-    class Info:
-        size = 32
-
-    value = bit_range(0, 32)
-
-
+        size = 40
+    opcode = bit_range(0, 6)
+    vd     = bit_range(7, 14)
+    rs1    = bit_range(15, 22)
+    reserved = bit_range(23, 39)

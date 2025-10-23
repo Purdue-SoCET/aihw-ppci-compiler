@@ -3,7 +3,7 @@ from ..registers import Register, RegisterClass
 
 class AtallaVectorRegister(Register):
     """Vector register for SIMD operations"""
-    bitsize = 512  # Assuming 512-bit vector registers (can be adjusted)
+    bitsize = 40
 
     def __repr__(self):
         if self.is_colored:
@@ -11,8 +11,7 @@ class AtallaVectorRegister(Register):
         else:
             return self.name
 
-# Define 32 vector registers (v0-v31)
-V0 = AtallaVectorRegister("v0", num=0)  # Also used as mask register
+V0 = AtallaVectorRegister("v0", num=0)
 V1 = AtallaVectorRegister("v1", num=1)
 V2 = AtallaVectorRegister("v2", num=2)
 V3 = AtallaVectorRegister("v3", num=3)
@@ -54,13 +53,11 @@ vector_registers = [
 
 AtallaVectorRegister.registers = vector_registers
 
-# Vector register class for register allocation
 vector_register_class = RegisterClass(
     "vreg",
-    [ir.f32, ir.f64],  
+    [ir.f32, ir.f64],
     AtallaVectorRegister,
     [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10,
      V11, V12, V13, V14, V15, V16, V17, V18, V19, V20,
      V21, V22, V23, V24, V25, V26, V27, V28, V29, V30, V31]
-    # V0 is reserved for mask operations
 )
