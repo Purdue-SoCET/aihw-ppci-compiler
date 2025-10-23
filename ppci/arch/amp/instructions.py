@@ -15,13 +15,16 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation
+from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation, Abs32Imm12Relocation
 import struct
 
 isa = Isa()
 
 isa.register_relocation(BImm12Relocation)
 isa.register_relocation(BImm20Relocation)
+isa.register_relocation(AbsAddr32Relocation)
+isa.register_relocation(Abs32Imm12Relocation)
+
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -306,6 +309,33 @@ class Section(PseudoAtallaInstruction):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
 
+class Adrl(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    imm12 = Operand("imm12", str)
+    syntax = Syntax(["addi_s", " ", rd, ",", " ", rs1, ",", " ", imm12])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = 0b0010010
+        tokens[0][49:57] = self.rd.num
+        tokens[0][0:41] = 0
+        tokens[0][41:49] = self.rs1.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [Abs32Imm12Relocation(self.imm12)]
+
+class Labelrel(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    label = Operand("label", str)
+    syntax = Syntax(["lw_s", " ", rd, ",", " ", label])
+
+    def render(self):
+        raise NotImplementedError("label bs")
+        yield Adrurel(self.rd, self.label)
+        yield Loadlrel(self.rd, self.label, self.rd)
+
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
 @isa.pattern("stm", "MOVI32(reg)", size=2)
@@ -565,22 +595,22 @@ def pattern_sub_i32(context, tree, c0, c1):
     return d
 
 # TODO: wtf is this
-# @isa.pattern("reg", "LABEL", size=6)
-# def pattern_label1(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Ands(d, ln))
-#     context.emit(Adrl(d, d, ln))
-#     context.emit(Lw(d, 0, d))
-#     return d
+@isa.pattern("reg", "LABEL", size=6)
+def pattern_label1(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Ands(d, ln))
+    context.emit(Adrl(d, d, ln))
+    context.emit(Lws(d, 0, d))
+    return d
 
 
-# @isa.pattern("reg", "LABEL", size=4)
-# def pattern_label2(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Labelrel(d, ln))
-#     return d
+@isa.pattern("reg", "LABEL", size=4)
+def pattern_label2(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Labelrel(d, ln))
+    return d
 
 
 @isa.pattern(
