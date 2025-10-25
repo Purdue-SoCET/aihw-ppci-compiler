@@ -31,6 +31,9 @@ class CContext:
         long_size = self.arch_info.get_size("long")
         long_alignment = self.arch_info.get_alignment("long")
 
+        vec_size = self.arch_info.get_size("vec")
+        vec_alignment = self.arch_info.get_alignment("vec")
+
         # C requires sizeof(int) <= sizeof(long):
         long_size = max(int_size, long_size)
         long_alignment = max(int_alignment, long_alignment)
@@ -51,6 +54,7 @@ class CContext:
             BasicType.ULONG: (long_size, long_alignment),
             BasicType.LONGLONG: (longlong_size, longlong_alignment),
             BasicType.ULONGLONG: (longlong_size, longlong_alignment),
+            BasicType.VECTOR: (vec_size, vec_alignment),
             # BasicType.FLOAT: (4, 4),
             # BasicType.DOUBLE: (double_size, double_alignment),
             # BasicType.LONGDOUBLE: (10, 10),

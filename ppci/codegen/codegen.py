@@ -88,7 +88,6 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section("code")
         for function in ircode.functions:
-            print(function)
             self.generate_function(function, output_stream, debug=debug)
 
         # Output debug type data:

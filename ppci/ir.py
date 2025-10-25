@@ -97,6 +97,9 @@ class UnsignedIntegerTyp(IntegerTyp):
 class FloatingPointTyp(BasicTyp):
     pass
 
+class VectorTyp(BasicTyp):
+    pass
+
 
 class BlobDataTyp(Typ):
     """The type of a opaque data blob.
@@ -147,6 +150,7 @@ u32 = UnsignedIntegerTyp("u32", 32)  #: Unsigned 32-bit type
 u16 = UnsignedIntegerTyp("u16", 16)  #: Unsigned 16-bit type
 u8 = UnsignedIntegerTyp("u8", 8)  #: Unsigned 8-bit type
 ptr = PointerTyp("ptr")  #: Pointer type
+vec = VectorTyp("vec", 32*16)  #: Vector type
 
 value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
 all_types = value_types + [ptr]

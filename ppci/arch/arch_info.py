@@ -72,6 +72,7 @@ class ArchInfo:
         if isinstance(typ, str):
             typ = self.type_infos[typ]
         assert isinstance(typ, ir.Typ)
+        print(type(typ))
         return self.type_infos[typ]
 
     def get_size(self, typ):

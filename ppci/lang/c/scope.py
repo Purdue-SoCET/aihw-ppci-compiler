@@ -45,6 +45,7 @@ class RootScope:
             type_tuple("float"): BasicType.FLOAT,
             type_tuple("double"): BasicType.DOUBLE,
             type_tuple("long", "double"): BasicType.LONGDOUBLE,
+            type_tuple("vec"): BasicType.VECTOR,
             type_tuple("__builtin_va_list"): BasicType.VA_LIST,
         }
 

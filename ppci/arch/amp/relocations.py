@@ -51,3 +51,24 @@ class AbsAddr32Relocation(Relocation):
         bv = BitView(data, 0, 4)
         bv[0:32] = offset
         return data
+
+class Abs32Imm12Relocation(Relocation):
+    name = "abs32_imm12"
+    token = AtallaIToken
+    field = "imm12"
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 2 == 0
+        return sym_value & 0xFFF
+
+    def apply(self, sym_value, data, reloc_value):
+        """Apply this relocation type given some parameters.
+
+        This is the default implementation which stores the outcome of
+        the calculate function into the proper token."""
+        assert self.token is not None
+        token = self.token.from_data(data)
+        assert self.field is not None
+        assert hasattr(token, self.field)
+        setattr(token, self.field, self.calc(sym_value, reloc_value))
+        return token.encode()

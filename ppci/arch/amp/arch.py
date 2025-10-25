@@ -15,7 +15,7 @@ from ..data_instructions import DByte, DZero, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
-#from .asm_printer import AtallaAsmPrinter
+from .asm_printer import AtallaAsmPrinter
 from .instructions import (
     #R-types
     Adds,
@@ -156,11 +156,9 @@ class AtallaArch(Architecture):
         self.gdb_registers = gdb_registers
         # self.gdb_pc = PC
 
-        ##!!! need help on ams printer implementation
-        # if AtallaASMPrinter:
-        #     self.asm_printer = AtallaAsmPrinter()
+        if AtallaAsmPrinter:
+            self.asm_printer = AtallaAsmPrinter()
 
-        ###!!!!
 
         self.assembler = AtallaAssembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -173,11 +171,13 @@ class AtallaArch(Architecture):
                 ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
+                ir.vec: TypeInfo(256, 256),
                 # ir.f32: TypeInfo(4, 4),
                 # ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
                 "long": ir.i32,
                 "ptr": ir.u32,
+                "vec": ir.vec,
                 ir.ptr: ir.u32,
             },
             register_classes=self.regclass,

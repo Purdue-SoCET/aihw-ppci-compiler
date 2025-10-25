@@ -15,13 +15,16 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation
+from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation, Abs32Imm12Relocation
 import struct
 
 isa = Isa()
 
 isa.register_relocation(BImm12Relocation)
 isa.register_relocation(BImm20Relocation)
+isa.register_relocation(AbsAddr32Relocation)
+isa.register_relocation(Abs32Imm12Relocation)
+
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -77,22 +80,22 @@ class AtallaIInstruction(Instruction):
 def make_i(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
-    offset = Operand("offset", int)
+    imm12 = Operand("imm12", int)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm12])
     tokens = [AtallaIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm12": offset
+        "imm12": imm12
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
         "rd": rd,
         "rs1": rs1,
-        "offset": offset,
+        "imm12": imm12,
         "opcode": opcode,
         "patterns": patterns,
         "tokens" : tokens
@@ -119,39 +122,42 @@ class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
     isa = isa
 
-    def relocations(self):
-        return [BImm12Relocation(self.target)]
 
+class BranchBase(AtallaBRInstruction):
+    imm12 = Operand("imm12", str)
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = self.opcode
+        tokens[0][41:49] = self.rs1.num
+        tokens[0][17:25] = self.rs2.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [BImm12Relocation(self.imm12)]
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
-    target = Operand("offset", str)
-    fprel = False
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", target])
-    tokens = [AtallaBRToken]
-    patterns = {
-        "opcode": opcode,
-        "rs1": rs1,
-        "rs2": rs2,
-        "target": target
-    }
+    imm12 = Operand("imm12", str)
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
+
     members = {
         "syntax": syntax,
         "rs1": rs1,
         "rs2": rs2,
-        "target": target,
+        "imm12": imm12,
         "opcode": opcode,
-        "patterns": patterns,
-        "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
+    return type(mnemonic + "_ins", (BranchBase,), members)
 
 # Branch instructions (BR-types):
 Beqs = make_br("beq_s", 0b0001110)
 Bnes = make_br("bne_s", 0b0001111)
 Blts = make_br("blt_s", 0b0010000)
 Bges = make_br("bge_s", 0b0010001)
+Bgts = make_br("bgt_s", 0b0010010)
+Bles = make_br("ble_s", 0b0010011)
 
 class AtallaMInstruction(Instruction):
     tokens = [AtallaMToken]
@@ -302,6 +308,33 @@ class Section(PseudoAtallaInstruction):
     def render(self):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
+
+class Adrl(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    imm12 = Operand("imm12", str)
+    syntax = Syntax(["addi_s", " ", rd, ",", " ", rs1, ",", " ", imm12])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = 0b0010010
+        tokens[0][49:57] = self.rd.num
+        tokens[0][0:41] = 0
+        tokens[0][41:49] = self.rs1.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [Abs32Imm12Relocation(self.imm12)]
+
+class Labelrel(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    label = Operand("label", str)
+    syntax = Syntax(["lw_s", " ", rd, ",", " ", label])
+
+    def render(self):
+        raise NotImplementedError("label bs")
+        yield Adrurel(self.rd, self.label)
+        yield Loadlrel(self.rd, self.label, self.rd)
 
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
@@ -457,16 +490,16 @@ def pattern_const_f32(context, tree):
     return d
 
 # TODO: do branch pseudos
-# @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
-# def pattern_cjmpi(context, tree, c0, c1):
-#     op, yes_label, no_label = tree.value
-#     opnames = {"<": Blts, ">": Bgts, "==": Beqs, "!=": Bnes, ">=": Bges, "<=": Bles}
-#     Bop = opnames[op]
-#     jmp_ins = B(no_label.name, jumps=[no_label])
-#     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-#     context.emit(jmp_ins)
+@isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
+@isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
+@isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
+def pattern_cjmpi(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Blts, "==": Beqs, "!=": Bnes, ">=": Bges, "<=": Bles, ">": Bgts}
+    Bop = opnames[op]
+    jmp_ins = Bl(R0,no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
 
 
 # @isa.pattern("stm", "CJMPU8(reg, reg)", size=4)
@@ -562,22 +595,22 @@ def pattern_sub_i32(context, tree, c0, c1):
     return d
 
 # TODO: wtf is this
-# @isa.pattern("reg", "LABEL", size=6)
-# def pattern_label1(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Ands(d, ln))
-#     context.emit(Adrl(d, d, ln))
-#     context.emit(Lw(d, 0, d))
-#     return d
+@isa.pattern("reg", "LABEL", size=6)
+def pattern_label1(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Ands(d, ln))
+    context.emit(Adrl(d, d, ln))
+    context.emit(Lws(d, 0, d))
+    return d
 
 
-# @isa.pattern("reg", "LABEL", size=4)
-# def pattern_label2(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Labelrel(d, ln))
-#     return d
+@isa.pattern("reg", "LABEL", size=4)
+def pattern_label2(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Labelrel(d, ln))
+    return d
 
 
 @isa.pattern(
