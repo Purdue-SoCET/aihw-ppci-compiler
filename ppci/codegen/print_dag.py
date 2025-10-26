@@ -9,8 +9,11 @@ import logging
 from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
 from .selectiongraph import SGValue
 
+import pydot
+
 def print_dag(sgraph):
     """Pretty print the selection DAG grouped by basic block."""
+    graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
     print("=== SELECTION DAG ===")
     node_ids = {n: i for i, n in enumerate(sgraph.nodes)}
 
@@ -29,6 +32,9 @@ def print_dag(sgraph):
             val = f" value={n.value}" if getattr(n, "value", None) is not None else ""
             print(f"  (n{nid}) {op}{val}")
 
+            my_node = pydot.Node(f"n{nid}", label=f"n{nid} {op}{val}")
+            graph.add_node(my_node)
+
             # Inputs
             if n.inputs:
                 in_str = ", ".join(
@@ -37,6 +43,8 @@ def print_dag(sgraph):
                     for inp in n.inputs
                 )
                 print(f"    inputs : {in_str}")
+                for inp in n.inputs:
+                    graph.add_edge(pydot.Edge(f"n{node_ids.get(inp.node, '?')}", f"n{nid}"))
             else:
                 print("    inputs : -")
 
@@ -50,6 +58,8 @@ def print_dag(sgraph):
                 print(f"    outputs: {out_str}")
             else:
                 print("    outputs: -")
+
+    graph.write_png("selection_dag.png")
 
 def build_and_print(ir_function, arch, frame, debug_db=None):
     """Builds the selection DAG for a function and prints it."""
