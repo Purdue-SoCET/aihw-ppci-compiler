@@ -65,6 +65,7 @@ from .burg import BurgSystem
 from .dagsplit import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
 from .treematcher import State
+from .print_dag import print_dag
 
 data_types = [str(t).upper() for t in ir.all_types]
 
@@ -345,6 +346,8 @@ class InstructionSelector1:
         sgraph = self.dag_builder.build(
             ir_function, function_info, frame.debug_db
         )
+        print(f"\n===== Selection DAG for function {ir_function.name} =====")
+        print_dag(sgraph)  # <-- prints the whole DAG grouped by basic block
 
         if self.verbose:
             # Graph drawing takes considerable time

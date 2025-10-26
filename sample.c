@@ -3,8 +3,7 @@
 
 
 int main() {
-
-   
-
-   // theta(output, input1, input2);
+    int x = 1;
+    int y = 2;
+    return x + y;
 }
