@@ -181,6 +181,7 @@ class SelectionGraphBuilder:
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
+            print(ir_block)
             self.block_to_sgraph(ir_block, function_info)
 
         self.sgraph.check()
