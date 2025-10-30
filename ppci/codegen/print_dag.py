@@ -70,6 +70,16 @@ def group_nodes_by_depth(sgraph):
         for n in topo:
             layers[level[n]].append(n)
 
+        '''
+        # cap width to 4 per depth by chunking each layer
+        MAX_PER_DEPTH = 4
+        limited_layers = []
+        for layer in layers:
+            for i in range(0, len(layer), MAX_PER_DEPTH):
+                limited_layers.append(layer[i:i + MAX_PER_DEPTH])
+        layers = limited_layers
+        '''
+
         result[block] = layers
 
     return result
