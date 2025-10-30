@@ -65,7 +65,7 @@ from .burg import BurgSystem
 from .dagsplit import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
 from .treematcher import State
-from .print_dag import print_dag
+from .print_dag import print_dag, group_nodes_by_depth
 
 data_types = [str(t).upper() for t in ir.all_types]
 
@@ -349,10 +349,17 @@ class InstructionSelector1:
         print(f"\n===== Selection DAG for function {ir_function.name} =====")
         print_dag(sgraph)  # <-- prints the whole DAG grouped by basic block
 
+        # bucket nodes by depth (per basic block) and attach to sgraph
+        sgraph.levels_by_block = group_nodes_by_depth(sgraph)
+
         if self.verbose:
             # Graph drawing takes considerable time
             # only do this in verbose mode.
-            self.reporter.dump_sgraph(sgraph)
+            for blk, layers in sgraph.levels_by_block.items():
+                name = getattr(blk, "name", "<no-group>")
+                self.logger.debug("Levels for %s", name)
+                for i, layer in enumerate(layers):
+                    self.logger.debug("  depth %d: %s", i, [str(n.name) for n in layer])
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
