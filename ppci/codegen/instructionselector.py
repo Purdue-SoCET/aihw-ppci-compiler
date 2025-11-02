@@ -67,6 +67,8 @@ from .irdag import FunctionInfo, prepare_function_info
 from .treematcher import State
 from .print_dag import print_dag, group_nodes_by_depth
 
+from collections import OrderedDict
+
 data_types = [str(t).upper() for t in ir.all_types]
 
 ops = [
@@ -132,6 +134,7 @@ class InstructionContext(ContextInterface):
         self.arch = arch
         self.debug_db = frame.debug_db
         self.tree = None
+        self.node_to_insts = frame.__dict__.setdefault("node_to_insts", {})
 
     def new_reg(self, cls):
         """Generate a new temporary of a given class"""
@@ -150,6 +153,11 @@ class InstructionContext(ContextInterface):
         self.frame.emit(instruction)
         if self.tree:
             self.debug_db.map(self.tree, instruction)
+            # look up owning DAG node for the currently generating Tree
+            owner_map = self.frame.__dict__.get("tree_owner", {})
+            dag_node  = owner_map.get(self.tree)
+            if dag_node is not None:
+                self.node_to_insts.setdefault(dag_node, []).append(instruction)
         return instruction
 
 
@@ -374,8 +382,24 @@ class InstructionSelector1:
         for instruction in self.arch.gen_function_enter(args):
             context.emit(instruction)
 
+        def _build_buckets_from_sgraph(sgraph, context, slots_per_packet=4):
+            buckets_by_block = OrderedDict()
+            for blk, layers in sgraph.levels_by_block.items():
+                depth_list = []
+                for layer in layers:
+                    insts = []
+                    for sn in layer:
+                        insts.extend(context.node_to_insts.get(sn, []))
+                    depth_list.append(insts)
+                buckets_by_block[blk] = depth_list
+            return buckets_by_block
+
         # Generate proper instructions:
         self.munch_trees(context, forest)
+        frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
+        self.logger.debug("bucket sizes: %s",
+            {getattr(b,'name','<blk>'):[len(x) for x in depths]
+            for b, depths in frame.buckets_by_block.items()})
 
         # Generate function tail:
         if isinstance(ir_function, ir.Function):

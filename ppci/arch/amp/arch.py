@@ -60,7 +60,8 @@ from .instructions import (
     isa,
     Align,
     Section,
-    dcd
+    dcd,
+    Nop
 )
 from .registers import (
     R0,
@@ -188,6 +189,15 @@ class AtallaArch(Architecture):
         self.callee_save = tuple()
         self.caller_save = (R10, R12, R13, R14, R15, R16, R17)
 
+    def make_nop(self):
+        """
+        Return a real, encodable NOP for padding VLIW packets.
+        Using ADDI r0, r0, 0 (Addis) assumes R0 is the zero register.
+        If R0 is not hard-wired to zero in your ISA, define a true NOP opcode instead.
+        """
+        ins = Nop()
+        assert isinstance(ins, Instruction)
+        return ins
 
     def branch(self, reg, lab):
         if isinstance(lab, AtallaRegister):

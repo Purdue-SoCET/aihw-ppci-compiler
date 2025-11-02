@@ -217,7 +217,7 @@ def make_mi(mnemonic, opcode):
 
 Lis = make_mi("li_s", 0b0100001)
 
-class AtallaNOPInstruction:
+class AtallaNOPInstruction(Instruction):
     tokens = [AtallaNOPToken]
     isa = isa
 
@@ -268,6 +268,7 @@ class Blr(AtallaJInstruction):
         return tokens[0].encode()
 
 Halt = make_nop("halt", 0b1111111)
+Nop = make_nop("nop", 0x00000000)
 
 def dcd(v):
     if type(v) is int:

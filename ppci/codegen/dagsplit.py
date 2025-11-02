@@ -28,6 +28,7 @@ class DagSplitter:
         block.
         """
         self.debug_db = debug_db
+        self.frame = function_info.frame
         forest = []
         self.assign_vregs(sgraph, function_info)
 
@@ -81,58 +82,47 @@ class DagSplitter:
         sorted_nodes = topological_sort_modified(nodes, tail_node)
         trees = []
         node_map = {}
+        owner_map = self.frame.__dict__.setdefault("tree_owner", {})
 
         def mk_tr(inp):
             if inp.vreg:
-                # If the input value has a vreg, use it
-                child_tree = Tree(self.make_op("REG", inp.ty), value=inp.vreg)
+                t = Tree(self.make_op("REG", inp.ty), value=inp.vreg)
+                owner_map[t] = inp.node
             elif inp.node in node_map:
-                child_tree = node_map[inp.node]
+                t = node_map[inp.node]
+                # already tracked
             elif inp.node.name.op == "LABEL":
-                child_tree = Tree(str(inp.node.name), value=inp.node.value)
-            else:  # inp.node.name.startswith('CONST'):
-                # If the node is a constant, use that
-                if inp.wants_vreg:
-                    raise ValueError(f"{inp} does require vreg")
-                children = [mk_tr(i) for i in inp.node.data_inputs]
-                child_tree = Tree(
-                    str(inp.node.name), *children, value=inp.node.value
-                )
-            return child_tree
+                t = Tree(str(inp.node.name), value=inp.node.value)
+                owner_map[t] = inp.node
+            else:
+                kids = [mk_tr(i) for i in inp.node.data_inputs]
+                t = Tree(str(inp.node.name), *kids, value=inp.node.value)
+                owner_map[t] = inp.node
+            return t
 
         for node in sorted_nodes:
-            assert len(node.data_outputs) <= 1
-
-            # Determine data dependencies:
-            children = []
-            for inp in node.data_inputs:
-                child_tree = mk_tr(inp)
-                children.append(child_tree)
-
-            # Create a tree node:
+            children = [mk_tr(inp) for inp in node.data_inputs]
             tree = Tree(str(node.name), *children, value=node.value)
+            owner_map[tree] = node                           # <-- here
             self.debug_db.map(node, tree)
 
-            # Handle outputs:
             if len(node.data_outputs) == 0:
-                # If the tree was volatile, it must be emitted
                 if node.volatile:
                     trees.append(tree)
             else:
-                # If the output has a vreg, put the value in:
                 data_output = node.data_outputs[0]
                 if data_output.vreg:
                     vreg = data_output.vreg
-                    typ = data_output.ty
-                    if typ is None:
-                        print(node)
-                    tree = Tree(self.make_op("MOV", typ), tree, value=vreg)
-                    trees.append(tree)
-                    tree = Tree(self.make_op("REG", typ), value=vreg)
+                    typ  = data_output.ty
+                    mov  = Tree(self.make_op("MOV", typ), tree, value=vreg)
+                    owner_map[mov] = node                    # <-- here
+                    trees.append(mov)
+                    reg  = Tree(self.make_op("REG", typ), value=vreg)
+                    owner_map[reg] = node                    # <-- here
+                    tree = reg
                 elif node.volatile:
                     trees.append(tree)
 
-            # Store for later:
             node_map[node] = tree
         return trees
 

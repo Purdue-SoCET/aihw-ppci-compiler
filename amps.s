@@ -17,11 +17,11 @@ global function i32 main() {
   }
 
   main_block1: {
-    i32 num = 3;
+    i32 num = 1;
     store num, alloca_addr;
     ptr num_0 = 4;
     ptr tmp = alloca_addr + num_0;
-    i32 num_1 = 4;
+    i32 num_1 = 2;
     store num_1, alloca_addr_8;
     ptr num_2 = 4;
     ptr tmp_3 = alloca_addr_8 + num_2;
@@ -48,11 +48,11 @@ global function i32 main() {
   }
 
   main_block1: {
-    i32 num = 3;
+    i32 num = 1;
     store num, alloca_addr;
     ptr num_0 = 4;
     ptr tmp = alloca_addr + num_0;
-    i32 num_1 = 4;
+    i32 num_1 = 2;
     store num_1, alloca_addr_8;
     ptr num_2 = 4;
     ptr tmp_3 = alloca_addr_8 + num_2;
@@ -84,11 +84,11 @@ global function i32 main() {
   }
 
   main_block1: {
-    i32 num = 3;
+    i32 num = 1;
     store num, alloca_addr;
     ptr num_0 = 4;
     ptr tmp = alloca_addr + num_0;
-    i32 num_1 = 4;
+    i32 num_1 = 2;
     store num_1, alloca_addr_8;
     ptr num_2 = 4;
     ptr tmp_3 = alloca_addr_8 + num_2;
@@ -104,8 +104,8 @@ Selection trees:
   main_block0:
   JMP[main_block1:]
   main_block1:
-  STRI32(FPRELU32[Stack[4 bytes at -4]], CONSTI32[3])
-  STRI32(FPRELU32[Stack[4 bytes at -8]], CONSTI32[4])
+  STRI32(FPRELU32[Stack[4 bytes at -4]], CONSTI32[1])
+  STRI32(FPRELU32[Stack[4 bytes at -8]], CONSTI32[2])
   MOVI32[vreg1tmp_load](LDRI32(FPRELU32[Stack[4 bytes at -4]]))
   MOVI32[vreg2tmp_load_4](LDRI32(FPRELU32[Stack[4 bytes at -8]]))
   MOVI32[vreg0retval](ADDI32(REGI32[vreg1tmp_load], REGI32[vreg2tmp_load_4]))
@@ -116,9 +116,9 @@ $ VUseDef
 $ main_block0:
 $ jal x0, main_block1
 $ main_block1:
-$ li_s vreg3, 3
+$ li_s vreg3, 1
 $ sw_s vreg3, -4(x8)
-$ li_s vreg4, 4
+$ li_s vreg4, 2
 $ sw_s vreg4, -8(x8)
 $ lw_s vreg5, -4(x8)
 $ addi_s vreg1tmp_load, vreg5, 0
