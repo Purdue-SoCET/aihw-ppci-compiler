@@ -1151,5 +1151,94 @@ def pattern_xor_i32_const_reg(context, tree, c0):
 #     context.emit(jmp_ins)
 
 
+@isa.pattern("reg", "ADDF16(reg, reg)", size=20)
+def pattern_add_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_add", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "SUBF16(reg, reg)", size=20)
+def pattern_sub_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_sub", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "MULF16(reg, reg)", size=20)
+def pattern_mul_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_mul", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "DIVF16(reg, reg)", size=20)
+def pattern_div_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_div", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "NEGF16(reg)", size=20)
+def pattern_neg_f16(context, tree, c0):
+    return call_internal1(
+        context, "float16_neg", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "F16TOI32(reg)", size=20)
+def pattern_ftoi_f16_i32(context, tree, c0):
+    return call_internal1(
+        context, "float16_to_int32", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "I32TOF16(reg)", size=20)
+def pattern_itof_i32_f16(context, tree, c0):
+    return call_internal1(
+        context, "int32_to_float16", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("stm", "CJMPF16(reg, reg)", size=20)
+def pattern_cjmpf16(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<":  "float16_lt",
+        ">":  "float16_gt",
+        "==": "float16_eq",
+        "!=": "float16_ne",
+        ">=": "float16_ge",
+        "<=": "float16_le",
+    }
+    bop = opnames[op]
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    call_internal2(context, bop, c0, c1, clobbers=context.arch.caller_save)
+    context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+def call_internal2(context, name, a, b, clobbers=()):
+    d = context.new_reg(AtallaRegister)
+    context.move(R12, a)
+    context.move(R13, b)
+    context.emit(RegisterUseDef(uses=(R12, R13)))
+    context.emit(Global(name))
+    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(d, R10)
+    return d
+
+
+def call_internal1(context, name, a, clobbers=()):
+    d = context.new_reg(AtallaRegister)
+    context.move(R12, a)
+    context.emit(RegisterUseDef(uses=(R12,)))
+    context.emit(Global(name))
+    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(d, R10)
+    return d
+
+
 def round_up(s):
     return s + (16 - s % 16)
