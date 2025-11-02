@@ -202,6 +202,9 @@ class SelectionGraphBuilder:
             "token", kind=SGValue.CONTROL
         )
 
+        print(self.f_map)
+
+
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -217,6 +220,12 @@ class SelectionGraphBuilder:
         # Create end node:
         sgnode = self.new_node("EXIT", None)
         sgnode.add_input(self.current_token)
+
+    def do_gemm(self, node):
+        sgnode = self.new_node("GEMM", None)
+        self.chain(sgnode)
+
+
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)

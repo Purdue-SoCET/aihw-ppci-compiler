@@ -115,6 +115,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
+    "GEMM",
 )
 
 

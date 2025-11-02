@@ -1014,8 +1014,8 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
-            elif isinstance(expr, expressions.Theta):
-                value = self.gen_theta(expr)
+            elif isinstance(expr, expressions.Gemm):
+                value = self.gen_gemm(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1531,11 +1531,11 @@ class CCodeGenerator:
         # Calculate address:
         return self.builder.emit_add(base, offset, ir.ptr)
 
-    def gen_theta(self, expr: expressions.Theta):
+    def gen_gemm(self, expr: expressions.Gemm):
         arg1 = self.gen_expr(expr.arg1)
         arg2 = self.gen_expr(expr.arg2)
         argr = self.gen_expr(expr.argr)
-        value = self.builder.emit(ir.Theta(argr, arg1, arg2))
+        value = self.builder.emit(ir.Gemm(argr, arg1, arg2))
         return value
 
 

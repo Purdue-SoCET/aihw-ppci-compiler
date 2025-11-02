@@ -90,7 +90,7 @@ class CParser(RecursiveDescentParser):
             "break",
             "continue",
             "sizeof",
-            "theta",
+            "gemm",
             "struct",
             "union",
             "enum",
@@ -1171,15 +1171,15 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
-        elif self.peek == "theta":
-            location = self.consume("theta").loc
+        elif self.peek == "gemm":
+            location = self.consume("gemm").loc
             self.consume("(")
             args = []
             while self.peek != ")":
-                args.append(self.parse_assignment_expression())
+                args.append(self.parse_primary_expression())
                 if self.peek != ")":
                     self.consume(",")
-            expr = self.semantics.on_theta(args[0], args[1], args[2], location)
+            expr = self.semantics.on_gemm(args[0], args[1], args[2], location)
             self.consume(")")
         elif self.peek == "(":
             loc = self.consume("(").loc

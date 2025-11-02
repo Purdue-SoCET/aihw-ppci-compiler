@@ -245,6 +245,7 @@ class BurgSystem:
 
     def check_tree_defined(self, tree):
         """Check if all names in a tree are defined"""
+        print(self.symbols)
         for name in tree.get_defined_names():
             if name not in self.symbols:
                 raise BurgError(f"{name} not defined")

@@ -141,7 +141,7 @@ class CContext:
             raise NotImplementedError(str(typ))
         return size
 
-    def theta(self, arg1, arg2):
+    def gemm(self, arg1, arg2):
         return
 
     def alignment(self, typ: types.CType):

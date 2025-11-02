@@ -1380,7 +1380,7 @@ class JumpTable(JumpBase):
     def __str__(self):
         return f"jmp_table {self.v.name}"
 
-class Theta(Instruction):
+class Gemm(Instruction):
     def __init__(self, argr, arg1, arg2):
         super().__init__()
         self.arg1 = arg1
@@ -1388,4 +1388,4 @@ class Theta(Instruction):
         self.argr = argr
 
     def __str__(self):
-        return f"theta {self.argr}, {self.arg1}, {self.arg2}"
+        return f"gemm {self.argr}, {self.arg1}, {self.arg2}"
