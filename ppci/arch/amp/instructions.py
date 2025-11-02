@@ -377,8 +377,9 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern("reg", "REGI16", size=0)
 @isa.pattern("reg", "REGI8", size=0)
 @isa.pattern("reg", "REGU32", size=0)
-@isa.pattern("reg", "REGF32", size=10)
-@isa.pattern("reg", "REGF64", size=10)
+# @isa.pattern("reg", "REGF32", size=10)
+# @isa.pattern("reg", "REGF64", size=10)
+@isa.pattern("reg", "REGF16", size=0)
 @isa.pattern("reg", "REGU16", size=0)
 @isa.pattern("reg", "REGU8", size=0)
 def pattern_reg(context, tree):
