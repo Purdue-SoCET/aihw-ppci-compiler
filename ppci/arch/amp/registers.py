@@ -135,7 +135,7 @@ gdb_registers = registers + [PC]
 register_classes_swfp = [
     RegisterClass(
         "reg",
-        [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
+        [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f16],
         AtallaRegister,
         [
             R9,

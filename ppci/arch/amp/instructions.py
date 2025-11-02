@@ -340,8 +340,9 @@ class Labelrel(PseudoAtallaInstruction):
 @isa.pattern("stm", "MOVU16(reg)", size=2)
 @isa.pattern("stm", "MOVI32(reg)", size=2)
 @isa.pattern("stm", "MOVU32(reg)", size=2)
-@isa.pattern("stm", "MOVF32(reg)", size=10)
-@isa.pattern("stm", "MOVF64(reg)", size=10)
+# @isa.pattern("stm", "MOVF32(reg)", size=10)
+# @isa.pattern("stm", "MOVF64(reg)", size=10)
+@isa.pattern("stm", "MOVF16(reg)", size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -392,8 +393,8 @@ def pattern_reg(context, tree):
 @isa.pattern("reg", "U16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0)
-@isa.pattern("reg", "F32TOF64(reg)", size=10)
-@isa.pattern("reg", "F64TOF32(reg)", size=10)
+# @isa.pattern("reg", "F32TOF64(reg)", size=10)
+# @isa.pattern("reg", "F64TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -480,8 +481,9 @@ def pattern_const_i32(context, tree):
     return d
 
 
-@isa.pattern("reg", "CONSTF32", size=10)
-@isa.pattern("reg", "CONSTF64", size=10)
+# @isa.pattern("reg", "CONSTF32", size=10)
+# @isa.pattern("reg", "CONSTF64", size=10)
+@isa.pattern("reg", "CONSTF16", size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
     (c0,) = struct.unpack("i", float_const)
@@ -647,8 +649,9 @@ def pattern_mem_reg(context, tree, c0):
 
 @isa.pattern("stm", "STRU32(mem, reg)", size=2)
 @isa.pattern("stm", "STRI32(mem, reg)", size=2)
-@isa.pattern("stm", "STRF32(mem, reg)", size=10)
-@isa.pattern("stm", "STRF64(mem, reg)", size=10)
+# @isa.pattern("stm", "STRF32(mem, reg)", size=10)
+# @isa.pattern("stm", "STRF64(mem, reg)", size=10)
+@isa.pattern("stm", "STRF16(mem, reg)", size=10)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sws(c1, offset, base_reg)
@@ -658,8 +661,9 @@ def pattern_sw32(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRU32(reg, reg)", size=2)
 @isa.pattern("stm", "STRI32(reg, reg)", size=2)
-@isa.pattern("stm", "STRF32(reg, reg)", size=10)
-@isa.pattern("stm", "STRF64(reg, reg)", size=10)
+# @isa.pattern("stm", "STRF32(reg, reg)", size=10)
+# @isa.pattern("stm", "STRF64(reg, reg)", size=10)
+@isa.pattern("stm", "STRF16(reg, reg)", size=10)
 def pattern_sw32_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sws(c1, 0, base_reg)
@@ -740,8 +744,9 @@ def pattern_sw32_reg(context, tree, c0, c1):
 
 @isa.pattern("reg", "LDRU32(mem)", size=2)
 @isa.pattern("reg", "LDRI32(mem)", size=2)
-@isa.pattern("reg", "LDRF32(mem)", size=10)
-@isa.pattern("reg", "LDRF64(mem)", size=10)
+# @isa.pattern("reg", "LDRF32(mem)", size=10)
+# @isa.pattern("reg", "LDRF64(mem)", size=10)
+@isa.pattern("reg", "LDRF16(mem)", size=10)
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg, offset = c0
@@ -753,8 +758,9 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @isa.pattern("reg", "LDRU32(reg)", size=2)
 @isa.pattern("reg", "LDRI32(reg)", size=2)
-@isa.pattern("reg", "LDRF32(reg)", size=10)
-@isa.pattern("reg", "LDRF64(reg)", size=10)
+# @isa.pattern("reg", "LDRF32(reg)", size=10)
+# @isa.pattern("reg", "LDRF64(reg)", size=10)
+@isa.pattern("reg", "LDRF16(reg)", size=10)
 def pattern_ldr32_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg = c0

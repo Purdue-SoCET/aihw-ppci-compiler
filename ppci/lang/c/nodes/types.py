@@ -395,8 +395,8 @@ class BasicType(CType):
     LONGLONG = "long long"
     ULONGLONG = "unsigned long long"
     FLOAT = "float"
-    DOUBLE = "double"
-    LONGDOUBLE = "long double"
+    # DOUBLE = "double"
+    # LONGDOUBLE = "long double"
     VA_LIST = "__builtin_va_list"
     VECTOR = "vec"
 
@@ -408,7 +408,7 @@ class BasicType(CType):
 
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 
-    FLOAT_TYPES = {FLOAT, DOUBLE, LONGDOUBLE}
+    FLOAT_TYPES = {FLOAT}  # , DOUBLE, LONGDOUBLE}
 
     NUMERIC_TYPES = INTEGER_TYPES | FLOAT_TYPES
 

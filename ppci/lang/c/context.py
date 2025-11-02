@@ -55,7 +55,7 @@ class CContext:
             BasicType.LONGLONG: (longlong_size, longlong_alignment),
             BasicType.ULONGLONG: (longlong_size, longlong_alignment),
             BasicType.VECTOR: (vec_size, vec_alignment),
-            # BasicType.FLOAT: (4, 4),
+            BasicType.FLOAT: (2, 2),
             # BasicType.DOUBLE: (double_size, double_alignment),
             # BasicType.LONGDOUBLE: (10, 10),
             BasicType.VA_LIST: (ptr_size, ptr_size),
@@ -117,6 +117,7 @@ class CContext:
                 array_size = self.eval_expr(typ.size)
             size = element_size * array_size
         elif isinstance(typ, types.BasicType):
+            print(self.type_size_map)
             size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.is_complete:

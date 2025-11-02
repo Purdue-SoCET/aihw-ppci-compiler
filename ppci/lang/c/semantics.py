@@ -733,6 +733,7 @@ class CSemantics:
     def on_float(self, value, location):
         """Process floating point literal."""
         value, type_specifiers = utils.float_num(value)
+        print(type_specifiers)
         typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 
@@ -1292,8 +1293,8 @@ class CSemantics:
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
     basic_ranks = {
-        types.BasicType.LONGDOUBLE: 110,
-        types.BasicType.DOUBLE: 100,
+        # types.BasicType.LONGDOUBLE: 110,
+        # types.BasicType.DOUBLE: 100,
         types.BasicType.FLOAT: 90,
         types.BasicType.ULONGLONG: 71,
         types.BasicType.LONGLONG: 70,
