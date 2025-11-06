@@ -65,62 +65,29 @@ from .instructions import (
 
 from .vector_instructions import (
     # Vector-Vector
-    DivVV,
-    MulVV,
-    AddVV,
-    AndVV,
-    OrVV,
-    XorVV,
-    MgtiVV,
-    MltiVV,
-    MeqiVV,
+    DivVv,
+    MulVv,
+    AddVv,
+    AndVv,
+    OrVv,
+    XorVv,
+    MgtVv,
+    MltVv,
+    MeqVv,
     # Vector-Unary
-    NotV,
-    ExpV,
-    SqrtV,
-    MclrV,
+    NotVi,
+    ExpiVi,
+    SqrtiVi,
     # Vector-Immediate
-    MsetVI,
-    RsumVI,
-    RminVI,
-    RmaxVI,
-    AddiVI,
-    SubiVI,
-    MuliVI,
-    DiviVI,
-    ExpiVI,
-    SqrtiVI,
-    VshrVI,
-    # Vector-Scalar
-    VmovVS,
-    SmovVS,
-    AddVS,
-    SubVS,
-    MulVS,
-    DivVS,
-    MgtiVS,
-    MltiVS,
-    MeqiVS,
-    MneqiVS,
-    # Vector Memory
-    VregLd,
-    VregSt,
-    # Vector Shift
-    ShiftVX,
-    # Systolic Array
-    GemmSA,
-    StkSysSt,
-    LdkSysLd,
-    # Scratchpad DMA
-    ScpadLd,
-    ScpadSt,
-    # Systolic Array Memory
-    SysarrayLdtile,
-    # TCA
-    SysarrayGemm,
-    SysarrayConv,
-    # List of all vector instructions
-    vector_instructions
+    RsumVi,
+    RminVi,
+    RmaxVi,
+    AddiVi,
+    SubiVi,
+    MuliVi,
+    DiviVi,
+    ExpiVi,
+    SqrtiVi,
 )
 
 from .vector_registers import (

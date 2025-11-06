@@ -25,7 +25,7 @@ class BImm12Relocation(Relocation):
 
 class BImm20Relocation(Relocation):
     name = "b_imm20"
-    token = AtallaJToken
+    token = AtallaMIToken
     field = "imm"
 
     def calc(self, sym_value, reloc_value):

@@ -218,12 +218,12 @@ def make_mi(mnemonic, opcode):
 Lis = make_mi("li_s", 0b0100001)
 
 class AtallaNOPInstruction:
-    tokens = [AtallaNOPToken]
+    tokens = [AtallaSToken]
     isa = isa
 
 def make_nop(mnemonic, opcode):
     syntax = Syntax([mnemonic])
-    tokens = [AtallaNOPToken]
+    tokens = [AtallaSToken]
     patterns = {
         "opcode": opcode
     }
@@ -235,11 +235,8 @@ def make_nop(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
-class AtallaJInstruction(Instruction):
-    tokens = [AtallaJToken]
-    isa = isa
 
-class Bl(AtallaJInstruction):
+class Bl(AtallaBRInstruction):
     target = Operand("target", str)
     rd = Operand("rd", AtallaRegister, write=True)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
@@ -253,7 +250,7 @@ class Bl(AtallaJInstruction):
     def relocations(self):
         return [BImm20Relocation(self.target)]
 
-class Blr(AtallaJInstruction):
+class Blr(AtallaBRInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     offset = Operand("offset", int)
