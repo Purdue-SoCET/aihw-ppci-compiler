@@ -405,17 +405,19 @@ class InstructionSelector1:
                     # Filter out pure virtual or comment instructions
                     real = [i for i in insts
                             if hasattr(i, "opcode") or hasattr(i, "mnemonic")]
+                    print(real)
+                    print("created packets: ")
+
 
                     # Create NOPs for missing instructions
-                    if not real:
-                        real = []
-                    while len(real) < slots_per_packet:
-                        if make_nop:
-                            n = make_nop()
-                            n.is_nop = True
-                            real.append(n)
-                        else:
-                            break
+                    if real:
+                        while len(real) < slots_per_packet:
+                            if make_nop:
+                                n = make_nop()
+                                n.is_nop = True
+                                real.append(n)
+                            else:
+                                break
 
                     # Split into fixed-size VLIW groups
                     for i in range(0, len(real), slots_per_packet):
@@ -435,8 +437,9 @@ class InstructionSelector1:
                 name = getattr(blk, "name", "<no-block>")
                 print(f"[{name}]")
                 for d, insts in enumerate(depths):
-                    labels = [getattr(i, "mnemonic", "NOP") if i else "None"
-                            for i in insts]
+                    labels = []
+                    for i in insts:
+                        labels.append(str(i))
                     print(f"  depth {d}: {labels}")
 
             return buckets_by_block
