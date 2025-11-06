@@ -101,7 +101,11 @@ ops = [
     "F16TO",
     "FPREL",
     "SPREL",  # Frame/stack pointer relative
-    "GEMMVV",
+    "GEMM",
+    "MGT",
+    "MLT",
+    "MEQ",
+    "MNEQ",  # Matrix/vector operations
 ]
 
 # Add all possible terminals:
@@ -116,7 +120,6 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-    "GEMMVV",
 )
 
 

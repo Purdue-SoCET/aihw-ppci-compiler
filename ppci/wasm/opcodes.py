@@ -11,6 +11,7 @@ class ArgType(enum.Enum):
     I32 = 10
     I64 = 11
     F16 = 12
+    VEC = 13
     # F32 = 12
     # F64 = 13
     U8x16 = 14

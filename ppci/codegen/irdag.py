@@ -237,18 +237,18 @@ class SelectionGraphBuilder:
             arg_val = self.get_value(arg)
 
             # allocate a new vreg for a u32 register and move the value into it
-            vreg = self.new_vreg(ir.u32)
-            mov_node = self.new_node("MOV", ir.u32, arg_val, value=vreg)
+            vreg = self.new_vreg(ir.vec)
+            mov_node = self.new_node("MOV", ir.vec, arg_val, value=vreg)
             self.chain(mov_node)
 
             # create a REG node that represents the vreg and expose its output
-            reg_node = self.new_node("REG", ir.u32, value=vreg)
+            reg_node = self.new_node("REG", ir.vec, value=vreg)
             out = reg_node.new_output(vreg.name)
             out.vreg = vreg
             reg_outputs.append(out)
 
         # Create the GEMMVV node taking the three register outputs as inputs
-        sgnode = self.new_node("GEMMVV", None, *reg_outputs)
+        sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
 
