@@ -77,6 +77,12 @@ class DagSplitter:
                     vreg = frame.new_reg(cls, data_output.name)
                     data_output.vreg = vreg
 
+    def _register_tree_owners(self, owner_map, node, tree):
+        """Recursively mark DAG node ownership for every subtree."""
+        owner_map[tree] = node
+        for child in tree.children:
+            self._register_tree_owners(owner_map, node, child)
+
     def make_trees(self, nodes, tail_node):
         """Create a tree from a list of sorted nodes."""
         sorted_nodes = topological_sort_modified(nodes, tail_node)
@@ -93,17 +99,17 @@ class DagSplitter:
                 # already tracked
             elif inp.node.name.op == "LABEL":
                 t = Tree(str(inp.node.name), value=inp.node.value)
-                owner_map[t] = inp.node
+                self._register_tree_owners(owner_map, inp.node, t)
             else:
                 kids = [mk_tr(i) for i in inp.node.data_inputs]
                 t = Tree(str(inp.node.name), *kids, value=inp.node.value)
-                owner_map[t] = inp.node
+                self._register_tree_owners(owner_map, inp.node, t)
             return t
 
         for node in sorted_nodes:
             children = [mk_tr(inp) for inp in node.data_inputs]
             tree = Tree(str(node.name), *children, value=node.value)
-            owner_map[tree] = node                           # <-- here
+            self._register_tree_owners(owner_map, node, tree)
             self.debug_db.map(node, tree)
 
             if len(node.data_outputs) == 0:
@@ -115,10 +121,10 @@ class DagSplitter:
                     vreg = data_output.vreg
                     typ  = data_output.ty
                     mov  = Tree(self.make_op("MOV", typ), tree, value=vreg)
-                    owner_map[mov] = node                    # <-- here
+                    self._register_tree_owners(owner_map, node, mov)
                     trees.append(mov)
                     reg  = Tree(self.make_op("REG", typ), value=vreg)
-                    owner_map[reg] = node                    # <-- here
+                    self._register_tree_owners(owner_map, node, reg)
                     tree = reg
                 elif node.volatile:
                     trees.append(tree)

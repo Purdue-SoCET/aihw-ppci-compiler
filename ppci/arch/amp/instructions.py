@@ -186,7 +186,7 @@ def make_m(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AtallaIInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaMInstruction,), members)
 
 Lws = make_m("lw_s", 0b0011111)
 Sws = make_m("sw_s", 0b0100000)
@@ -369,7 +369,7 @@ def pattern_movb(context, tree, c0, c1):
     src = c1
     tmp = context.new_reg(AtallaRegister)
     size = tree.value
-    for instruction in context.arch.gen_riscv_memcpy(dst, src, tmp, size):
+    for instruction in context.arch.gen_Atalla_memcpy(dst, src, tmp, size):
         context.emit(instruction)
 
 
@@ -595,6 +595,7 @@ def pattern_sub_i32(context, tree, c0, c1):
     context.emit(Subs(d, c0, c1))
     return d
 
+'''
 # TODO: wtf is this
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
@@ -612,7 +613,7 @@ def pattern_label2(context, tree):
     ln = context.frame.add_constant(tree.value)
     context.emit(Labelrel(d, ln))
     return d
-
+'''
 
 @isa.pattern(
     "reg",

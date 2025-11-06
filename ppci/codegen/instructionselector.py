@@ -152,12 +152,17 @@ class InstructionContext(ContextInterface):
         """Abstract instruction emitter proxy"""
         self.frame.emit(instruction)
         if self.tree:
-            self.debug_db.map(self.tree, instruction)
-            # look up owning DAG node for the currently generating Tree
             owner_map = self.frame.__dict__.get("tree_owner", {})
-            dag_node  = owner_map.get(self.tree)
+            t = self.tree
+            dag_node = None
+            # climb upward until we find the owning DAG node
+            while t is not None and dag_node is None:
+                dag_node = owner_map.get(t)
+                t = getattr(t, "parent", None)
             if dag_node is not None:
-                self.node_to_insts.setdefault(dag_node, []).append(instruction)
+                key = getattr(dag_node, "uid", id(dag_node))
+                self.node_to_insts.setdefault(key, []).append(instruction)
+                print(f"[emit] mapped {instruction} to {dag_node.name}")
         return instruction
 
 
@@ -384,14 +389,56 @@ class InstructionSelector1:
 
         def _build_buckets_from_sgraph(sgraph, context, slots_per_packet=4):
             buckets_by_block = OrderedDict()
+            make_nop = getattr(context.arch, "make_nop", None)
+
             for blk, layers in sgraph.levels_by_block.items():
                 depth_list = []
-                for layer in layers:
+                for depth_idx, layer in enumerate(layers):
                     insts = []
+
+                    # Collect emitted machine instructions linked to DAG nodes
                     for sn in layer:
-                        insts.extend(context.node_to_insts.get(sn, []))
-                    depth_list.append(insts)
+                        key = getattr(sn, "uid", id(sn))
+                        emitted = context.node_to_insts.get(key, [])
+                        insts.extend(emitted)
+
+                    # Filter out pure virtual or comment instructions
+                    real = [i for i in insts
+                            if hasattr(i, "opcode") or hasattr(i, "mnemonic")]
+
+                    # Create NOPs for missing instructions
+                    if not real:
+                        real = []
+                    while len(real) < slots_per_packet:
+                        if make_nop:
+                            n = make_nop()
+                            n.is_nop = True
+                            real.append(n)
+                        else:
+                            break
+
+                    # Split into fixed-size VLIW groups
+                    for i in range(0, len(real), slots_per_packet):
+                        chunk = real[i:i+slots_per_packet]
+                        while len(chunk) < slots_per_packet:
+                            if make_nop:
+                                n = make_nop()
+                                n.is_nop = True
+                                chunk.append(n)
+                        depth_list.append(chunk)
+
                 buckets_by_block[blk] = depth_list
+
+            # Debug print
+            print("\n=== Buckets after padding ===")
+            for blk, depths in buckets_by_block.items():
+                name = getattr(blk, "name", "<no-block>")
+                print(f"[{name}]")
+                for d, insts in enumerate(depths):
+                    labels = [getattr(i, "mnemonic", "NOP") if i else "None"
+                            for i in insts]
+                    print(f"  depth {d}: {labels}")
+
             return buckets_by_block
 
         # Generate proper instructions:

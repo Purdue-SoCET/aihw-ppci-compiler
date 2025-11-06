@@ -200,6 +200,15 @@ class CodeGenerator:
             self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
         peep_hole_stream.flush()
 
+        # Emit proper return / exit sequence at the end of function
+        if isinstance(ir_function, ir.Function):
+            if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+            else:
+                rv = None
+            for ins in self.arch.gen_function_exit(rv):
+                peep_hole_stream.emit(ins)
+
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:
             func_end_label = self.debug_db.new_label()

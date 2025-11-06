@@ -196,7 +196,6 @@ class AtallaArch(Architecture):
         If R0 is not hard-wired to zero in your ISA, define a true NOP opcode instead.
         """
         ins = Nop()
-        assert isinstance(ins, Instruction)
         return ins
 
     def branch(self, reg, lab):
