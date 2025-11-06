@@ -57,6 +57,7 @@ class CCodeGenerator:
             # BasicType.DOUBLE: (ir.f64, 8),
             # BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
+            BasicType.VECTOR: (ir.vec, 64),
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 

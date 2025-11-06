@@ -153,7 +153,7 @@ u8 = UnsignedIntegerTyp("u8", 8)  #: Unsigned 8-bit type
 ptr = PointerTyp("ptr")  #: Pointer type
 vec = VectorTyp("vec", 32*16)  #: Vector type
 
-value_types = [f16, i64, i32, i16, i8, u64, u32, u16, u8]
+value_types = [vec, f16, i64, i32, i16, i8, u64, u32, u16, u8]
 all_types = value_types + [ptr]
 type_name_map = {t.name.lower(): t for t in value_types}
 

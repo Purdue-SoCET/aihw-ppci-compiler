@@ -1308,6 +1308,7 @@ class CSemantics:
         types.BasicType.CHAR: 30,
         # TODO: is void rank-able? for now give it a low rank.
         types.BasicType.VOID: 0,
+        types.BasicType.VECTOR: 100,
     }
 
     def _get_rank(self, typ, location):
