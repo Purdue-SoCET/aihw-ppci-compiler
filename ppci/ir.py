@@ -1383,9 +1383,7 @@ class JumpTable(JumpBase):
 class Gemm(Instruction):
     def __init__(self, argr, arg1, arg2):
         super().__init__()
-        self.arg1 = arg1
-        self.arg2 = arg2
-        self.argr = argr
+        self.value = [argr, arg1, arg2]
 
     def __str__(self):
-        return f"gemm {self.argr}, {self.arg1}, {self.arg2}"
+        return f"gemm {self.value[0]}, {self.value[1]}, {self.value[2]}"

@@ -1176,7 +1176,7 @@ class CParser(RecursiveDescentParser):
             self.consume("(")
             args = []
             while self.peek != ")":
-                args.append(self.parse_primary_expression())
+                args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
             expr = self.semantics.on_gemm(args[0], args[1], args[2], location)

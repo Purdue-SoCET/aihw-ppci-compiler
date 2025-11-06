@@ -4,6 +4,6 @@ vppci.py
 __pycache__/
 *.profile
 .cache
-
+*.s
 dist
 build/
