@@ -10,6 +10,7 @@ from .tokens import (
 from .vector_registers import AtallaVectorRegister
 from .registers import AtallaRegister
 
+isa = ISA()
 
 class AtallaVVInstruction(Instruction):
     tokens = [AtallaVVToken]
