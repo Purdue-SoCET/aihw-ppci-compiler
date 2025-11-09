@@ -78,10 +78,12 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
         is_store = op.startswith("sw") or op.startswith("sd")
         is_mem = is_load or is_store
 
+        # At most one memory op can issue per cycle. Force start to be strictly after the last memory issue if needed.
         if single_lsu and is_mem:
             if last_mem_cycle + 1 > start:
                 start = last_mem_cycle + 1
 
+        # If you know the (base, imm) and there was a prior store to that key, make the current memory op wait until that store’s completion.
         if is_mem and mem_key is not None:
             if is_load:
                 if mem_key in last_store_at and last_store_at[mem_key] > start:
@@ -92,10 +94,12 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
 
         ready_time[i] = start
 
+        # Destination availability times
         latency = latency_map.get(op, 1)
         for d in dsts:
             last_write[d] = start + latency
 
+        # Update memory scoreboards
         if is_mem:
             last_mem_cycle = start
             if is_store and mem_key is not None:
@@ -105,9 +109,9 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
 
 
 def greedy_pack(instructions, ready_time, max_width=4):
-    packets = []
-    scheduled = [False for _ in range(len(instructions))]
-    current_cycle = 0
+    packets = [] # list of lists of instruction indices
+    scheduled = [False for _ in range(len(instructions))] # marks whether instruction i has been placed alread
+    current_cycle = 0 # packet time index
 
     def is_control(op):
         if op in {"j", "jal", "jalr"}:
@@ -125,8 +129,10 @@ def greedy_pack(instructions, ready_time, max_width=4):
 
         for i in range(len(instructions)):
             op, dsts, srcs, mem_key = instructions[i]
+            # Skip if already scheduled
             if scheduled[i]:
                 continue
+            # Skip if not ready at this cycle
             if ready_time[i] > current_cycle:
                 continue
 
@@ -136,15 +142,18 @@ def greedy_pack(instructions, ready_time, max_width=4):
                     scheduled[i] = True
                 break
 
+            # Do not add another memory op if one is already in the packet
             is_mem = op.startswith("lw") or op.startswith("sw") or op.startswith("sd")
             if mem_in_packet and is_mem:
                 continue
 
+            # RAW hazards
             hazard = False
             for s in srcs:
                 if s in packet_writes:
                     hazard = True
                     break
+            # WAW and WAR hazards
             for d in dsts:
                 if d in packet_writes or d in packet_reads:
                     hazard = True
@@ -152,6 +161,7 @@ def greedy_pack(instructions, ready_time, max_width=4):
             if hazard:
                 continue
 
+            # Update reads and writes sets, mark memory presence, mark scheduled, increase count, and stop if you reached the packet width
             packet.append(i)
             for s in srcs:
                 packet_reads.add(s)
@@ -164,10 +174,12 @@ def greedy_pack(instructions, ready_time, max_width=4):
             if count == max_width:
                 break
 
+        # If nothing was schedulable at this cycle, advance time and try again
         if len(packet) == 0:
             current_cycle += 1
             continue
 
+        # Commit the packet and move to next cycle
         packets.append(packet)
         current_cycle += 1
 
@@ -175,8 +187,10 @@ def greedy_pack(instructions, ready_time, max_width=4):
 
 
 def packetize_basic_block(asm_str, latency_map):
-    entries = []
+    entries = [] # (original_line, parsed_tuple) pairs
     lines = asm_str.strip().splitlines()
+
+    # Skip blanks and stuff the parser ignores
     for l in lines:
         s = l.strip()
         if not s:
