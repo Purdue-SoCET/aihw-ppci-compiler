@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+from instruction_latency import latency
 
 def _int_or_none(tok):
     try:
@@ -237,7 +238,6 @@ add  x12, x13, x14
 add  x14, x15, x16
 """
 
-    latency = {"addi": 1, "add": 1, "sub": 1, "mul": 3, "or": 1, "lw": 3, "sw": 1}
     packets = packetize_basic_block(asm_block, latency)
     for i in range(len(packets)):
         print("Packet " + str(i) + ":")
