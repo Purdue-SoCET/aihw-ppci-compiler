@@ -176,6 +176,7 @@ def greedy_pack(instructions, ready_time, max_width=4):
 
         # If nothing was schedulable at this cycle, advance time and try again
         if len(packet) == 0:
+            packets.append([])
             current_cycle += 1
             continue
 
