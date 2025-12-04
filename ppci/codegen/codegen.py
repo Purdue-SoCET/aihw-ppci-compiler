@@ -221,6 +221,7 @@ class CodeGenerator:
 
         self.reporter.dump_instructions(instruction_list, self.arch)
 
+
     def select_and_schedule(self, ir_function, frame):
         """Perform instruction selection and scheduling"""
         self.logger.debug("Selecting instructions")

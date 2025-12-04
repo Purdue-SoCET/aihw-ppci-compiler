@@ -8,6 +8,13 @@ def _int_or_none(tok):
     except:
         return None
 
+def is_control_op(op):
+    if op in {"j", "jal", "jalr"}:
+        return True
+    if op.startswith("b"):
+        return True
+    return False
+
 def parse_instruction(line):
     line = line.strip()
     if not line:
@@ -79,12 +86,10 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
         is_store = op.startswith("sw") or op.startswith("sd")
         is_mem = is_load or is_store
 
-        # At most one memory op can issue per cycle. Force start to be strictly after the last memory issue if needed.
         if single_lsu and is_mem:
             if last_mem_cycle + 1 > start:
                 start = last_mem_cycle + 1
 
-        # If you know the (base, imm) and there was a prior store to that key, make the current memory op wait until that store’s completion.
         if is_mem and mem_key is not None:
             if is_load:
                 if mem_key in last_store_at and last_store_at[mem_key] > start:
@@ -95,12 +100,10 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
 
         ready_time[i] = start
 
-        # Destination availability times
         latency = latency_map.get(op, 1)
         for d in dsts:
             last_write[d] = start + latency
 
-        # Update memory scoreboards
         if is_mem:
             last_mem_cycle = start
             if is_store and mem_key is not None:
@@ -110,9 +113,9 @@ def build_dependency_graph(instructions, latency_map, single_lsu=True):
 
 
 def greedy_pack(instructions, ready_time, max_width=4):
-    packets = [] # list of lists of instruction indices
-    scheduled = [False for _ in range(len(instructions))] # marks whether instruction i has been placed alread
-    current_cycle = 0 # packet time index
+    packets = []
+    scheduled = [False for _ in range(len(instructions))]
+    current_cycle = 0
 
     def is_control(op):
         if op in {"j", "jal", "jalr"}:
@@ -130,10 +133,8 @@ def greedy_pack(instructions, ready_time, max_width=4):
 
         for i in range(len(instructions)):
             op, dsts, srcs, mem_key = instructions[i]
-            # Skip if already scheduled
             if scheduled[i]:
                 continue
-            # Skip if not ready at this cycle
             if ready_time[i] > current_cycle:
                 continue
 
@@ -143,18 +144,15 @@ def greedy_pack(instructions, ready_time, max_width=4):
                     scheduled[i] = True
                 break
 
-            # Do not add another memory op if one is already in the packet
             is_mem = op.startswith("lw") or op.startswith("sw") or op.startswith("sd")
             if mem_in_packet and is_mem:
                 continue
 
-            # RAW hazards
             hazard = False
             for s in srcs:
                 if s in packet_writes:
                     hazard = True
                     break
-            # WAW and WAR hazards
             for d in dsts:
                 if d in packet_writes or d in packet_reads:
                     hazard = True
@@ -162,7 +160,6 @@ def greedy_pack(instructions, ready_time, max_width=4):
             if hazard:
                 continue
 
-            # Update reads and writes sets, mark memory presence, mark scheduled, increase count, and stop if you reached the packet width
             packet.append(i)
             for s in srcs:
                 packet_reads.add(s)
@@ -175,72 +172,96 @@ def greedy_pack(instructions, ready_time, max_width=4):
             if count == max_width:
                 break
 
-        # If nothing was schedulable at this cycle, advance time and try again
         if len(packet) == 0:
             packets.append([])
             current_cycle += 1
             continue
 
-        # Commit the packet and move to next cycle
         packets.append(packet)
         current_cycle += 1
 
     return packets
 
 
-def packetize_basic_block(asm_str, latency_map):
-    entries = [] # (original_line, parsed_tuple) pairs
+def vliw_packetizer(asm_str, latency_map):
     lines = asm_str.strip().splitlines()
 
-    # Skip blanks and stuff the parser ignores
+    blocks = []
+    current_entries = []  # (original_line, parsed_tuple) per basic block
+
     for l in lines:
         s = l.strip()
         if not s:
             continue
-        parsed = parse_instruction(s)
-        if parsed:
-            entries.append((s, parsed))
 
-    if len(entries) == 0:
+        # Start a new basic block at labels
+        if s.endswith(":"):
+            if current_entries:
+                blocks.append(current_entries)
+                current_entries = []
+            continue
+
+        parsed = parse_instruction(s)
+        if not parsed:
+            continue
+
+        op, dsts, srcs, mem_key = parsed
+        current_entries.append((s, parsed))
+
+        # End the current basic block after a control flow instruction
+        if is_control_op(op):
+            blocks.append(current_entries)
+            current_entries = []
+
+    if current_entries:
+        blocks.append(current_entries)
+
+    if len(blocks) == 0:
         return []
 
-    parsed_insts = []
-    for _, p in entries:
-        parsed_insts.append(p)
+    all_block_packets = []
 
-    ready_time = build_dependency_graph(parsed_insts, latency_map, True)
-    packet_indices = greedy_pack(parsed_insts, ready_time, 4)
+    for entries in blocks:
+        parsed_insts = [p for _, p in entries]
+        ready_time = build_dependency_graph(parsed_insts, latency_map, True)
+        packet_indices = greedy_pack(parsed_insts, ready_time, 4)
 
-    packets = []
-    for pkt in packet_indices:
-        instrs = []
-        for i in pkt:
-            instrs.append(entries[i][0])
-        while len(instrs) < 4:
-            instrs.append("nop")
-        packets.append(instrs)
-    return packets
+        packets = []
+        for pkt in packet_indices:
+            instrs = []
+            for i in pkt:
+                instrs.append(entries[i][0])
+            while len(instrs) < 4:
+                instrs.append("nop")
+            packets.append(instrs)
+
+        all_block_packets.append(packets)
+
+    return all_block_packets
 
 
 if __name__ == "__main__":
     asm_block = """
-addi x1, x0, 5
-addi x2, x1, 3
-mul  x3, x1, x2
-sw   x1, 0(x2)
-lw   x4, 0(x2)
-sub  x2, x4, x5
-sub  x4, x3, x2
-add  x5, x4, x1
-or   x6, x1, x2
-L1:
-add  x11, x12, x13
-add  x12, x13, x14
-add  x14, x15, x16
+start:
+addi x1, x0, 1
+addi x2, x0, 2
+beq  x1, x2, L_taken
+addi x3, x0, 3
+addi x4, x0, 4
+j    L_end
+
+L_taken:
+addi x5, x0, 5
+addi x6, x0, 6
+
+L_end:
+addi x7, x0, 7
 """
 
-    packets = packetize_basic_block(asm_block, latency)
-    for i in range(len(packets)):
-        print("Packet " + str(i) + ":")
-        for ins in packets[i]:
-            print("  ", ins)
+    blocks = vliw_packetizer(asm_block, latency)
+    for b, packets in enumerate(blocks):
+        print("Basic block", b)
+        for i, pkt in enumerate(packets):
+            print("  Packet " + str(i) + ":")
+            for ins in pkt:
+                print("    ", ins)
