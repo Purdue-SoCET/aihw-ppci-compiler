@@ -7,9 +7,11 @@ import sys
 
 def main():
     with open("sample.c", "r") as source:
-        #cc(f, "atalla")
+        #cc(source, "atalla")
+
         with open("amps.s", "w") as f:
             reporter = TextReportGenerator(f)
             cc(source, "atalla", reporter=reporter)
+
 if __name__ == "__main__":
     main()

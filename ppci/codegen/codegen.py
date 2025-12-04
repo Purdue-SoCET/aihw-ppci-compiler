@@ -194,8 +194,20 @@ class CodeGenerator:
             [FunctionOutputStream(instruction_list.append), output_stream]
         )
         peep_hole_stream = PeepHoleStream(output_stream)
-        self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
+        if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
+            self._emit_packets_from_buckets(frame, peep_hole_stream, debug=debug, slots_per_packet=4)
+        else:
+            self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
         peep_hole_stream.flush()
+
+        # Emit proper return / exit sequence at the end of function
+        if isinstance(ir_function, ir.Function):
+            if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+            else:
+                rv = None
+            for ins in self.arch.gen_function_exit(rv):
+                peep_hole_stream.emit(ins)
 
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:
@@ -208,6 +220,7 @@ class CodeGenerator:
             output_stream.emit(dd)
 
         self.reporter.dump_instructions(instruction_list, self.arch)
+
 
     def select_and_schedule(self, ir_function, frame):
         """Perform instruction selection and scheduling"""
@@ -291,6 +304,36 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
+
+    def _emit_packets_from_buckets(self, frame, output_stream, debug=False, slots_per_packet=4):
+        def fresh_nop():
+            n = self.arch.make_nop()
+            n.is_nop = True
+            return n
+
+        output_stream.emit_all(self.arch.gen_prologue(frame))
+
+        for blk, depth_list in frame.buckets_by_block.items():
+            blk_name = getattr(blk, "name", None)
+            if blk_name:
+                output_stream.emit(Label(blk_name))
+
+            for insts in depth_list:
+                real = [i for i in insts
+                        if isinstance(i, Instruction)
+                        and not isinstance(i, VirtualInstruction)]
+                if not real:
+                    for _ in range(slots_per_packet):
+                        output_stream.emit(fresh_nop())
+                    continue
+                for i in range(0, len(real), slots_per_packet):
+                    chunk = real[i:i+slots_per_packet]
+                    while len(chunk) < slots_per_packet:
+                        chunk.append(fresh_nop())
+                    for ins in chunk:
+                        output_stream.emit(ins)
+
+        output_stream.emit_all(self.arch.gen_epilogue(frame))
 
     def _generate_inline_assembly(
         self, assembly_source, output_registers, input_registers, ostream

@@ -5,6 +5,7 @@ __pycache__/
 *.profile
 .cache
 *.s
+*.png
 dist
 build/
 sample.c

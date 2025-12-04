@@ -65,6 +65,9 @@ from .burg import BurgSystem
 from .dagsplit import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
 from .treematcher import State
+from .print_dag import print_dag, group_nodes_by_depth
+
+from collections import OrderedDict
 
 data_types = [str(t).upper() for t in ir.all_types]
 
@@ -137,6 +140,7 @@ class InstructionContext(ContextInterface):
         self.arch = arch
         self.debug_db = frame.debug_db
         self.tree = None
+        self.node_to_insts = frame.__dict__.setdefault("node_to_insts", {})
 
     def new_reg(self, cls):
         """Generate a new temporary of a given class"""
@@ -154,7 +158,17 @@ class InstructionContext(ContextInterface):
         """Abstract instruction emitter proxy"""
         self.frame.emit(instruction)
         if self.tree:
-            self.debug_db.map(self.tree, instruction)
+            owner_map = self.frame.__dict__.get("tree_owner", {})
+            t = self.tree
+            dag_node = None
+            # climb upward until we find the owning DAG node
+            while t is not None and dag_node is None:
+                dag_node = owner_map.get(t)
+                t = getattr(t, "parent", None)
+            if dag_node is not None:
+                key = getattr(dag_node, "uid", id(dag_node))
+                self.node_to_insts.setdefault(key, []).append(instruction)
+                print(f"[emit] mapped {instruction} to {dag_node.name}")
         return instruction
 
 
@@ -351,11 +365,20 @@ class InstructionSelector1:
         sgraph = self.dag_builder.build(
             ir_function, function_info, frame.debug_db
         )
+        print(f"\n===== Selection DAG for function {ir_function.name} =====")
+        print_dag(sgraph)  # <-- prints the whole DAG grouped by basic block
+
+        # bucket nodes by depth (per basic block) and attach to sgraph
+        sgraph.levels_by_block = group_nodes_by_depth(sgraph)
 
         if self.verbose:
             # Graph drawing takes considerable time
             # only do this in verbose mode.
-            self.reporter.dump_sgraph(sgraph)
+            for blk, layers in sgraph.levels_by_block.items():
+                name = getattr(blk, "name", "<no-group>")
+                self.logger.debug("Levels for %s", name)
+                for i, layer in enumerate(layers):
+                    self.logger.debug("  depth %d: %s", i, [str(n.name) for n in layer])
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
@@ -370,8 +393,69 @@ class InstructionSelector1:
         for instruction in self.arch.gen_function_enter(args):
             context.emit(instruction)
 
+        def _build_buckets_from_sgraph(sgraph, context, slots_per_packet=4):
+            buckets_by_block = OrderedDict()
+            make_nop = getattr(context.arch, "make_nop", None)
+
+            for blk, layers in sgraph.levels_by_block.items():
+                depth_list = []
+                for depth_idx, layer in enumerate(layers):
+                    insts = []
+
+                    # Collect emitted machine instructions linked to DAG nodes
+                    for sn in layer:
+                        key = getattr(sn, "uid", id(sn))
+                        emitted = context.node_to_insts.get(key, [])
+                        insts.extend(emitted)
+
+                    # Filter out pure virtual or comment instructions
+                    real = [i for i in insts
+                            if hasattr(i, "opcode") or hasattr(i, "mnemonic")]
+                    print(real)
+                    print("created packets: ")
+
+
+                    # Create NOPs for missing instructions
+                    if real:
+                        while len(real) < slots_per_packet:
+                            if make_nop:
+                                n = make_nop()
+                                n.is_nop = True
+                                real.append(n)
+                            else:
+                                break
+
+                    # Split into fixed-size VLIW groups
+                    for i in range(0, len(real), slots_per_packet):
+                        chunk = real[i:i+slots_per_packet]
+                        while len(chunk) < slots_per_packet:
+                            if make_nop:
+                                n = make_nop()
+                                n.is_nop = True
+                                chunk.append(n)
+                        depth_list.append(chunk)
+
+                buckets_by_block[blk] = depth_list
+
+            # Debug print
+            print("\n=== Buckets after padding ===")
+            for blk, depths in buckets_by_block.items():
+                name = getattr(blk, "name", "<no-block>")
+                print(f"[{name}]")
+                for d, insts in enumerate(depths):
+                    labels = []
+                    for i in insts:
+                        labels.append(str(i))
+                    print(f"  depth {d}: {labels}")
+
+            return buckets_by_block
+
         # Generate proper instructions:
         self.munch_trees(context, forest)
+        frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
+        self.logger.debug("bucket sizes: %s",
+            {getattr(b,'name','<blk>'):[len(x) for x in depths]
+            for b, depths in frame.buckets_by_block.items()})
 
         # Generate function tail:
         if isinstance(ir_function, ir.Function):
