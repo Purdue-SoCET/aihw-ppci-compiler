@@ -1,10 +1,11 @@
+from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
 from .registers import (
     AtallaRegister,
     R0,
-    R13, R12, R10, R11, R9, R7, R6, R5, R4, R3,
+    R13, R12, R10, R11, R9, R7, R6, R5, R4, R3, LR,
     FP,
 )
 from ..generic_instructions import (
@@ -15,13 +16,16 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation
+from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation, Abs32Imm12Relocation
 import struct
 
 isa = Isa()
 
 isa.register_relocation(BImm12Relocation)
 isa.register_relocation(BImm20Relocation)
+isa.register_relocation(AbsAddr32Relocation)
+isa.register_relocation(Abs32Imm12Relocation)
+
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -35,10 +39,9 @@ def make_r(mnemonic, opcode):
     tokens = [AtallaRToken]
     patterns = {
         "opcode": opcode,
-        "rd1": rd,
+        "rd": rd,
         "rs1": rn,
         "rs2": rm,
-        "imm12": 0b000000000000
         # could be not zeros (should probably ask)
         # what does RESERVED mean?
         # Need schdImm?
@@ -183,7 +186,7 @@ def make_m(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AtallaIInstruction,), members)
+    return type(mnemonic + "_ins", (AtallaMInstruction,), members)
 
 Lws = make_m("lw_s", 0b0011111)
 Sws = make_m("sw_s", 0b0100000)
@@ -194,18 +197,18 @@ class AtallaMIInstruction(Instruction):
 
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
-    imm = Operand("imm", int)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm])
+    imm25 = Operand("imm25", int)
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm25])
     tokens = [AtallaMIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm": imm
+        "imm25": imm25
     }
     members = {
         "syntax": syntax,
         "rd": rd,
-        "imm": imm,
+        "imm25": imm25,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
@@ -214,13 +217,13 @@ def make_mi(mnemonic, opcode):
 
 Lis = make_mi("li_s", 0b0100001)
 
-class AtallaNOPInstruction:
-    tokens = [AtallaNOPToken]
+class AtallaNOPInstruction(Instruction):
+    tokens = [AtallaSToken]
     isa = isa
 
 def make_nop(mnemonic, opcode):
     syntax = Syntax([mnemonic])
-    tokens = [AtallaNOPToken]
+    tokens = [AtallaSToken]
     patterns = {
         "opcode": opcode
     }
@@ -232,11 +235,8 @@ def make_nop(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
-class AtallaJInstruction(Instruction):
-    tokens = [AtallaJToken]
-    isa = isa
 
-class Bl(AtallaJInstruction):
+class Bl(AtallaBRInstruction):
     target = Operand("target", str)
     rd = Operand("rd", AtallaRegister, write=True)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
@@ -250,7 +250,7 @@ class Bl(AtallaJInstruction):
     def relocations(self):
         return [BImm20Relocation(self.target)]
 
-class Blr(AtallaJInstruction):
+class Blr(AtallaBRInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     offset = Operand("offset", int)
@@ -265,6 +265,7 @@ class Blr(AtallaJInstruction):
         return tokens[0].encode()
 
 Halt = make_nop("halt", 0b1111111)
+Nop = make_nop("nop", 0x00000000)
 
 def dcd(v):
     if type(v) is int:
@@ -306,12 +307,40 @@ class Section(PseudoAtallaInstruction):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
 
+class Adrl(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    imm12 = Operand("imm12", str)
+    syntax = Syntax(["addi_s", " ", rd, ",", " ", rs1, ",", " ", imm12])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][57:64] = 0b0010010
+        tokens[0][49:57] = self.rd.num
+        tokens[0][0:41] = 0
+        tokens[0][41:49] = self.rs1.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [Abs32Imm12Relocation(self.imm12)]
+
+class Labelrel(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    label = Operand("label", str)
+    syntax = Syntax(["lw_s", " ", rd, ",", " ", label])
+
+    def render(self):
+        raise NotImplementedError("label bs")
+        yield Adrurel(self.rd, self.label)
+        yield Loadlrel(self.rd, self.label, self.rd)
+
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
 @isa.pattern("stm", "MOVI32(reg)", size=2)
 @isa.pattern("stm", "MOVU32(reg)", size=2)
-@isa.pattern("stm", "MOVF32(reg)", size=10)
-@isa.pattern("stm", "MOVF64(reg)", size=10)
+# @isa.pattern("stm", "MOVF32(reg)", size=10)
+# @isa.pattern("stm", "MOVF64(reg)", size=10)
+@isa.pattern("stm", "MOVF16(reg)", size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -338,7 +367,7 @@ def pattern_movb(context, tree, c0, c1):
     src = c1
     tmp = context.new_reg(AtallaRegister)
     size = tree.value
-    for instruction in context.arch.gen_riscv_memcpy(dst, src, tmp, size):
+    for instruction in context.arch.gen_Atalla_memcpy(dst, src, tmp, size):
         context.emit(instruction)
 
 
@@ -346,8 +375,9 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern("reg", "REGI16", size=0)
 @isa.pattern("reg", "REGI8", size=0)
 @isa.pattern("reg", "REGU32", size=0)
-@isa.pattern("reg", "REGF32", size=10)
-@isa.pattern("reg", "REGF64", size=10)
+# @isa.pattern("reg", "REGF32", size=10)
+# @isa.pattern("reg", "REGF64", size=10)
+@isa.pattern("reg", "REGF16", size=0)
 @isa.pattern("reg", "REGU16", size=0)
 @isa.pattern("reg", "REGU8", size=0)
 def pattern_reg(context, tree):
@@ -362,8 +392,8 @@ def pattern_reg(context, tree):
 @isa.pattern("reg", "U16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0)
-@isa.pattern("reg", "F32TOF64(reg)", size=10)
-@isa.pattern("reg", "F64TOF32(reg)", size=10)
+# @isa.pattern("reg", "F32TOF64(reg)", size=10)
+# @isa.pattern("reg", "F64TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -450,13 +480,18 @@ def pattern_const_i32(context, tree):
     return d
 
 
-@isa.pattern("reg", "CONSTF32", size=10)
-@isa.pattern("reg", "CONSTF64", size=10)
-def pattern_const_f32(context, tree):
-    float_const = struct.pack("f", tree.value)
-    (c0,) = struct.unpack("i", float_const)
+# @isa.pattern("reg", "CONSTF32", size=10)
+# @isa.pattern("reg", "CONSTF64", size=10)
+@isa.pattern("reg", "CONSTF16", size=10)
+def pattern_const_f16(context, tree):
+    # Convert Python float to IEEE-754 binary16 bits
+    bits16 = _f32_to_f16_bits(float(tree.value))  # returns an int 0–65535
+
     d = context.new_reg(AtallaRegister)
-    context.emit(Lis(d, c0))
+
+    # Emit the *16-bit* immediate, not a 32-bit float
+    context.emit(Lis(d, bits16))
+
     return d
 
 # TODO: do branch pseudos
@@ -564,24 +599,25 @@ def pattern_sub_i32(context, tree, c0, c1):
     context.emit(Subs(d, c0, c1))
     return d
 
+'''
 # TODO: wtf is this
-# @isa.pattern("reg", "LABEL", size=6)
-# def pattern_label1(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Ands(d, ln))
-#     context.emit(Adrl(d, d, ln))
-#     context.emit(Lw(d, 0, d))
-#     return d
+@isa.pattern("reg", "LABEL", size=6)
+def pattern_label1(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Ands(d, ln))
+    context.emit(Adrl(d, d, ln))
+    context.emit(Lws(d, 0, d))
+    return d
 
 
-# @isa.pattern("reg", "LABEL", size=4)
-# def pattern_label2(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     ln = context.frame.add_constant(tree.value)
-#     context.emit(Labelrel(d, ln))
-#     return d
-
+@isa.pattern("reg", "LABEL", size=4)
+def pattern_label2(context, tree):
+    d = context.new_reg(AtallaRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Labelrel(d, ln))
+    return d
+'''
 
 @isa.pattern(
     "reg",
@@ -617,8 +653,9 @@ def pattern_mem_reg(context, tree, c0):
 
 @isa.pattern("stm", "STRU32(mem, reg)", size=2)
 @isa.pattern("stm", "STRI32(mem, reg)", size=2)
-@isa.pattern("stm", "STRF32(mem, reg)", size=10)
-@isa.pattern("stm", "STRF64(mem, reg)", size=10)
+# @isa.pattern("stm", "STRF32(mem, reg)", size=10)
+# @isa.pattern("stm", "STRF64(mem, reg)", size=10)
+@isa.pattern("stm", "STRF16(mem, reg)", size=10)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sws(c1, offset, base_reg)
@@ -628,8 +665,9 @@ def pattern_sw32(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRU32(reg, reg)", size=2)
 @isa.pattern("stm", "STRI32(reg, reg)", size=2)
-@isa.pattern("stm", "STRF32(reg, reg)", size=10)
-@isa.pattern("stm", "STRF64(reg, reg)", size=10)
+# @isa.pattern("stm", "STRF32(reg, reg)", size=10)
+# @isa.pattern("stm", "STRF64(reg, reg)", size=10)
+@isa.pattern("stm", "STRF16(reg, reg)", size=10)
 def pattern_sw32_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sws(c1, 0, base_reg)
@@ -710,8 +748,9 @@ def pattern_sw32_reg(context, tree, c0, c1):
 
 @isa.pattern("reg", "LDRU32(mem)", size=2)
 @isa.pattern("reg", "LDRI32(mem)", size=2)
-@isa.pattern("reg", "LDRF32(mem)", size=10)
-@isa.pattern("reg", "LDRF64(mem)", size=10)
+# @isa.pattern("reg", "LDRF32(mem)", size=10)
+# @isa.pattern("reg", "LDRF64(mem)", size=10)
+@isa.pattern("reg", "LDRF16(mem)", size=10)
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg, offset = c0
@@ -723,8 +762,9 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @isa.pattern("reg", "LDRU32(reg)", size=2)
 @isa.pattern("reg", "LDRI32(reg)", size=2)
-@isa.pattern("reg", "LDRF32(reg)", size=10)
-@isa.pattern("reg", "LDRF64(reg)", size=10)
+# @isa.pattern("reg", "LDRF32(reg)", size=10)
+# @isa.pattern("reg", "LDRF64(reg)", size=10)
+@isa.pattern("reg", "LDRF16(reg)", size=10)
 def pattern_ldr32_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg = c0
@@ -1113,6 +1153,95 @@ def pattern_xor_i32_const_reg(context, tree, c0):
 #     call_internal2(context, Bop, c0, c1, clobbers=context.arch.caller_save)
 #     context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
 #     context.emit(jmp_ins)
+
+
+@isa.pattern("reg", "ADDF16(reg, reg)", size=20)
+def pattern_add_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_add", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "SUBF16(reg, reg)", size=20)
+def pattern_sub_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_sub", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "MULF16(reg, reg)", size=20)
+def pattern_mul_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_mul", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "DIVF16(reg, reg)", size=20)
+def pattern_div_f16(context, tree, c0, c1):
+    return call_internal2(
+        context, "float16_div", c0, c1, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "NEGF16(reg)", size=20)
+def pattern_neg_f16(context, tree, c0):
+    return call_internal1(
+        context, "float16_neg", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "F16TOI32(reg)", size=20)
+def pattern_ftoi_f16_i32(context, tree, c0):
+    return call_internal1(
+        context, "float16_to_int32", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("reg", "I32TOF16(reg)", size=20)
+def pattern_itof_i32_f16(context, tree, c0):
+    return call_internal1(
+        context, "int32_to_float16", c0, clobbers=context.arch.caller_save
+    )
+
+
+@isa.pattern("stm", "CJMPF16(reg, reg)", size=20)
+def pattern_cjmpf16(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<":  "float16_lt",
+        ">":  "float16_gt",
+        "==": "float16_eq",
+        "!=": "float16_ne",
+        ">=": "float16_ge",
+        "<=": "float16_le",
+    }
+    bop = opnames[op]
+    jmp_ins = Beqs(R0, R0, no_label.name, jumps=[no_label])
+    call_internal2(context, bop, c0, c1, clobbers=context.arch.caller_save)
+    context.emit(Bnes(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+def call_internal2(context, name, a, b, clobbers=()):
+    d = context.new_reg(AtallaRegister)
+    context.move(R12, a)
+    context.move(R13, b)
+    context.emit(RegisterUseDef(uses=(R12, R13)))
+    context.emit(Global(name))
+    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(d, R10)
+    return d
+
+
+def call_internal1(context, name, a, clobbers=()):
+    d = context.new_reg(AtallaRegister)
+    context.move(R12, a)
+    context.emit(RegisterUseDef(uses=(R12,)))
+    context.emit(Global(name))
+    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(d, R10)
+    return d
 
 
 def round_up(s):

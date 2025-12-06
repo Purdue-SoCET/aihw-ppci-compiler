@@ -381,6 +381,7 @@ wfm = {
     ArgType.TABLEIDX: lambda writer, arg: writer.write_ref(arg),
     ArgType.I32: lambda writer, arg: writer.write_vs32(arg),
     ArgType.I64: lambda writer, arg: writer.write_vs64(arg),
-    ArgType.F32: lambda writer, arg: writer.write_f32(arg),
-    ArgType.F64: lambda writer, arg: writer.write_f64(arg),
+    ArgType.F16: lambda writer, arg: writer.write_f16(arg),
+    # ArgType.F32: lambda writer, arg: writer.write_f32(arg),
+    # ArgType.F64: lambda writer, arg: writer.write_f64(arg),
 }

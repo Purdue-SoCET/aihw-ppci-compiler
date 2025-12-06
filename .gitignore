@@ -4,8 +4,10 @@ vppci.py
 __pycache__/
 *.profile
 .cache
-
+*.s
+*.png
 dist
 build/
-.vscode/
 sample.c
+.vscode/
+venv/

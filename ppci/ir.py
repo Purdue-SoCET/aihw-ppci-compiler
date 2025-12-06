@@ -97,6 +97,9 @@ class UnsignedIntegerTyp(IntegerTyp):
 class FloatingPointTyp(BasicTyp):
     pass
 
+class VectorTyp(BasicTyp):
+    pass
+
 
 class BlobDataTyp(Typ):
     """The type of a opaque data blob.
@@ -138,6 +141,7 @@ class BlobDataTyp(Typ):
 # The builtin types:
 f64 = FloatingPointTyp("f64", 64)  #: 64-bit floating point type
 f32 = FloatingPointTyp("f32", 32)  #: 32-bit floating point type
+f16 = FloatingPointTyp("f16", 16)  #: 16-bit floating point type
 i64 = SignedIntegerTyp("i64", 64)  #: Signed 64-bit type
 i32 = SignedIntegerTyp("i32", 32)  #: Signed 32-bit type
 i16 = SignedIntegerTyp("i16", 16)  #: Signed 16-bit type
@@ -147,8 +151,9 @@ u32 = UnsignedIntegerTyp("u32", 32)  #: Unsigned 32-bit type
 u16 = UnsignedIntegerTyp("u16", 16)  #: Unsigned 16-bit type
 u8 = UnsignedIntegerTyp("u8", 8)  #: Unsigned 8-bit type
 ptr = PointerTyp("ptr")  #: Pointer type
+vec = VectorTyp("vec", 32*16)  #: Vector type
 
-value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
+value_types = [vec, f16, f32, f64, i64, i32, i16, i8, u64, u32, u16, u8]
 all_types = value_types + [ptr]
 type_name_map = {t.name.lower(): t for t in value_types}
 
@@ -1375,12 +1380,10 @@ class JumpTable(JumpBase):
     def __str__(self):
         return f"jmp_table {self.v.name}"
 
-class Theta(Instruction):
+class Gemm(Instruction):
     def __init__(self, argr, arg1, arg2):
         super().__init__()
-        self.arg1 = arg1
-        self.arg2 = arg2
-        self.argr = argr
+        self.value = [argr, arg1, arg2]
 
     def __str__(self):
-        return f"theta {self.argr}, {self.arg1}, {self.arg2}"
+        return f"gemm {self.value[0]}, {self.value[1]}, {self.value[2]}"

@@ -25,12 +25,8 @@ class Unreachable(RuntimeError):
     pass
 
 
-def f32_sqrt(v: ir.f32) -> ir.f32:
-    """Square root"""
-    return math.sqrt(v)
-
-
-def f64_sqrt(v: ir.f64) -> ir.f64:
+def f16_sqrt(v: ir.f16) -> ir.f16:
+    """Square root (half precision semantics approximated by Python float)"""
     return math.sqrt(v)
 
 
@@ -79,57 +75,29 @@ def i64_popcnt(v: ir.i64) -> ir.i64:
     return popcnt(v, 64)
 
 
-# Conversions:
-def i32_trunc_f32_s(value: ir.f32) -> ir.i32:
+# Conversions: trunc from f16 to integers
+def i32_trunc_f16_s(value: ir.f16) -> ir.i32:
     if math.isinf(value):
         return 0  # undefined
     else:
         return int(value)
 
 
-def i32_trunc_f32_u(value: ir.f32) -> ir.i32:
+def i32_trunc_f16_u(value: ir.f16) -> ir.i32:
     if math.isinf(value):
         return 0  # undefined
     else:
         return make_int(value, 32)
 
 
-def i32_trunc_f64_s(value: ir.f64) -> ir.i32:
+def i64_trunc_f16_s(value: ir.f16) -> ir.i64:
     if math.isinf(value):
         return 0  # undefined
     else:
         return int(value)
 
 
-def i32_trunc_f64_u(value: ir.f64) -> ir.i32:
-    if math.isinf(value):
-        return 0  # undefined
-    else:
-        return make_int(value, 32)
-
-
-def i64_trunc_f32_s(value: ir.f32) -> ir.i64:
-    if math.isinf(value):
-        return 0  # undefined
-    else:
-        return int(value)
-
-
-def i64_trunc_f32_u(value: ir.f32) -> ir.i64:
-    if math.isinf(value):
-        return 0  # undefined
-    else:
-        return make_int(value, 64)
-
-
-def i64_trunc_f64_s(value: ir.f64) -> ir.i64:
-    if math.isinf(value):
-        return 0  # undefined
-    else:
-        return int(value)
-
-
-def i64_trunc_f64_u(value: ir.f64) -> ir.i64:
+def i64_trunc_f16_u(value: ir.f16) -> ir.i64:
     if math.isinf(value):
         return 0  # undefined
     else:
@@ -159,19 +127,11 @@ MAX_U32 = 2**32 - 1
 MIN_U32 = 0
 
 
-def i32_trunc_sat_f32_s(v: ir.f32) -> ir.i32:
+def i32_trunc_sat_f16_s(v: ir.f16) -> ir.i32:
     return satured_truncate(v, MIN_I32, MAX_I32)
 
 
-def i32_trunc_sat_f32_u(v: ir.f32) -> ir.i32:
-    return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
-
-
-def i32_trunc_sat_f64_s(v: ir.f64) -> ir.i32:
-    return satured_truncate(v, MIN_I32, MAX_I32)
-
-
-def i32_trunc_sat_f64_u(v: ir.f64) -> ir.i32:
+def i32_trunc_sat_f16_u(v: ir.f16) -> ir.i32:
     return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
 
 
@@ -181,135 +141,124 @@ MAX_U64 = 2**64 - 1
 MIN_U64 = 0
 
 
-def i64_trunc_sat_f32_s(v: ir.f32) -> ir.i64:
+def i64_trunc_sat_f16_s(v: ir.f16) -> ir.i64:
     return satured_truncate(v, MIN_I64, MAX_I64)
 
 
-def i64_trunc_sat_f32_u(v: ir.f32) -> ir.i64:
+def i64_trunc_sat_f16_u(v: ir.f16) -> ir.i64:
     return make_int(satured_truncate(v, MIN_U64, MAX_U64), 64)
 
 
-def i64_trunc_sat_f64_s(v: ir.f64) -> ir.i64:
-    return satured_truncate(v, MIN_I64, MAX_I64)
-
-
-def i64_trunc_sat_f64_u(v: ir.f64) -> ir.i64:
-    return make_int(satured_truncate(v, MIN_U64, MAX_U64), 64)
-
-
-# Promote / demote
-
-
-def f64_promote_f32(v: ir.f32) -> ir.f64:
+# Promote / demote (for f16 only there is no larger/smaller pair here)
+def f16_promote_f16(v: ir.f16) -> ir.f16:
     return v
 
 
-def f32_demote_f64(v: ir.f64) -> ir.f32:
+def f16_demote_f16(v: ir.f16) -> ir.f16:
     return v
 
 
-def f64_reinterpret_i64(v: ir.i64) -> ir.f64:
-    x = struct.pack("<q", v)
-    return struct.unpack("<d", x)[0]
+# Reinterpret: implement half-precision (f16) <-> i16 bitcasts.
+# helper conversions between Python float and IEEE-754 binary16 bitpattern
 
 
-def i64_reinterpret_f64(v: ir.f64) -> ir.i64:
-    x = struct.pack("<d", v)
-    return struct.unpack("<q", x)[0]
+def _f32_to_f16_bits(f32):
+    # convert 32-bit float to 16-bit half float bit pattern
+    f = struct.unpack("<I", struct.pack("<f", f32))[0]
+    sign = (f >> 31) & 0x1
+    exp = (f >> 23) & 0xFF
+    mant = f & 0x7FFFFF
+
+    if exp == 255:
+        new_exp = 31
+        new_mant = 0 if mant == 0 else (mant >> 13) or 1
+    elif exp > 142:  # overflow -> inf
+        new_exp = 31
+        new_mant = 0
+    elif exp < 113:  # underflow -> subnormal or zero
+        if exp < 103:
+            new_exp = 0
+            new_mant = 0
+        else:
+            shift = 113 - exp
+            new_mant = (mant | 0x800000) >> (shift + 13)
+            new_exp = 0
+    else:
+        new_exp = exp - 112
+        new_mant = mant >> 13
+
+    h = (sign << 15) | (new_exp << 10) | (new_mant & 0x3FF)
+    return h
 
 
-def f32_reinterpret_i32(v: ir.i32) -> ir.f32:
-    x = struct.pack("<i", v)
-    return struct.unpack("<f", x)[0]
+def _f16_bits_to_float(h):
+    sign = (h >> 15) & 0x1
+    exp = (h >> 10) & 0x1F
+    mant = h & 0x3FF
+
+    if exp == 0:
+        if mant == 0:
+            return -0.0 if sign else 0.0
+        # subnormal
+        return ((-1) ** sign) * (mant / 1024.0) * 2 ** (-14)
+    elif exp == 31:
+        return float("inf") if mant == 0 else float("nan")
+    else:
+        return ((-1) ** sign) * (1 + mant / 1024.0) * 2 ** (exp - 15)
 
 
-def i32_reinterpret_f32(v: ir.f32) -> ir.i32:
-    x = struct.pack("<f", v)
-    return struct.unpack("<i", x)[0]
+def f16_reinterpret_i16(v: ir.f16) -> ir.i16:
+    # reinterpret the half-float v as signed 16-bit integer preserving bits
+    bits = _f32_to_f16_bits(float(v))
+    # convert to signed 16
+    if bits & 0x8000:
+        return bits - (1 << 16)
+    return bits
 
 
-def f32_copysign(x: ir.f32, y: ir.f32) -> ir.f32:
+def i16_reinterpret_f16(v: ir.i16) -> ir.f16:
+    bits = v & 0xFFFF
+    return _f16_bits_to_float(bits)
+
+
+def f16_copysign(x: ir.f16, y: ir.f16) -> ir.f16:
     return math.copysign(x, y)
 
 
-def f64_copysign(x: ir.f64, y: ir.f64) -> ir.f64:
-    return math.copysign(x, y)
-
-
-def f32_min(x: ir.f32, y: ir.f32) -> ir.f32:
+def f16_min(x: ir.f16, y: ir.f16) -> ir.f16:
     return min(x, y)
 
 
-def f64_min(x: ir.f64, y: ir.f64) -> ir.f64:
-    return min(x, y)
-
-
-def f32_max(x: ir.f32, y: ir.f32) -> ir.f32:
+def f16_max(x: ir.f16, y: ir.f16) -> ir.f16:
     return max(x, y)
 
 
-def f64_max(x: ir.f64, y: ir.f64) -> ir.f64:
-    return max(x, y)
-
-
-def f32_abs(x: ir.f32) -> ir.f32:
+def f16_abs(x: ir.f16) -> ir.f16:
     return math.fabs(x)
 
 
-def f64_abs(x: ir.f64) -> ir.f64:
-    return math.fabs(x)
-
-
-def f32_floor(x: ir.f32) -> ir.f32:
+def f16_floor(x: ir.f16) -> ir.f16:
     if math.isinf(x):
         return x
     else:
         return float(math.floor(x))
 
 
-def f64_floor(x: ir.f64) -> ir.f64:
-    if math.isinf(x):
-        return x
-    else:
-        return float(math.floor(x))
-
-
-def f32_ceil(x: ir.f32) -> ir.f32:
+def f16_ceil(x: ir.f16) -> ir.f16:
     if math.isinf(x):
         return x
     else:
         return float(math.ceil(x))
 
 
-def f64_ceil(x: ir.f64) -> ir.f64:
-    if math.isinf(x):
-        return x
-    else:
-        return float(math.ceil(x))
-
-
-def f32_nearest(x: ir.f32) -> ir.f32:
+def f16_nearest(x: ir.f16) -> ir.f16:
     if math.isinf(x):
         return x
     else:
         return float(round(x))
 
 
-def f64_nearest(x: ir.f64) -> ir.f64:
-    if math.isinf(x):
-        return x
-    else:
-        return float(round(x))
-
-
-def f32_trunc(x: ir.f32) -> ir.f32:
-    if math.isinf(x):
-        return x
-    else:
-        return float(math.trunc(x))
-
-
-def f64_trunc(x: ir.f64) -> ir.f64:
+def f16_trunc(x: ir.f16) -> ir.f16:
     if math.isinf(x):
         return x
     else:
@@ -350,8 +299,7 @@ def create_runtime():
     """
 
     runtime = {
-        "f32_sqrt": f32_sqrt,
-        "f64_sqrt": f64_sqrt,
+        "f16_sqrt": f16_sqrt,
         "i32_rotl": i32_rotl,
         "i64_rotl": i64_rotl,
         "i32_rotr": i32_rotr,
@@ -362,50 +310,32 @@ def create_runtime():
         "i64_ctz": i64_ctz,
         "i32_popcnt": i32_popcnt,
         "i64_popcnt": i64_popcnt,
-        "i32_trunc_f32_s": i32_trunc_f32_s,
-        "i32_trunc_f32_u": i32_trunc_f32_u,
-        "i32_trunc_f64_s": i32_trunc_f64_s,
-        "i32_trunc_f64_u": i32_trunc_f64_u,
-        "i64_trunc_f32_s": i64_trunc_f32_s,
-        "i64_trunc_f32_u": i64_trunc_f32_u,
-        "i64_trunc_f64_s": i64_trunc_f64_s,
-        "i64_trunc_f64_u": i64_trunc_f64_u,
-        "f64_promote_f32": f64_promote_f32,
-        "f32_demote_f64": f32_demote_f64,
-        "f64_reinterpret_i64": f64_reinterpret_i64,
-        "i64_reinterpret_f64": i64_reinterpret_f64,
-        "f32_reinterpret_i32": f32_reinterpret_i32,
-        "i32_reinterpret_f32": i32_reinterpret_f32,
-        "f32_copysign": f32_copysign,
-        "f64_copysign": f64_copysign,
-        "f32_min": f32_min,
-        "f32_max": f32_max,
-        "f64_min": f64_min,
-        "f64_max": f64_max,
-        "f32_abs": f32_abs,
-        "f64_abs": f64_abs,
-        "f32_floor": f32_floor,
-        "f64_floor": f64_floor,
-        "f32_nearest": f32_nearest,
-        "f64_nearest": f64_nearest,
-        "f32_ceil": f32_ceil,
-        "f64_ceil": f64_ceil,
-        "f32_trunc": f32_trunc,
-        "f64_trunc": f64_trunc,
+        "i32_trunc_f16_s": i32_trunc_f16_s,
+        "i32_trunc_f16_u": i32_trunc_f16_u,
+        "i64_trunc_f16_s": i64_trunc_f16_s,
+        "i64_trunc_f16_u": i64_trunc_f16_u,
+        "f16_promote_f16": f16_promote_f16,
+        "f16_demote_f16": f16_demote_f16,
+        "f16_reinterpret_i16": f16_reinterpret_i16,
+        "i16_reinterpret_f16": i16_reinterpret_f16,
+        "f16_copysign": f16_copysign,
+        "f16_min": f16_min,
+        "f16_max": f16_max,
+        "f16_abs": f16_abs,
+        "f16_floor": f16_floor,
+        "f16_nearest": f16_nearest,
+        "f16_ceil": f16_ceil,
+        "f16_trunc": f16_trunc,
         "unreachable": unreachable,
         "i32_extend8_s": i32_extend8_s,
         "i32_extend16_s": i32_extend16_s,
         "i64_extend8_s": i64_extend8_s,
         "i64_extend16_s": i64_extend16_s,
         "i64_extend32_s": i64_extend32_s,
-        "i32_trunc_sat_f32_s": i32_trunc_sat_f32_s,
-        "i32_trunc_sat_f32_u": i32_trunc_sat_f32_u,
-        "i32_trunc_sat_f64_s": i32_trunc_sat_f64_s,
-        "i32_trunc_sat_f64_u": i32_trunc_sat_f64_u,
-        "i64_trunc_sat_f32_s": i64_trunc_sat_f32_s,
-        "i64_trunc_sat_f32_u": i64_trunc_sat_f32_u,
-        "i64_trunc_sat_f64_s": i64_trunc_sat_f64_s,
-        "i64_trunc_sat_f64_u": i64_trunc_sat_f64_u,
+        "i32_trunc_sat_f16_s": i32_trunc_sat_f16_s,
+        "i32_trunc_sat_f16_u": i32_trunc_sat_f16_u,
+        "i64_trunc_sat_f16_s": i64_trunc_sat_f16_s,
+        "i64_trunc_sat_f16_u": i64_trunc_sat_f16_u,
     }
 
     return runtime

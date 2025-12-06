@@ -60,8 +60,47 @@ from .instructions import (
     isa,
     Align,
     Section,
-    dcd
+    dcd,
+    Nop
 )
+
+from .vector_instructions import (
+    # Vector-Vector
+    DivVv,
+    MulVv,
+    AddVv,
+    AndVv,
+    OrVv,
+    XorVv,
+    MgtVv,
+    MltVv,
+    MeqVv,
+    # Vector-Unary
+    NotVi,
+    ExpiVi,
+    SqrtiVi,
+    # Vector-Immediate
+    RsumVi,
+    RminVi,
+    RmaxVi,
+    AddiVi,
+    SubiVi,
+    MuliVi,
+    DiviVi,
+    ExpiVi,
+    SqrtiVi,
+)
+
+from .vector_registers import (
+    V0, V1, V2, V3, V4, V5, V6, V7,
+    V8, V9, V10, V11, V12, V13, V14, V15,
+    V16, V17, V18, V19, V20, V21, V22, V23,
+    V24, V25, V26, V27, V28, V29, V30, V31,
+    AtallaVectorRegister,
+    vector_registers,
+    vector_register_classes,
+)
+
 from .registers import (
     R0,
     LR,
@@ -147,7 +186,7 @@ class AtallaArch(Architecture):
         self.isa = isa + data_isa
         self.store = Sws
         self.load = Lws
-        self.regclass = register_classes_swfp
+        self.regclass = register_classes_swfp + vector_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
         # self.isa.sectinst = Section
@@ -171,11 +210,15 @@ class AtallaArch(Architecture):
                 ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
+                ir.vec: TypeInfo(64, 64),
                 # ir.f32: TypeInfo(4, 4),
                 # ir.f64: TypeInfo(4, 4),
+                ir.f16: TypeInfo(2, 2),
                 "int": ir.i32,
                 "long": ir.i32,
                 "ptr": ir.u32,
+                "vec": ir.vec,
+                "float": ir.f16,
                 ir.ptr: ir.u32,
             },
             register_classes=self.regclass,
@@ -186,6 +229,14 @@ class AtallaArch(Architecture):
         self.callee_save = tuple()
         self.caller_save = (R10, R12, R13, R14, R15, R16, R17)
 
+    def make_nop(self):
+        """
+        Return a real, encodable NOP for padding VLIW packets.
+        Using ADDI r0, r0, 0 (Addis) assumes R0 is the zero register.
+        If R0 is not hard-wired to zero in your ISA, define a true NOP opcode instead.
+        """
+        ins = Nop()
+        return ins
 
     def branch(self, reg, lab):
         if isinstance(lab, AtallaRegister):

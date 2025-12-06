@@ -733,6 +733,7 @@ class CSemantics:
     def on_float(self, value, location):
         """Process floating point literal."""
         value, type_specifiers = utils.float_num(value)
+        print(type_specifiers)
         typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 
@@ -956,6 +957,10 @@ class CSemantics:
     def on_sizeof(self, typ, location):
         """Handle sizeof contraption"""
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
+        return expr
+
+    def on_gemm(self, argr, arg1, arg2, location):
+        expr = expressions.Gemm(argr, arg1, arg2, self.int_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
@@ -1288,8 +1293,8 @@ class CSemantics:
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
     basic_ranks = {
-        types.BasicType.LONGDOUBLE: 110,
-        types.BasicType.DOUBLE: 100,
+        # types.BasicType.LONGDOUBLE: 110,
+        # types.BasicType.DOUBLE: 100,
         types.BasicType.FLOAT: 90,
         types.BasicType.ULONGLONG: 71,
         types.BasicType.LONGLONG: 70,
@@ -1303,6 +1308,7 @@ class CSemantics:
         types.BasicType.CHAR: 30,
         # TODO: is void rank-able? for now give it a low rank.
         types.BasicType.VOID: 0,
+        types.BasicType.VECTOR: 100,
     }
 
     def _get_rank(self, typ, location):
