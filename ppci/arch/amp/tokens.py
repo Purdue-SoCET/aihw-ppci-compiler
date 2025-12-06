@@ -4,7 +4,7 @@ class AtallaRToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    rd1    = bit_range(7, 15)
+    rd    = bit_range(7, 15)
     rs1    = bit_range(15, 23)
     rs2    = bit_range(23, 31)
     reserved = bit_range(31, 40)

@@ -1,3 +1,4 @@
+from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
@@ -38,10 +39,9 @@ def make_r(mnemonic, opcode):
     tokens = [AtallaRToken]
     patterns = {
         "opcode": opcode,
-        "rd1": rd,
+        "rd": rd,
         "rs1": rn,
         "rs2": rm,
-        "imm12": 0b000000000000
         # could be not zeros (should probably ask)
         # what does RESERVED mean?
         # Need schdImm?
@@ -217,7 +217,7 @@ def make_mi(mnemonic, opcode):
 
 Lis = make_mi("li_s", 0b0100001)
 
-class AtallaNOPInstruction:
+class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
     isa = isa
 
@@ -483,11 +483,15 @@ def pattern_const_i32(context, tree):
 # @isa.pattern("reg", "CONSTF32", size=10)
 # @isa.pattern("reg", "CONSTF64", size=10)
 @isa.pattern("reg", "CONSTF16", size=10)
-def pattern_const_f32(context, tree):
-    float_const = struct.pack("f", tree.value)
-    (c0,) = struct.unpack("i", float_const)
+def pattern_const_f16(context, tree):
+    # Convert Python float to IEEE-754 binary16 bits
+    bits16 = _f32_to_f16_bits(float(tree.value))  # returns an int 0–65535
+
     d = context.new_reg(AtallaRegister)
-    context.emit(Lis(d, c0))
+
+    # Emit the *16-bit* immediate, not a 32-bit float
+    context.emit(Lis(d, bits16))
+
     return d
 
 # TODO: do branch pseudos
