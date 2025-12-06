@@ -99,8 +99,8 @@ ops = [
     "U16TO",
     "U32TO",
     "U64TO",
-    # "F32TO",
-    # "F64TO",
+    "F32TO",
+    "F64TO",
     "F16TO",
     "FPREL",
     "SPREL",  # Frame/stack pointer relative

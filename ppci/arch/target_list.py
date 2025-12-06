@@ -11,16 +11,16 @@ from .microblaze import MicroBlazeArch
 from .mips import MipsArch
 from .msp430 import Msp430Arch
 from .or1k import Or1kArch
-# from .riscv import RiscvArch
-# from .stm8 import Stm8Arch
-# from .x86_64 import X86_64Arch
-# from .xtensa import XtensaArch
-# from .myriscv import MyRiscvArch
+from .riscv import RiscvArch
+from .stm8 import Stm8Arch
+from .x86_64 import X86_64Arch
+from .xtensa import XtensaArch
+from .myriscv import MyRiscvArch
 from .amp import AtallaArch
 
 target_classes = [
     AtallaArch,
-    # MyRiscvArch,
+    MyRiscvArch,
     ArmArch,
     AvrArch,
     ExampleArch,
@@ -30,10 +30,10 @@ target_classes = [
     MipsArch,
     Msp430Arch,
     Or1kArch,
-    # RiscvArch,
-    # Stm8Arch,
-    # X86_64Arch,
-    # XtensaArch,
+    RiscvArch,
+    Stm8Arch,
+    X86_64Arch,
+    XtensaArch,
 ]
 
 print(target_classes[0])

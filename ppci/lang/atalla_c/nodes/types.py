@@ -80,6 +80,10 @@ def is_struct_or_union(typ):
     """Check if the given type is either struct or union type."""
     return isinstance(typ, StructOrUnionType)
 
+def is_vector(typ):
+    """Check if the given type is a vector type."""
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.VECTOR
+
 
 # A type system:
 class CType:
@@ -176,6 +180,11 @@ class CType:
     def is_complete(self):
         """Test if this type is complete"""
         return not self.is_incomplete
+
+    @property
+    def is_vector(self):
+        """Check if this type is a vector type."""
+        return is_vector(self)
 
     def pointer_to(self):
         """Create a new pointer type to this type."""
@@ -386,9 +395,10 @@ class BasicType(CType):
     LONGLONG = "long long"
     ULONGLONG = "unsigned long long"
     FLOAT = "float"
-    DOUBLE = "double"
-    LONGDOUBLE = "long double"
+    # DOUBLE = "double"
+    # LONGDOUBLE = "long double"
     VA_LIST = "__builtin_va_list"
+    VECTOR = "vec"
 
     SIGNED_INTEGER_TYPES = {CHAR, SHORT, INT, LONG, LONGLONG}
 
@@ -398,9 +408,11 @@ class BasicType(CType):
 
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 
-    FLOAT_TYPES = {FLOAT, DOUBLE, LONGDOUBLE}
+    FLOAT_TYPES = {FLOAT}  # , DOUBLE, LONGDOUBLE}
 
     NUMERIC_TYPES = INTEGER_TYPES | FLOAT_TYPES
+
+    VECTOR_TYPES = {VECTOR}
 
     __slots__ = ("type_id",)
 

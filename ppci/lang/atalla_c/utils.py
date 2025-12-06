@@ -105,7 +105,7 @@ def float_num(txt: str):
     num = txt.lower()
 
     # Floating point
-    type_specifiers = ["double"]
+    type_specifiers = ["float"]
     return float(num), type_specifiers
 
 

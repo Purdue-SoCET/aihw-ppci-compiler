@@ -65,11 +65,12 @@ class CParser(RecursiveDescentParser):
             "char",
             "int",
             "float",
-            "double",
-            "short",
-            "long",
+            # "double",
+            # "short",
+            # "long",
             "signed",
             "unsigned",
+            "vec",
             "__builtin_va_list",
         }
 
@@ -89,6 +90,7 @@ class CParser(RecursiveDescentParser):
             "break",
             "continue",
             "sizeof",
+            "gemm",
             "struct",
             "union",
             "enum",
@@ -824,9 +826,11 @@ class CParser(RecursiveDescentParser):
         if self.peek in m:
             statement = m[self.peek]()
         elif self.peek == "ID" and self.look_ahead(1).val == ":":
+            print("Parsing ID")
             statement = self.parse_label()
         else:
             # Expression statement!
+            print("Parsing expression statement")
             expression = self.parse_expression()
             statement = self.semantics.on_expression_statement(expression)
             self.consume(";")
@@ -1167,6 +1171,16 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
+        elif self.peek == "gemm":
+            location = self.consume("gemm").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            expr = self.semantics.on_gemm(args[0], args[1], args[2], location)
+            self.consume(")")
         elif self.peek == "(":
             loc = self.consume("(").loc
             # Is this a type cast?

@@ -31,6 +31,9 @@ class CContext:
         long_size = self.arch_info.get_size("long")
         long_alignment = self.arch_info.get_alignment("long")
 
+        vec_size = self.arch_info.get_size("vec")
+        vec_alignment = self.arch_info.get_alignment("vec")
+
         # C requires sizeof(int) <= sizeof(long):
         long_size = max(int_size, long_size)
         long_alignment = max(int_alignment, long_alignment)
@@ -38,8 +41,8 @@ class CContext:
         longlong_alignment = max(int_alignment, 8)
 
         ptr_size = self.arch_info.get_size("ptr")
-        double_size = self.arch_info.get_size(ir.f64)
-        double_alignment = self.arch_info.get_alignment(ir.f64)
+        # double_size = self.arch_info.get_size(ir.f64)
+        # double_alignment = self.arch_info.get_alignment(ir.f64)
         self.type_size_map = {
             BasicType.CHAR: (1, 1),
             BasicType.UCHAR: (1, 1),
@@ -51,9 +54,10 @@ class CContext:
             BasicType.ULONG: (long_size, long_alignment),
             BasicType.LONGLONG: (longlong_size, longlong_alignment),
             BasicType.ULONGLONG: (longlong_size, longlong_alignment),
-            BasicType.FLOAT: (4, 4),
-            BasicType.DOUBLE: (double_size, double_alignment),
-            BasicType.LONGDOUBLE: (10, 10),
+            BasicType.VECTOR: (vec_size, vec_alignment),
+            BasicType.FLOAT: (2, 2),
+            # BasicType.DOUBLE: (double_size, double_alignment),
+            # BasicType.LONGDOUBLE: (10, 10),
             BasicType.VA_LIST: (ptr_size, ptr_size),
         }
 
@@ -64,10 +68,10 @@ class CContext:
         else:
             byte_order = ">"
 
-        if double_size == 4:
-            ftype = "f"
-        else:
-            ftype = "d"
+        # if double_size == 4:
+        #     ftype = "f"
+        # else:
+            # ftype = "d"
 
         ctypes = {
             BasicType.CHAR: "b",
@@ -81,8 +85,8 @@ class CContext:
             BasicType.ULONG: int_map[long_size].upper(),
             BasicType.LONGLONG: "q",
             BasicType.ULONGLONG: "Q",
-            BasicType.FLOAT: "f",
-            BasicType.DOUBLE: ftype,
+            # BasicType.FLOAT: "f",
+            # BasicType.DOUBLE: ftype,
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
@@ -113,6 +117,7 @@ class CContext:
                 array_size = self.eval_expr(typ.size)
             size = element_size * array_size
         elif isinstance(typ, types.BasicType):
+            print(self.type_size_map)
             size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.is_complete:
@@ -135,6 +140,9 @@ class CContext:
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return size
+
+    def gemm(self, arg1, arg2):
+        return
 
     def alignment(self, typ: types.CType):
         """Given a type, determine its alignment in bytes"""

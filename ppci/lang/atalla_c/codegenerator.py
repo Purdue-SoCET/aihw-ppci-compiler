@@ -52,10 +52,12 @@ class CCodeGenerator:
             BasicType.ULONG: (uint_types[long_size], long_size),
             BasicType.LONGLONG: (ir.i64, 8),
             BasicType.ULONGLONG: (ir.u64, 8),
-            BasicType.FLOAT: (ir.f32, 4),
-            BasicType.DOUBLE: (ir.f64, 8),
-            BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
+            BasicType.FLOAT: (ir.f16, 4),
+            # BasicType.FLOAT: (ir.f32, 4), --- IGNORE ---
+            # BasicType.DOUBLE: (ir.f64, 8),
+            # BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
+            BasicType.VECTOR: (ir.vec, 64),
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 
@@ -1013,6 +1015,8 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
+            elif isinstance(expr, expressions.Gemm):
+                value = self.gen_gemm(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1527,6 +1531,14 @@ class CCodeGenerator:
 
         # Calculate address:
         return self.builder.emit_add(base, offset, ir.ptr)
+
+    def gen_gemm(self, expr: expressions.Gemm):
+        arg1 = self.gen_expr(expr.arg1)
+        arg2 = self.gen_expr(expr.arg2)
+        argr = self.gen_expr(expr.argr)
+        value = self.builder.emit(ir.Gemm(argr, arg1, arg2))
+        return value
+
 
     def gen_builtin(self, expr: expressions.BuiltIn):
         """Generate appropriate built-in functionality"""
