@@ -366,7 +366,7 @@ class InstructionSelector1:
             ir_function, function_info, frame.debug_db
         )
         print(f"\n===== Selection DAG for function {ir_function.name} =====")
-        print_dag(sgraph)  # <-- prints the whole DAG grouped by basic block
+        # print_dag(sgraph)  # <-- prints the whole DAG grouped by basic block
 
         # bucket nodes by depth (per basic block) and attach to sgraph
         sgraph.levels_by_block = group_nodes_by_depth(sgraph)

@@ -23,7 +23,7 @@ class AtallaIToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    rd1    = bit_range(7, 15)
+    rd    = bit_range(7, 15)
     rs1    = bit_range(15, 23)
     imm12  = bit_range(23, 35)
     reserved = bit_range(35, 40)
@@ -32,7 +32,7 @@ class AtallaMToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    rd1    = bit_range(7, 15)
+    rd    = bit_range(7, 15)
     rs1    = bit_range(15, 23)
     imm12  = bit_range(23, 35)
     reserved = bit_range(35, 40)
@@ -40,7 +40,7 @@ class AtallaMIToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    rd1    = bit_range(7, 15)
+    rd    = bit_range(7, 15)
     imm25  = bit_range(15, 40)
 
 class AtallaSToken(Token):

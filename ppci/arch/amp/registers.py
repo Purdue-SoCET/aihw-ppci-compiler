@@ -11,6 +11,11 @@ class AtallaRegister(Register):
         else:
             return self.name
 
+    def from_num(cls, num):
+        """Retrieve the singleton instance of the given
+        register number."""
+        return num2regmap[num]
+
 class AtallaProgramCounterRegister(Register):
     bitsize = 32
 

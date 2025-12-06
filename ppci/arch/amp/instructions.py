@@ -4,7 +4,7 @@ from .tokens import *
 from .registers import (
     AtallaRegister,
     R0,
-    R13, R12, R10, R11, R9, R7, R6, R5, R4, R3,
+    R13, R12, R10, R11, R9, R7, R6, R5, R4, R3, LR,
     FP,
 )
 from ..generic_instructions import (
@@ -197,18 +197,18 @@ class AtallaMIInstruction(Instruction):
 
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
-    imm = Operand("imm", int)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm])
+    imm25 = Operand("imm25", int)
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm25])
     tokens = [AtallaMIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm": imm
+        "imm25": imm25
     }
     members = {
         "syntax": syntax,
         "rd": rd,
-        "imm": imm,
+        "imm25": imm25,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
@@ -1212,9 +1212,9 @@ def pattern_cjmpf16(context, tree, c0, c1):
         "<=": "float16_le",
     }
     bop = opnames[op]
-    jmp_ins = B(no_label.name, jumps=[no_label])
+    jmp_ins = Beqs(R0, R0, no_label.name, jumps=[no_label])
     call_internal2(context, bop, c0, c1, clobbers=context.arch.caller_save)
-    context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(Bnes(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
 
 def call_internal2(context, name, a, b, clobbers=()):
