@@ -52,7 +52,7 @@ class CCodeGenerator:
             BasicType.ULONG: (uint_types[long_size], long_size),
             BasicType.LONGLONG: (ir.i64, 8),
             BasicType.ULONGLONG: (ir.u64, 8),
-            BasicType.FLOAT: (ir.f16, 2),
+            BasicType.FLOAT: (ir.bf16, 2),
 
             ## Float types removed from C standard
             # BasicType.FLOAT: (ir.f32, 4),

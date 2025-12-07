@@ -557,7 +557,7 @@ class WasmToIrCompiler:
         "i64": ir.i64,
         # "f32": ir.f32,
         # "f64": ir.f64,
-        "f16": ir.f16,
+        "bf16": ir.bf16,
         "externref": ir.ptr,
         "funcref": ir.ptr,
     }

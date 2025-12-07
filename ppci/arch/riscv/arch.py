@@ -31,7 +31,7 @@ from .registers import (
     F13,
     F14,
     F15,
-    F16,
+    bf16,
     F17,
     FP,
     LR,
@@ -346,7 +346,7 @@ class RiscvArch(Architecture):
         """
         locations = []
         regs = [R12, R13, R14, R15, R16, R17]
-        fregs = [F12, F13, F14, F15, F16, F17]
+        fregs = [F12, F13, F14, F15, bf16, F17]
 
         offset = 0
         for a in arg_types:

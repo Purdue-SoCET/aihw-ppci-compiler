@@ -10,7 +10,7 @@ class ArgType(enum.Enum):
     U32 = 4
     I32 = 10
     I64 = 11
-    F16 = 12
+    bf16 = 12
     VEC = 13
     # F32 = 12
     # F64 = 13
@@ -183,7 +183,7 @@ instruction_table = [
     #     ("f64",),
     #     lambda i, v: (i.args[0],),
     # ),
-    ("f16.const", 0x43, (ArgType.F16,), (), ("f16",), lambda i, v: (i.args[0],)),
+    ("bf16.const", 0x43, (ArgType.bf16,), (), ("bf16",), lambda i, v: (i.args[0],)),
     ("i32.eqz", 0x45),
     ("i32.eq", 0x46),
     ("i32.ne", 0x47),

@@ -28,7 +28,7 @@ from ..codegen.irdag import (
 from ..graph import relooper
 from . import components
 from .arch import (
-    F16Register,
+    BF16Register,
     I32Register,
     I64Register,
     WasmArchitecture,
@@ -461,11 +461,11 @@ class IrToWasmCompiler:
         "MULU64": "i64.mul",
         "DIVU64": "i64.div_u",
         "REMU64": "i64.rem_u",
-        # f16 (only)
-        "ADDF16": "f16.add",
-        "SUBF16": "f16.sub",
-        "MULF16": "f16.mul",
-        "DIVF16": "f16.div",
+        # bf16 (only)
+        "ADDBF16": "bf16.add",
+        "SUBBF16": "bf16.sub",
+        "MULBF16": "bf16.mul",
+        "DIVBF16": "bf16.div",
     }
 
     cmp_ops = {
@@ -486,7 +486,7 @@ class IrToWasmCompiler:
         "STRU32": "i64.store32",  # TODO
         "STRI64": "i64.store",
         "STRU64": "i64.store",  # Dubious, is this correct?
-        "STRF16": "f16.store",
+        "STRBF16": "bf16.store",
     }
 
     load_opcodes = {
@@ -498,7 +498,7 @@ class IrToWasmCompiler:
         "LDRU32": "i64.load32_u",
         "LDRI64": "i64.load",
         "LDRU64": "i64.load",
-        "LDRF16": "f16.load",
+        "LDRBF16": "bf16.load",
     }
 
     const_opcodes = {
@@ -510,7 +510,7 @@ class IrToWasmCompiler:
         "CONSTU32": "i64.const",
         "CONSTI64": "i64.const",
         "CONSTU64": "i64.const",
-        "CONSTF16": "f16.const",
+        "CONSTBF16": "bf16.const",
     }
 
     cast_operators = {
@@ -541,17 +541,17 @@ class IrToWasmCompiler:
     }
 
     cast_operators2 = {
-    # float to int (f16 variants)
-    "F16TOI32": ["f16.nearest", "i32.trunc_f16_s"],
-    "F16TOU32": ["f16.nearest", "i64.trunc_f16_u"],
-    "F16TOI64": ["f16.nearest", "i64.trunc_f16_s"],
-    "F16TOU64": ["f16.nearest", "i64.trunc_f16_u"],
-    # int to float (to f16)
-    "U64TOF16": ["f16.convert_i64_u"],
-    "I64TOF16": ["f16.convert_i64_s"],
-    "U32TOF16": ["f16.convert_i64_u"],
-    "I32TOF16": ["f16.convert_i32_s"],
-    # float to float (promote/demote not relevant for single f16)
+    # float to int (bf16 variants)
+    "BF16TOI32": ["bf16.nearest", "i32.trunc_f16_s"],
+    "BF16TOU32": ["bf16.nearest", "i64.trunc_f16_u"],
+    "BF16TOI64": ["bf16.nearest", "i64.trunc_f16_s"],
+    "BF16TOU64": ["bf16.nearest", "i64.trunc_f16_u"],
+    # int to float (to bf16)
+    "U64TOBF16": ["bf16.convert_i64_u"],
+    "I64TOBF16": ["bf16.convert_i64_s"],
+    "U32TOBF16": ["bf16.convert_i64_u"],
+    "I32TOBF16": ["bf16.convert_i32_s"],
+    # float to float (promote/demote not relevant for single bf16)
         # 32 -- 64
         "I32TOI64": ["i64.extend_i32_s"],
         "I32TOU64": ["i64.extend_i32_u"],
@@ -582,7 +582,7 @@ class IrToWasmCompiler:
         "REGU32",
         "REGI64",
         "REGU64",
-        "REGF16",
+        "REGBF16",
     }
 
     mov_operators = {
@@ -594,7 +594,7 @@ class IrToWasmCompiler:
         "MOVU32",
         "MOVI64",
         "MOVU64",
-        "MOVF16",
+        "MOVBF16",
     }
 
     cmp_operators = {
@@ -606,7 +606,7 @@ class IrToWasmCompiler:
         "CJMPU32": ir.u32,
         "CJMPI64": ir.i64,
         "CJMPU64": ir.u64,
-        "CJMPF16": ir.f16,
+        "CJMPBF16": ir.bf16,
     }
 
     def do_tree(self, tree):
@@ -633,9 +633,9 @@ class IrToWasmCompiler:
             self.emit("i64.const", 0)
             self.do_tree(tree[0])
             self.emit("i64.sub")
-        elif tree.name == "NEGF16":
+        elif tree.name == "NEGBF16":
             self.do_tree(tree[0])
-            self.emit("f16.neg")
+            self.emit("bf16.neg")
         elif tree.name in ["FPRELI32"]:
             addr = tree.value.offset
             self.emit("global.get", self.sp_ref)  # Fetch stack pointer
@@ -735,7 +735,7 @@ class IrToWasmCompiler:
             ir.u32: "i64",  # TODO: Should u32 map to i64?
             ir.i64: "i64",
             ir.u64: "i64",
-            ir.f16: "f16",
+            ir.bf16: "bf16",
             ir.ptr: "i32",  # TODO: for now assume we use 32 bit pointers.
         }
         return ty_map[ir_ty]
@@ -749,7 +749,7 @@ class IrToWasmCompiler:
             ty_map = {
                 I32Register: "i32",
                 I64Register: "i64",
-                F16Register: "f16",
+                BF16Register: "bf16",
             }
             wasm_ty = ty_map[type(value)]
             self.local_vars.append(wasm_ty)

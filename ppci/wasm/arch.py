@@ -23,7 +23,7 @@ class I64Register(Register):
 # class F64Register(Register):
 #     bitsize = 64
 
-class F16Register(Register):
+class BF16Register(Register):
     bitsize = 16
 
 
@@ -38,7 +38,7 @@ register_classes = [
     RegisterClass("i64", [ir.u32, ir.i64, ir.u64], I64Register, None),
     # RegisterClass("f32", [ir.f32], F32Register, None),
     # RegisterClass("f64", [ir.f64], F64Register, None),
-    RegisterClass("f16", [ir.f16], F16Register, None),
+    RegisterClass("bf16", [ir.bf16], BF16Register, None),
 ]
 
 

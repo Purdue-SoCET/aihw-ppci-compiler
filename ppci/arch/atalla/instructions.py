@@ -340,7 +340,7 @@ class Labelrel(PseudoAtallaInstruction):
 @isa.pattern("stm", "MOVU32(reg)", size=2)
 # @isa.pattern("stm", "MOVF32(reg)", size=10)
 # @isa.pattern("stm", "MOVF64(reg)", size=10)
-@isa.pattern("stm", "MOVF16(reg)", size=2)
+@isa.pattern("stm", "MOVBF16(reg)", size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -377,7 +377,7 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern("reg", "REGU32", size=0)
 # @isa.pattern("reg", "REGF32", size=10)
 # @isa.pattern("reg", "REGF64", size=10)
-@isa.pattern("reg", "REGF16", size=0)
+@isa.pattern("reg", "REGBF16", size=0)
 @isa.pattern("reg", "REGU16", size=0)
 @isa.pattern("reg", "REGU8", size=0)
 def pattern_reg(context, tree):
@@ -482,7 +482,7 @@ def pattern_const_i32(context, tree):
 
 # @isa.pattern("reg", "CONSTF32", size=10)
 # @isa.pattern("reg", "CONSTF64", size=10)
-@isa.pattern("reg", "CONSTF16", size=10)
+@isa.pattern("reg", "CONSTBF16", size=10)
 def pattern_const_f16(context, tree):
     # Convert Python float to IEEE-754 binary16 bits
     bits16 = _f32_to_f16_bits(float(tree.value))  # returns an int 0–65535
@@ -655,7 +655,7 @@ def pattern_mem_reg(context, tree, c0):
 @isa.pattern("stm", "STRI32(mem, reg)", size=2)
 # @isa.pattern("stm", "STRF32(mem, reg)", size=10)
 # @isa.pattern("stm", "STRF64(mem, reg)", size=10)
-@isa.pattern("stm", "STRF16(mem, reg)", size=10)
+@isa.pattern("stm", "STRBF16(mem, reg)", size=10)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sws(c1, offset, base_reg)
@@ -667,7 +667,7 @@ def pattern_sw32(context, tree, c0, c1):
 @isa.pattern("stm", "STRI32(reg, reg)", size=2)
 # @isa.pattern("stm", "STRF32(reg, reg)", size=10)
 # @isa.pattern("stm", "STRF64(reg, reg)", size=10)
-@isa.pattern("stm", "STRF16(reg, reg)", size=10)
+@isa.pattern("stm", "STRBF16(reg, reg)", size=10)
 def pattern_sw32_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sws(c1, 0, base_reg)
@@ -750,7 +750,7 @@ def pattern_sw32_reg(context, tree, c0, c1):
 @isa.pattern("reg", "LDRI32(mem)", size=2)
 # @isa.pattern("reg", "LDRF32(mem)", size=10)
 # @isa.pattern("reg", "LDRF64(mem)", size=10)
-@isa.pattern("reg", "LDRF16(mem)", size=10)
+@isa.pattern("reg", "LDRBF16(mem)", size=10)
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg, offset = c0
@@ -764,7 +764,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 @isa.pattern("reg", "LDRI32(reg)", size=2)
 # @isa.pattern("reg", "LDRF32(reg)", size=10)
 # @isa.pattern("reg", "LDRF64(reg)", size=10)
-@isa.pattern("reg", "LDRF16(reg)", size=10)
+@isa.pattern("reg", "LDRBF16(reg)", size=10)
 def pattern_ldr32_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     base_reg = c0
@@ -1155,56 +1155,56 @@ def pattern_xor_i32_const_reg(context, tree, c0):
 #     context.emit(jmp_ins)
 
 
-@isa.pattern("reg", "ADDF16(reg, reg)", size=20)
+@isa.pattern("reg", "ADDBF16(reg, reg)", size=20)
 def pattern_add_f16(context, tree, c0, c1):
     return call_internal2(
         context, "float16_add", c0, c1, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "SUBF16(reg, reg)", size=20)
+@isa.pattern("reg", "SUBBF16(reg, reg)", size=20)
 def pattern_sub_f16(context, tree, c0, c1):
     return call_internal2(
         context, "float16_sub", c0, c1, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "MULF16(reg, reg)", size=20)
+@isa.pattern("reg", "MULBF16(reg, reg)", size=20)
 def pattern_mul_f16(context, tree, c0, c1):
     return call_internal2(
         context, "float16_mul", c0, c1, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "DIVF16(reg, reg)", size=20)
+@isa.pattern("reg", "DIVBF16(reg, reg)", size=20)
 def pattern_div_f16(context, tree, c0, c1):
     return call_internal2(
         context, "float16_div", c0, c1, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "NEGF16(reg)", size=20)
+@isa.pattern("reg", "NEGBF16(reg)", size=20)
 def pattern_neg_f16(context, tree, c0):
     return call_internal1(
         context, "float16_neg", c0, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "F16TOI32(reg)", size=20)
+@isa.pattern("reg", "BF16TOI32(reg)", size=20)
 def pattern_ftoi_f16_i32(context, tree, c0):
     return call_internal1(
         context, "float16_to_int32", c0, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("reg", "I32TOF16(reg)", size=20)
+@isa.pattern("reg", "I32TOBF16(reg)", size=20)
 def pattern_itof_i32_f16(context, tree, c0):
     return call_internal1(
         context, "int32_to_float16", c0, clobbers=context.arch.caller_save
     )
 
 
-@isa.pattern("stm", "CJMPF16(reg, reg)", size=20)
+@isa.pattern("stm", "CJMPBF16(reg, reg)", size=20)
 def pattern_cjmpf16(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {

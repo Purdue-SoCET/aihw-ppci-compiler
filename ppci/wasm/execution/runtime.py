@@ -25,7 +25,7 @@ class Unreachable(RuntimeError):
     pass
 
 
-def f16_sqrt(v: ir.f16) -> ir.f16:
+def f16_sqrt(v: ir.bf16) -> ir.bf16:
     """Square root (half precision semantics approximated by Python float)"""
     return math.sqrt(v)
 
@@ -75,29 +75,29 @@ def i64_popcnt(v: ir.i64) -> ir.i64:
     return popcnt(v, 64)
 
 
-# Conversions: trunc from f16 to integers
-def i32_trunc_f16_s(value: ir.f16) -> ir.i32:
+# Conversions: trunc from bf16 to integers
+def i32_trunc_f16_s(value: ir.bf16) -> ir.i32:
     if math.isinf(value):
         return 0  # undefined
     else:
         return int(value)
 
 
-def i32_trunc_f16_u(value: ir.f16) -> ir.i32:
+def i32_trunc_f16_u(value: ir.bf16) -> ir.i32:
     if math.isinf(value):
         return 0  # undefined
     else:
         return make_int(value, 32)
 
 
-def i64_trunc_f16_s(value: ir.f16) -> ir.i64:
+def i64_trunc_f16_s(value: ir.bf16) -> ir.i64:
     if math.isinf(value):
         return 0  # undefined
     else:
         return int(value)
 
 
-def i64_trunc_f16_u(value: ir.f16) -> ir.i64:
+def i64_trunc_f16_u(value: ir.bf16) -> ir.i64:
     if math.isinf(value):
         return 0  # undefined
     else:
@@ -127,11 +127,11 @@ MAX_U32 = 2**32 - 1
 MIN_U32 = 0
 
 
-def i32_trunc_sat_f16_s(v: ir.f16) -> ir.i32:
+def i32_trunc_sat_f16_s(v: ir.bf16) -> ir.i32:
     return satured_truncate(v, MIN_I32, MAX_I32)
 
 
-def i32_trunc_sat_f16_u(v: ir.f16) -> ir.i32:
+def i32_trunc_sat_f16_u(v: ir.bf16) -> ir.i32:
     return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
 
 
@@ -141,24 +141,24 @@ MAX_U64 = 2**64 - 1
 MIN_U64 = 0
 
 
-def i64_trunc_sat_f16_s(v: ir.f16) -> ir.i64:
+def i64_trunc_sat_f16_s(v: ir.bf16) -> ir.i64:
     return satured_truncate(v, MIN_I64, MAX_I64)
 
 
-def i64_trunc_sat_f16_u(v: ir.f16) -> ir.i64:
+def i64_trunc_sat_f16_u(v: ir.bf16) -> ir.i64:
     return make_int(satured_truncate(v, MIN_U64, MAX_U64), 64)
 
 
-# Promote / demote (for f16 only there is no larger/smaller pair here)
-def f16_promote_f16(v: ir.f16) -> ir.f16:
+# Promote / demote (for bf16 only there is no larger/smaller pair here)
+def f16_promote_f16(v: ir.bf16) -> ir.bf16:
     return v
 
 
-def f16_demote_f16(v: ir.f16) -> ir.f16:
+def f16_demote_f16(v: ir.bf16) -> ir.bf16:
     return v
 
 
-# Reinterpret: implement half-precision (f16) <-> i16 bitcasts.
+# Reinterpret: implement half-precision (bf16) <-> i16 bitcasts.
 # helper conversions between Python float and IEEE-754 binary16 bitpattern
 
 
@@ -185,7 +185,7 @@ def _f16_bits_to_float(b16: int) -> float:
     return struct.unpack(">f", struct.pack(">I", u32))[0]
 
 
-def f16_reinterpret_i16(v: ir.f16) -> ir.i16:
+def f16_reinterpret_i16(v: ir.bf16) -> ir.i16:
     # reinterpret the half-float v as signed 16-bit integer preserving bits
     bits = _f32_to_f16_bits(float(v))
     # convert to signed 16
@@ -194,49 +194,49 @@ def f16_reinterpret_i16(v: ir.f16) -> ir.i16:
     return bits
 
 
-def i16_reinterpret_f16(v: ir.i16) -> ir.f16:
+def i16_reinterpret_f16(v: ir.i16) -> ir.bf16:
     bits = v & 0xFFFF
     return _f16_bits_to_float(bits)
 
 
-def f16_copysign(x: ir.f16, y: ir.f16) -> ir.f16:
+def f16_copysign(x: ir.bf16, y: ir.bf16) -> ir.bf16:
     return math.copysign(x, y)
 
 
-def f16_min(x: ir.f16, y: ir.f16) -> ir.f16:
+def f16_min(x: ir.bf16, y: ir.bf16) -> ir.bf16:
     return min(x, y)
 
 
-def f16_max(x: ir.f16, y: ir.f16) -> ir.f16:
+def f16_max(x: ir.bf16, y: ir.bf16) -> ir.bf16:
     return max(x, y)
 
 
-def f16_abs(x: ir.f16) -> ir.f16:
+def f16_abs(x: ir.bf16) -> ir.bf16:
     return math.fabs(x)
 
 
-def f16_floor(x: ir.f16) -> ir.f16:
+def f16_floor(x: ir.bf16) -> ir.bf16:
     if math.isinf(x):
         return x
     else:
         return float(math.floor(x))
 
 
-def f16_ceil(x: ir.f16) -> ir.f16:
+def f16_ceil(x: ir.bf16) -> ir.bf16:
     if math.isinf(x):
         return x
     else:
         return float(math.ceil(x))
 
 
-def f16_nearest(x: ir.f16) -> ir.f16:
+def f16_nearest(x: ir.bf16) -> ir.bf16:
     if math.isinf(x):
         return x
     else:
         return float(round(x))
 
 
-def f16_trunc(x: ir.f16) -> ir.f16:
+def f16_trunc(x: ir.bf16) -> ir.bf16:
     if math.isinf(x):
         return x
     else:
