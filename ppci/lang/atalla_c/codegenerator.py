@@ -52,10 +52,13 @@ class CCodeGenerator:
             BasicType.ULONG: (uint_types[long_size], long_size),
             BasicType.LONGLONG: (ir.i64, 8),
             BasicType.ULONGLONG: (ir.u64, 8),
-            BasicType.FLOAT: (ir.f16, 4),
-            # BasicType.FLOAT: (ir.f32, 4), --- IGNORE ---
+            BasicType.FLOAT: (ir.f16, 2),
+
+            ## Float types removed from C standard
+            # BasicType.FLOAT: (ir.f32, 4),
             # BasicType.DOUBLE: (ir.f64, 8),
-            # BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
+            # BasicType.LONGDOUBLE: (ir.f64, 8),
+
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
             BasicType.VECTOR: (ir.vec, 64),
         }

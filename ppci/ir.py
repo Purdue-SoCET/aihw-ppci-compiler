@@ -141,7 +141,6 @@ class BlobDataTyp(Typ):
 # The builtin types:
 f64 = FloatingPointTyp("f64", 64)  #: 64-bit floating point type
 f32 = FloatingPointTyp("f32", 32)  #: 32-bit floating point type
-f16 = FloatingPointTyp("f16", 16)  #: 16-bit floating point type
 i64 = SignedIntegerTyp("i64", 64)  #: Signed 64-bit type
 i32 = SignedIntegerTyp("i32", 32)  #: Signed 32-bit type
 i16 = SignedIntegerTyp("i16", 16)  #: Signed 16-bit type
@@ -151,6 +150,9 @@ u32 = UnsignedIntegerTyp("u32", 32)  #: Unsigned 32-bit type
 u16 = UnsignedIntegerTyp("u16", 16)  #: Unsigned 16-bit type
 u8 = UnsignedIntegerTyp("u8", 8)  #: Unsigned 8-bit type
 ptr = PointerTyp("ptr")  #: Pointer type
+
+# Atalla specific types
+f16 = FloatingPointTyp("f16", 16)  #: 16-bit floating point type
 vec = VectorTyp("vec", 32*16)  #: Vector type
 
 value_types = [vec, f16, f32, f64, i64, i32, i16, i8, u64, u32, u16, u8]

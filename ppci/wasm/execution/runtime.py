@@ -162,49 +162,27 @@ def f16_demote_f16(v: ir.f16) -> ir.f16:
 # helper conversions between Python float and IEEE-754 binary16 bitpattern
 
 
-def _f32_to_f16_bits(f32):
-    # convert 32-bit float to 16-bit half float bit pattern
-    f = struct.unpack("<I", struct.pack("<f", f32))[0]
-    sign = (f >> 31) & 0x1
-    exp = (f >> 23) & 0xFF
-    mant = f & 0x7FFFFF
-
-    if exp == 255:
-        new_exp = 31
-        new_mant = 0 if mant == 0 else (mant >> 13) or 1
-    elif exp > 142:  # overflow -> inf
-        new_exp = 31
-        new_mant = 0
-    elif exp < 113:  # underflow -> subnormal or zero
-        if exp < 103:
-            new_exp = 0
-            new_mant = 0
-        else:
-            shift = 113 - exp
-            new_mant = (mant | 0x800000) >> (shift + 13)
-            new_exp = 0
-    else:
-        new_exp = exp - 112
-        new_mant = mant >> 13
-
-    h = (sign << 15) | (new_exp << 10) | (new_mant & 0x3FF)
-    return h
+def _f32_to_f16_bits(f32: float) -> int:
+    # Pack float32 into bytes (native endian)
+    f32_bytes = struct.pack('>f', f32)  # big-endian ensures MSB is first
+    # Unpack as unsigned 32-bit int
+    u32 = struct.unpack('>I', f32_bytes)[0]
+    # Take the top 16 bits as bf16
+    bf16 = u32 >> 16
+    return bf16
 
 
-def _f16_bits_to_float(h):
-    sign = (h >> 15) & 0x1
-    exp = (h >> 10) & 0x1F
-    mant = h & 0x3FF
 
-    if exp == 0:
-        if mant == 0:
-            return -0.0 if sign else 0.0
-        # subnormal
-        return ((-1) ** sign) * (mant / 1024.0) * 2 ** (-14)
-    elif exp == 31:
-        return float("inf") if mant == 0 else float("nan")
-    else:
-        return ((-1) ** sign) * (1 + mant / 1024.0) * 2 ** (exp - 15)
+def _f16_bits_to_float(b16: int) -> float:
+    if not (0 <= b16 <= 0xFFFF):
+        raise ValueError("Input must be a 16-bit integer")
+
+    # bfloat16 uses the top 16 bits of a float32:
+    u32 = b16 << 16  # shift to high half of 32-bit float
+
+    # reinterpret as float
+    import struct
+    return struct.unpack(">f", struct.pack(">I", u32))[0]
 
 
 def f16_reinterpret_i16(v: ir.f16) -> ir.i16:
