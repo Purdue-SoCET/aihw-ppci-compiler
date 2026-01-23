@@ -31,6 +31,7 @@ class CCodeGenerator:
         self.builder = None
         self.debug_db = None
         self.ir_var_map = {}
+        self.ir_vec_var_map = {}
         self.break_block_stack = []  # A stack of while or switch loops
         self.continue_block_stack = []  # A stack of for loops
         self.labeled_blocks = {}
@@ -127,6 +128,16 @@ class CCodeGenerator:
         ir_var = ir.AddressOf(ir_var, name + "_addr")
         self._allocs.append(ir_var)
         return ir_var
+    
+    def emit_alloca_vector(self, typ):
+        size, alignment = self.data_layout(typ)
+        name = "vec_alloca"
+        ir_var = ir.VecAlloc(name, size, alignment)
+        self._allocs.append(ir_var)
+        ir_var = ir.AddressOf(ir_var, name + "_addr")
+        self._allocs.append(ir_var)
+        return ir_var
+
 
     def emit_global_variable(self, name, binding, typ, ivalue):
         """Helper to emit a global variable."""
@@ -851,8 +862,12 @@ class CCodeGenerator:
 
     def gen_local_variable(self, variable: declarations.VariableDeclaration):
         """Generate a local variable"""
-        ir_addr = self.emit_alloca(variable.typ)
-        self.ir_var_map[variable] = ir_addr
+        if variable.typ.is_vector:
+            ir_addr = self.emit_alloca_vector(variable.typ)
+            self.ir_vec_var_map[variable] = ir_addr
+        else:
+            ir_addr = self.emit_alloca(variable.typ)
+            self.ir_var_map[variable] = ir_addr
         if variable.initial_value:
             # Initialize local variable by a sequence of assignments.
             self.gen_local_init(ir_addr, variable.typ, variable.initial_value)
@@ -1376,7 +1391,10 @@ class CCodeGenerator:
                 declarations.FunctionDeclaration,
             ),
         ):
-            value = self.ir_var_map[declaration]
+            if expr.typ.is_vector:
+                value = self.ir_vec_var_map[declaration]
+            else:
+                value = self.ir_var_map[declaration]
         elif isinstance(declaration, declarations.EnumConstantDeclaration):
             # Enum value declaration!
             constant_value = self.context.get_enum_value(

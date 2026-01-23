@@ -355,6 +355,10 @@ class SelectionGraphBuilder:
             dbg_var = self.debug_db.get(node)
             dbg_var.address = FpOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
+    
+    def do_vec_alloc(self, node):
+        slot = self.function_info.scpad_frame.alloc(node.amount, node.alignment) # TODO: implement
+
 
     def do_copy_blob(self, node):
         """Create a memcpy node."""

@@ -1077,6 +1077,30 @@ class Alloc(LocalValue):
             f"{self.ty} {self.name} = "
             + f"alloc {self.amount} bytes aligned at {self.alignment}"
         )
+    
+class VecAlloc(LocalValue):
+    def __init__(self, name: str, amount: int, alignment: int):
+        super().__init__(name, BlobDataTyp(amount, alignment))
+
+        if not isinstance(amount, int):
+            raise TypeError(f"amount must be an int, not {type(amount)}")
+
+        if not amount:
+            raise ValueError(
+                f"Expecting at least 1 byte to allocate, not {amount}"
+            )
+        self.amount = amount
+
+        if not isinstance(alignment, int):
+            raise TypeError(f"alignment must be int, not {type(alignment)}")
+        self.alignment = alignment
+
+    def __str__(self):
+        return (
+            f"{self.ty} {self.name} = "
+            + f"alloc {self.amount} bytes aligned at {self.alignment} in scratchpad"
+        )
+
 
 
 class CopyBlob(Instruction):
