@@ -268,7 +268,8 @@ def ir_to_stream(
     # Code generation:
     ir_module.display()
     code_generator.generate(ir_module, output_stream, debug=debug)
-    output_stream = vliw_packetizer(output_stream, latency)
+    if march == "atalla":
+        output_stream = vliw_packetizer(output_stream, latency)
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):

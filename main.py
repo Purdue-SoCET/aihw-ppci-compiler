@@ -11,7 +11,11 @@ def main():
 
         with open("amps.s", "w") as f:
             reporter = TextReportGenerator(f)
+            # Atalla compiler
             atalla_cc(source, "atalla", reporter=reporter)
+
+            # Uncomment for riscv
+            # cc(source, "riscv", reporter=reporter)
 
 if __name__ == "__main__":
     main()
