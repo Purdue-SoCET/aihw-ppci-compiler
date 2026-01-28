@@ -1,5 +1,5 @@
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
     AtallaVVToken,
@@ -62,7 +62,7 @@ def make_vm(mnemonic: str, opcode: int, *,
             default_mask: int = 0, default_rc_id: int = 0):
     vd  = Operand("vd",  AtallaVectorRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister,       read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ", ", rs1])
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", rs1])
     patterns = {
         "opcode": opcode,
         "vd": vd, "rs1": rs1,
@@ -106,8 +106,8 @@ RmaxVi  = make_vi("rmax_vi",  0b0111111)
 ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # VM
-# VregLd = make_vm("vecreg_ld", <opcode>)
-# VregSt = make_vm("vecreg_st", <opcode>)
+VregLd = make_vm("vreg_ld", 0b1001101)
+VregSt = make_vm("vreg_st", 0b1001110)
 
 def _new_v(context):
     return context.new_reg(AtallaVectorRegister)
@@ -125,19 +125,38 @@ def _split_imm13_signed(val: int):
     imm5 = u & 0x1F
     return imm8, imm5
 
-# @isa.pattern(
-#     "reg",
-#     "FPRELU32",
-#     size=4,
-#     condition=lambda t: t.value.offset in range(-2048, 2048),
-# )
-# def pattern_fpreli32(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     offset = tree.value.offset
-#     Code = Addis(d, FP, offset)
-#     Code.fprel = True
-#     context.emit(Code)
-#     return d
+def emit_stackrel_u32(context, base_reg, tree, mark):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    code = Addis(d, base_reg, offset)
+    setattr(code, mark, True)
+    context.emit(code)
+    return d
+
+@isa.pattern(
+    "regvec",
+    "SPADRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-2048, 2048),
+)
+def pattern_spadreli32(context, tree):
+    return emit_stackrel_u32(context, SCPADFP, tree, "spadrel")
+
+@isa.pattern(
+    "reg",
+    "SCPADRELU32",
+    size=64,  # or whatever your vec size is
+    condition=lambda t: t.value.offset in range(-2048, 2048),
+)
+def pattern_scpadrel_vec(context, tree):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    code = Addis(d, SCPADFP, offset)
+    code.spadrel = True
+    context.emit(code)
+    return d
+
+
 
 @isa.pattern("stm", "MOVVEC(vecreg)", size=2)
 def pattern_mov32(context, tree, c0):

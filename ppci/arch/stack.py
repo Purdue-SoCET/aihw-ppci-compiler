@@ -81,17 +81,17 @@ class Frame:
             raise ValueError("Not allocating a vector!")
         
         if self.fp_location == FramePointerLocation.TOP:
-            self.scratch_stacksize += size
-            misalign = self.scratch_stacksize % alignment
+            self.scpad_stacksize += size
+            misalign = self.scpad_stacksize % alignment
             if misalign:
-                self.scratch_stacksize += alignment - misalign
-            offset = -self.scratch_stacksize
+                self.scpad_stacksize += alignment - misalign
+            offset = -self.scpad_stacksize
         else:
-            misalign = self.scratch_stacksize % alignment
+            misalign = self.scpad_stacksize % alignment
             if misalign:
-                self.scratch_stacksize += alignment - misalign
-            offset = self.scratch_stacksize
-            self.scratch_stacksize += size
+                self.scpad_stacksize += alignment - misalign
+            offset = self.scpad_stacksize
+            self.scpad_stacksize += size
 
         return StackLocation(offset, size, StackKind.SCPAD)
 

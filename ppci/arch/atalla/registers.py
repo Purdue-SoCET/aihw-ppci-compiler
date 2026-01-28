@@ -63,6 +63,9 @@ R29 = AtallaRegister("x29", num=29, aka=("t4",))
 R30 = AtallaRegister("x30", num=30, aka=("t5",))
 R31 = AtallaRegister("x31", num=31, aka=("t6",))
 
+SCPADSP = AtallaRegister("x32", num=32, aka=("scpadsp"))
+SCPADFP = AtallaRegister("x33", num=33, aka=("scpadfp"))
+
 PC = AtallaProgramCounterRegister("PC", num=32)
 
 registers = [
@@ -98,6 +101,8 @@ registers = [
     R29,
     R30,
     R31,
+    SCPADFP,
+    SCPADSP,
 ]
 AtallaRegister.registers = registers
 

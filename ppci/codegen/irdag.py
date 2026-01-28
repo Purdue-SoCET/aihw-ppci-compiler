@@ -16,8 +16,8 @@ import logging
 
 from .. import ir
 from ..arch.generic_instructions import Label
-from ..arch.stack import StackLocation
-from ..binutils.debuginfo import FpOffsetAddress
+from ..arch.stack import StackLocation, StackKind
+from ..binutils.debuginfo import FpOffsetAddress, ScpadOffsetAddress
 from .selectiongraph import SelectionGraph, SGNode, SGValue
 
 
@@ -338,22 +338,28 @@ class SelectionGraphBuilder:
 
     def do_alloc(self, node):
         """Process the alloc instruction"""
-        # TODO: check alignment?
-        # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
-        # fp_output = fp.new_output('fp')
-        # fp_output.wants_vreg = False
-        # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount, node.alignment)
-        # offset_output = offset.new_output('offset')
-        # offset_output.wants_vreg = False
-        sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        frame = self.function_info.frame
+
+        if node.amount == 64:
+            slot = frame.scpad_alloc(node.amount, node.alignment)
+        else:
+            slot = frame.alloc(node.amount, node.alignment)
+
+        if slot.kind == StackKind.NORMAL:
+            sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        else:
+            sgnode = self.new_node("SCPADREL", ir.ptr, value=slot)
 
         output = sgnode.new_output("alloc")
         output.wants_vreg = False
         self.add_map(node, output)
+
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(slot)
+            if slot.kind == StackKind.NORMAL:
+                dbg_var.address = FpOffsetAddress(slot)
+            else:
+                dbg_var.address = ScpadOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):

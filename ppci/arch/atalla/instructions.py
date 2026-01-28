@@ -6,7 +6,7 @@ from .registers import (
     AtallaRegister,
     R0,
     R13, R12, R10, R11, R9, R7, R6, R5, R4, R3, LR,
-    FP,
+    FP, SP, SCPADSP, SCPADFP
 )
 from ..generic_instructions import (
     Alignment,
@@ -82,6 +82,7 @@ def make_i(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     imm12 = Operand("imm12", int)
     fprel = False
+    scpadfprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm12])
     tokens = [AtallaIToken]
     patterns = {
@@ -93,6 +94,7 @@ def make_i(mnemonic, opcode):
     members = {
         "syntax": syntax,
         "fprel": fprel,
+        "scpadfprel": scpadfprel,
         "rd": rd,
         "rs1": rs1,
         "imm12": imm12,

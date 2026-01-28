@@ -103,6 +103,7 @@ ops = [
     "F64TO",
     "BF16TO",
     "FPREL",
+    "SCPADREL",
     "SPREL",  # Frame/stack pointer relative
     "GEMM",
     "MGT",
