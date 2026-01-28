@@ -6,10 +6,10 @@ from ppci.utils.reporting import TextReportGenerator
 import sys
 
 def main():
-    with open("sample.c", "r") as source:
+    with open("instructtest.c", "r") as source:
         #cc(source, "atalla")
 
-        with open("amps.s", "w") as f:
+        with open("amps4.s", "w") as f:
             reporter = TextReportGenerator(f)
             # Atalla compiler
             atalla_cc(source, "atalla", reporter=reporter)
