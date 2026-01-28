@@ -13,17 +13,23 @@ class FramePointerLocation(enum.Enum):
     TOP = 1
     BOTTOM = 2
 
+class StackKind(enum.Enum):
+
+    NORMAL = 1
+    SCPAD = 2
+
 
 class StackLocation:
     """A stack location can store data just like a register"""
 
-    def __init__(self, offset: int, size: int):
+    def __init__(self, offset: int, size: int, kind: StackKind):
         # self.frame = frame  # The frame in which this location lives
         self.offset = offset
         self.size = size
+        self.kind = kind
 
     def __repr__(self):
-        return f"Stack[{self.size} bytes at {self.offset}]"
+        return f"{self.kind.name}[{self.size} bytes at {self.offset}]"
 
 
 def generate_temps():
@@ -53,9 +59,13 @@ class Frame:
         self.out_calls = []
         self.temps = generate_temps()
 
-        # Local stack:
+        # Local stack (normal):
         self.stacksize = 0
         self.alignment = 1
+
+        self.scpad_stacksize = 0
+        self.scpad_alignment = 1
+
 
         # Literal pool:
         self.constants = []
@@ -63,6 +73,27 @@ class Frame:
 
     def __repr__(self):
         return f"Frame {self.name}"
+    
+    def scpad_alloc(self, size, alignment):
+        self.scpad_alignment = max(self.scpad_alignment, alignment)
+
+        if size != 64:
+            raise ValueError("Not allocating a vector!")
+        
+        if self.fp_location == FramePointerLocation.TOP:
+            self.scratch_stacksize += size
+            misalign = self.scratch_stacksize % alignment
+            if misalign:
+                self.scratch_stacksize += alignment - misalign
+            offset = -self.scratch_stacksize
+        else:
+            misalign = self.scratch_stacksize % alignment
+            if misalign:
+                self.scratch_stacksize += alignment - misalign
+            offset = self.scratch_stacksize
+            self.scratch_stacksize += size
+
+        return StackLocation(offset, size, StackKind.SCPAD)
 
     def alloc(self, size: int, alignment: int):
         """Allocate space on the stack frame and return a stacklocation"""
@@ -89,7 +120,7 @@ class Frame:
                 self.stacksize += size - misalign
             offset = self.stacksize
             self.stacksize += size
-        location = StackLocation(offset, size)
+        location = StackLocation(offset, size, StackKind.NORMAL)
         return location
 
     def add_out_call(self, size):
