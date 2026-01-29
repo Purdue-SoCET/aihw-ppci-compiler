@@ -61,7 +61,7 @@ __all__ = [
     "archive",
     "c3c",
     "cc",
-    "atalla_c",
+    "atalla_cc",
     "link",
     "objcopy",
     "bfcompile",

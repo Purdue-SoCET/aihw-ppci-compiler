@@ -44,7 +44,7 @@ parser.add_argument(
 )
 
 
-def atalla_c(args=None):
+def atalla_cc(args=None):
     """Run c compile task"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
@@ -85,4 +85,4 @@ def atalla_c(args=None):
 
 
 if __name__ == "__main__":
-    atalla_c()
+    atalla_cc()

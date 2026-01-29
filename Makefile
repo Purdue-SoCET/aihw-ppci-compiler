@@ -1,2 +1,8 @@
-run-o2-no-link:
-	python3 -m ppci atalla_c sample.c -m atalla -S -O2
+COMPILER=atalla_cc
+ARCH=atalla
+PPCI=python3 -m ppci
+
+
+atalla-compile-o2-no-link:
+	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
+
