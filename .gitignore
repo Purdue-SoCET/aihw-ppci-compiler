@@ -11,3 +11,4 @@ build/
 sample.c
 .vscode/
 venv/
+*.out

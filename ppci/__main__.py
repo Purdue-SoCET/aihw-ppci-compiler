@@ -11,6 +11,7 @@ valid_programs = [
     "build",
     "c3c",
     "cc",
+    "atalla_c",
     "disasm",
     "hexdump",
     "hexutil",
