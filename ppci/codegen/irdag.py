@@ -425,6 +425,11 @@ class SelectionGraphBuilder:
 
         output_registers = []
 
+        output_registers = []
+        for out_val in node.output_values:
+            vreg = self.new_vreg(out_val.ty)
+            output_registers.append(vreg)
+
         sgnode = self.new_node(
             "ASM",
             None,
