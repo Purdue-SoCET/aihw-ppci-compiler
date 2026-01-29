@@ -321,7 +321,7 @@ class CodeGenerator:
             for insts in depth_list:
                 real = [i for i in insts
                         if isinstance(i, Instruction)
-                        and not isinstance(i, VirtualInstruction)]
+                        and (not isinstance(i, VirtualInstruction) or isinstance(i, InlineAssembly))]
                 if not real:
                     for _ in range(slots_per_packet):
                         output_stream.emit(fresh_nop())
@@ -331,7 +331,15 @@ class CodeGenerator:
                     while len(chunk) < slots_per_packet:
                         chunk.append(fresh_nop())
                     for ins in chunk:
-                        output_stream.emit(ins)
+                        if isinstance(ins, InlineAssembly):
+                            self._generate_inline_assembly(
+                                ins.template,
+                                ins.output_registers,
+                                ins.input_registers,
+                                output_stream,
+                            )
+                        else:
+                            output_stream.emit(ins)
 
         output_stream.emit_all(self.arch.gen_epilogue(frame))
 
