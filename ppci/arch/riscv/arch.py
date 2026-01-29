@@ -301,7 +301,7 @@ class RiscvArch(Architecture):
 
         yield self.branch(LR, label)
 
-        if rv:
+        if rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
@@ -331,7 +331,7 @@ class RiscvArch(Architecture):
 
     def gen_function_exit(self, rv):
         live_out = set()
-        if rv:
+        if rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield self.move(retval_loc, rv[1])
             live_out.add(retval_loc)

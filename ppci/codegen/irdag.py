@@ -397,13 +397,6 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        """Create selection graph node for inline asm code.
-
-        This is a little weird, as we really do not need to select
-        any instructions, but this special node will be filtered later
-        on.
-        """
-
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -412,25 +405,15 @@ class SelectionGraphBuilder:
             mov_sgnode = self.new_node(
                 "MOV", input_value.ty, arg_val, value=reg_loc
             )
-
             self.chain(mov_sgnode)
             input_registers.append(reg_loc)
-
-        if len(node.output_values) > 0:
-            issue = (
-                "Output registers on asm cannot be greater than "
-                "the number of input"
-            )
-            assert len(node.output_values) <= len(node.input_values), issue
-
-        output_registers = []
 
         output_registers = []
         for out_val in node.output_values:
             vreg = self.new_vreg(out_val.ty)
             output_registers.append(vreg)
 
-        sgnode = self.new_node(
+        asm_node = self.new_node(
             "ASM",
             None,
             value=(
@@ -440,21 +423,23 @@ class SelectionGraphBuilder:
                 node.clobbers,
             ),
         )
-        self.chain(sgnode)
-        self.debug_db.map(node, sgnode)
+        self.chain(asm_node)
+        self.debug_db.map(node, asm_node)
 
         for i, (reg, addr) in enumerate(
-            zip(node.clobbers, node.output_values)
+            zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
 
             param_node = self.new_node("REG", address.ty, value=reg)
-            output = param_node.new_output("ret_" + str(i))
+            output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            sgnode = self.new_node("STR", address.ty, address, output)
+            store_node = self.new_node(
+                "STR", address.ty, address, output
+            )
+            self.chain(store_node)
 
-            self.chain(sgnode)
 
     def do_const(self, node):
         """Process constant instruction"""
