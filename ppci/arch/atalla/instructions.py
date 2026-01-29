@@ -163,8 +163,8 @@ class AtallaMInstruction(Instruction):
     tokens = [AtallaMToken]
     isa = isa
 
-def make_m(mnemonic, opcode):
-    rd = Operand("rd", AtallaRegister, write=True)
+def make_m_load(mnemonic, opcode):
+    rd = Operand("rd", AtallaRegister, write=True,)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     imm12 = Operand("imm12", int)
     fprel = False
@@ -188,8 +188,33 @@ def make_m(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMInstruction,), members)
 
-Lws = make_m("lw_s", 0b0011111)
-Sws = make_m("sw_s", 0b0100000)
+def make_m_store(mnemonic, opcode):
+    rd = Operand("rd", AtallaRegister, write=False, read=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    imm12 = Operand("imm12", int)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm12, "(", rs1, ")"])
+    tokens = [AtallaMToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "imm12": imm12
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "rd": rd,
+        "rs1": rs1,
+        "imm12": imm12,
+        "opcode": opcode,
+        "patterns": patterns,
+        "tokens" : tokens
+    }
+    return type(mnemonic + "_ins", (AtallaMInstruction,), members)
+
+Lws = make_m_load("lw_s", 0b0011111)
+Sws = make_m_store("sw_s", 0b0100000)
 
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
