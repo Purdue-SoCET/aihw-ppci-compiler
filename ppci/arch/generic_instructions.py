@@ -105,6 +105,18 @@ class InlineAssembly(VirtualInstruction):
         # used by the register allocator.
         self.clobbers = clobbers
 
+    @property
+    def registers(self):
+        return self.output_registers + self.input_registers
+    
+    @property
+    def used_registers(self):
+        return self.input_registers
+
+    @property
+    def defined_registers(self):
+        return self.output_registers
+
 
 class Comment(PseudoInstruction):
     """Assembly language comment"""

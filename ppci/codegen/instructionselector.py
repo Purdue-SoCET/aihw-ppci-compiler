@@ -410,8 +410,7 @@ class InstructionSelector1:
 
                     # Filter out pure virtual or comment instructions
                     real = [i for i in insts
-                            if hasattr(i, "opcode") or hasattr(i, "mnemonic")]
-                    print(real)
+                            if hasattr(i, "opcode") or hasattr(i, "mnemonic") or isinstance(i, InlineAssembly)]
                     print("created packets: ")
 
 
