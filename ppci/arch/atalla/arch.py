@@ -89,6 +89,9 @@ from .vector_instructions import (
     DiviVi,
     ExpiVi,
     SqrtiVi,
+    VregLd,
+    VregSt,
+    isa as vec_isa,
 )
 
 from .vector_registers import (
@@ -186,6 +189,8 @@ class AtallaArch(Architecture):
         self.isa = isa + data_isa
         self.store = Sws
         self.load = Lws
+        # self.vec_store = VregSt
+        # self.vec_load = VregLd
         self.regclass = register_classes_swfp + vector_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP

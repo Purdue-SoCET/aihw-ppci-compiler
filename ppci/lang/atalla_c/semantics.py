@@ -645,7 +645,22 @@ class CSemantics:
     ):
         output_operands2 = []
         for constraint, asm_output_expr in output_operands:
-            assert constraint == "=r"
+            if constraint not in ("=r", "=v"):
+                raise NotImplementedError(
+                    f"Inline asm constraint not implemented: {constraint}"
+                )
+
+            if constraint == "=v" and not asm_output_expr.typ.is_vector:
+                self.error(
+                    "Expected vector output for '=v' constraint",
+                    asm_output_expr.location,
+                )
+
+            if constraint == "=r" and asm_output_expr.typ.is_vector:
+                self.error(
+                    "Use '=v' constraint for vector outputs",
+                    asm_output_expr.location,
+                )
 
             # Output must be l-value:
             if not asm_output_expr.lvalue:
@@ -656,10 +671,21 @@ class CSemantics:
         input_operands2 = []
         for constraint, asm_input_expr in input_operands:
             if constraint == "r":
+                if asm_input_expr.typ.is_vector:
+                    self.error(
+                        "Use 'v' constraint for vector inputs",
+                        asm_input_expr.location,
+                    )
                 # TODO: how to determine what type to cast to?
                 asm_input_expr = self.coerce(
                     asm_input_expr, self.get_type(["long"])
                 )
+            elif constraint == "v":
+                if not asm_input_expr.typ.is_vector:
+                    self.error(
+                        "Expected vector input for 'v' constraint",
+                        asm_input_expr.location,
+                    )
             else:
                 raise NotImplementedError(
                     f"Inline asm constraint not implemented: {constraint}"

@@ -485,6 +485,10 @@ class InstructionSelector1:
         TODO: implement different strategies.
         """
 
+        #print selection trees
+        for tree in trees:
+            print(tree)
+
         # Match all splitted trees:
         for tree in trees:
             # Invoke dynamic programming matcher machinery:

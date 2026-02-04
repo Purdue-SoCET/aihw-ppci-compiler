@@ -3,13 +3,26 @@ from ..registers import Register, RegisterClass
 
 class AtallaVectorRegister(Register):
     """Vector register for SIMD operations"""
-    bitsize = 40
+    bitsize = 64
 
     def __repr__(self):
         if self.is_colored:
+            return get_vec_register(self.color).name
             return f"v{self.color}"
         else:
             return self.name
+        
+    def from_num(cls, num):
+        return num2regmap[num]
+
+def get_vec_register(n):
+    """Based on a number, get the corresponding register"""
+    return num2regmap[n]
+
+def register_range(a, b):
+    """Return set of registers from a to b"""
+    assert a.num < b.num
+    return {get_vec_register(n) for n in range(a.num, b.num + 1)}
 
 V0 = AtallaVectorRegister("v0", num=0)
 V1 = AtallaVectorRegister("v1", num=1)
@@ -52,6 +65,9 @@ vector_registers = [
 ]
 
 AtallaVectorRegister.registers = vector_registers
+
+num2regmap = {r.num: r for r in vector_registers}
+
 
 vector_register_class = RegisterClass(
     "vecreg",

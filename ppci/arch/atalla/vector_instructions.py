@@ -12,18 +12,22 @@ from .registers import AtallaRegister
 
 class AtallaVVInstruction(Instruction):
     tokens = [AtallaVVToken]
+    isa = isa
 
 
 class AtallaVSInstruction(Instruction):
     tokens = [AtallaVSToken]
+    isa = isa
 
 
 class AtallaVIInstruction(Instruction):
     tokens = [AtallaVIToken]
+    isa = isa
 
 
 class AtallaVMemInstruction(Instruction):
     tokens = [AtallaVMemToken]
+    isa = isa
 
 
 def make_vv(mnemonic: str, opcode: int, *, default_mask: int = 0, default_sac: int = 0):
@@ -133,8 +137,19 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
     context.emit(code)
     return d
 
+
+@isa.pattern("stm", "STRVEC(UNDVEC, vecreg)", size=2)
+def pattern_store_vecreg(context, tree, v0):
+    #What do i put here?
+    # base_reg, offset = c0
+    # Code = VregSt(c1, offset, base_reg)
+    # Code.fprel = True
+    # context.emit(Code)
+    pass
+    #TODO: figure out how to address the scpad stack and store things to it, may need to generate FPREL instead of UNDVEC.
+
 @isa.pattern(
-    "regvec",
+    "vecreg",
     "SPADRELU32",
     size=4,
     condition=lambda t: t.value.offset in range(-2048, 2048),
