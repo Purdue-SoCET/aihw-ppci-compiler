@@ -6,7 +6,7 @@ from ppci.utils.reporting import TextReportGenerator
 import sys
 
 def main():
-    with open("sample.c", "r") as source:
+    with open("simpletest.c", "r") as source:
         #cc(source, "atalla")
 
         with open("amps.s", "w") as f:
