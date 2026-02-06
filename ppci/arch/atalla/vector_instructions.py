@@ -61,20 +61,31 @@ def make_vi(mnemonic: str, opcode: int, *, default_mask: int = 0):
     return type(mnemonic.replace(".", "_"), (AtallaVIInstruction,), members)
 
 
-def make_vm(mnemonic: str, opcode: int, *,
-            default_tile_r_c_count: int = 0, default_rc: int = 0, default_sp: int = 0,
-            default_mask: int = 0, default_rc_id: int = 0):
-    vd  = Operand("vd",  AtallaVectorRegister, write=True)
-    rs1 = Operand("rs1", AtallaRegister,       read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", rs1])
+def make_vm(mnemonic: str, opcode: int, load: bool):
+    vd  = Operand("vd",  AtallaVectorRegister, write=load, read=(not load))
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    num_cols = Operand("num_cols", int)
+    num_rows = Operand("num_rows", int)
+    rc = Operand("rc", int)
+    sid = Operand("sid", int)
+    rc_id = Operand("rc_id", int)
+    fprel = False
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", rs1,
+                       ",", " ", num_cols,
+                       ",", " ", num_rows,
+                       ",", " ", rc,
+                       ",", " ", rc_id,
+                       ",", " ", sid])
     patterns = {
         "opcode": opcode,
         "vd": vd, "rs1": rs1,
-        "tile_r_c_count": default_tile_r_c_count,
-        "rc": default_rc, "sp": default_sp,
-        "mask": default_mask, "rc_id": default_rc_id,
+        "num_cols": num_cols,
+        "rc": rc, "sid": sid,
+        "num_rows": num_rows, "rc_id": rc_id,
+        "fprel": fprel,
     }
-    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "opcode": opcode}
+    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "opcode": opcode,
+                "rc": rc, "sid": sid, "num_cols": num_cols, "num_rows": num_rows, "rc_id": rc_id, "fprel": fprel}
     return type(mnemonic.replace(".", "_"), (AtallaVMemInstruction,), members)
 
 
@@ -110,8 +121,8 @@ RmaxVi  = make_vi("rmax_vi",  0b0111111)
 ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # VM
-VregLd = make_vm("vreg_ld", 0b1001101)
-VregSt = make_vm("vreg_st", 0b1001110)
+VregLd = make_vm("vreg_ld", 0b1001101, True)
+VregSt = make_vm("vreg_st", 0b1001110, False)
 
 def _new_v(context):
     return context.new_reg(AtallaVectorRegister)
@@ -138,15 +149,12 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
     return d
 
 
-@isa.pattern("stm", "STRVEC(UNDVEC, vecreg)", size=2)
-def pattern_store_vecreg(context, tree, v0):
-    #What do i put here?
-    # base_reg, offset = c0
-    # Code = VregSt(c1, offset, base_reg)
-    # Code.fprel = True
-    # context.emit(Code)
-    pass
-    #TODO: figure out how to address the scpad stack and store things to it, may need to generate FPREL instead of UNDVEC.
+@isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
+def pattern_store_vecreg(context, tree, c0, v1):
+    Code = VregSt(v1, c0[0], 0, 0, 0, 0, 0)
+    Code.fprel = True
+    context.emit(Code)
+    #TODO: make sure this is correct
 
 @isa.pattern(
     "vecreg",

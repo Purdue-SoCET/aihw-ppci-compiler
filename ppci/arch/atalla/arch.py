@@ -408,7 +408,7 @@ class AtallaArch(Architecture):
     def peephole(self, frame):
         newinstructions = []
         for ins in frame.instructions:
-            if hasattr(ins, "fprel") and ins.fprel:
+            if hasattr(ins, "fprel") and ins.fprel and not isinstance(ins, (VregLd, VregSt)):
                 ins.imm12 += round_up(frame.stacksize + 8) - 8
             newinstructions.append(ins)
         return newinstructions

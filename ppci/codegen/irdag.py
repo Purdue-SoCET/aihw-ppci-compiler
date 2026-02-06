@@ -403,6 +403,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
+        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -416,7 +417,10 @@ class SelectionGraphBuilder:
 
         output_registers = []
         for out_val in node.output_values:
-            vreg = self.new_vreg(out_val.ty)
+            if out_val.src.amount == 64 and self.arch.name == "atalla":
+                vreg = self.new_vreg(ir.vec)
+            else:
+                vreg = self.new_vreg(out_val.ty)
             output_registers.append(vreg)
 
         asm_node = self.new_node(
@@ -436,13 +440,17 @@ class SelectionGraphBuilder:
             zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
+            if addr.src.amount == 64 and self.arch.name == "atalla":
+                ty = ir.vec
+            else:
+                ty = address.ty
 
-            param_node = self.new_node("REG", address.ty, value=reg)
+            param_node = self.new_node("REG", ty, value=reg)
             output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
             store_node = self.new_node(
-                "STR", address.ty, address, output
+                "STR", ty, address, output
             )
             self.chain(store_node)
 

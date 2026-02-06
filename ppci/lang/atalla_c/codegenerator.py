@@ -121,19 +121,24 @@ class CCodeGenerator:
         """Helper function to reserve some room on the stack."""
         size, alignment = self.data_layout(typ)
         name = "alloca"
+        # Outdated code for vector types:
+
         # Store here, to place them all at the beginning of the function:
-        if typ.is_vector:
-            ir_typ = self.get_ir_type(typ)
-            ir_var = ir.Undefined(name, ir_typ)
-            self._allocs.append(ir_var)
-            #TODO: change Alloc to generate a scpad stack relocation?
-            return ir_var
-        else:
-            ir_var = ir.Alloc(name, size, alignment)
-            self._allocs.append(ir_var)
-            ir_var = ir.AddressOf(ir_var, name + "_addr")
-            self._allocs.append(ir_var)
-            return ir_var
+        # if typ.is_vector:
+        #     ir_typ = self.get_ir_type(typ)
+        #     ir_var = ir.Undefined(name, ir_typ)
+        #     self._allocs.append(ir_var)
+        #     #TODO: change Alloc to generate a scpad stack relocation?
+        #     return ir_var
+        # else:
+
+        # Outdated code for vector types end.
+
+        ir_var = ir.Alloc(name, size, alignment)
+        self._allocs.append(ir_var)
+        ir_var = ir.AddressOf(ir_var, name + "_addr")
+        self._allocs.append(ir_var)
+        return ir_var
 
     def emit_global_variable(self, name, binding, typ, ivalue):
         """Helper to emit a global variable."""
