@@ -452,11 +452,11 @@ class InstructionSelector1:
 
         # Generate proper instructions:
         self.munch_trees(context, forest)
-        if self.arch.name == "atalla":
-            frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
-            self.logger.debug("bucket sizes: %s",
-                {getattr(b,'name','<blk>'):[len(x) for x in depths]
-                for b, depths in frame.buckets_by_block.items()})
+        # if self.arch.name == "atalla":
+        #     frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
+        #     self.logger.debug("bucket sizes: %s",
+        #         {getattr(b,'name','<blk>'):[len(x) for x in depths]
+        #         for b, depths in frame.buckets_by_block.items()})
 
         # Generate function tail:
         if isinstance(ir_function, ir.Function):

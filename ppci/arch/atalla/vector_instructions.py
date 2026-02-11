@@ -53,11 +53,10 @@ def make_vs(mnemonic: str, opcode: int, *, default_mask: int = 0):
 def make_vi(mnemonic: str, opcode: int, *, default_mask: int = 0):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
-    imm8 = Operand("imm8", int)
-    imm5 = Operand("imm5", int)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm8, ",", " ", imm5])
-    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm8": imm8, "imm5": imm5, "mask": default_mask}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm8": imm8, "imm5": imm5, "patterns": patterns, "opcode": opcode}
+    imm = Operand("imm", int)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm])
+    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask": default_mask}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm": imm, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaVIInstruction,), members)
 
 
@@ -155,6 +154,14 @@ def pattern_store_vecreg(context, tree, c0, v1):
     Code.fprel = True
     context.emit(Code)
     #TODO: make sure this is correct
+
+@isa.pattern("vecreg", "LDRVEC(mem)", size=2)
+def pattern_load_vecreg(context, tree, c0):
+    d = context.new_reg(AtallaVectorRegister)
+    Code = VregLd(d, c0[0], 0, 0, 0, 0, 0)
+    Code.fprel = True
+    context.emit(Code)
+    return d
 
 @isa.pattern(
     "vecreg",

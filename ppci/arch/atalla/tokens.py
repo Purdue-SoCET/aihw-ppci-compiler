@@ -1,4 +1,4 @@
-from ..token import Token, bit_range
+from ..token import Token, bit_concat, bit_range
 
 class AtallaRToken(Token):
     class Info:
@@ -71,9 +71,8 @@ class AtallaVIToken(Token):
     opcode  = bit_range(0, 7)
     vd      = bit_range(7, 15)
     vs1     = bit_range(15, 23)
-    imm8_1  = bit_range(23, 31)
+    imm = bit_concat(bit_range(23, 31), bit_range(40, 42))
     mask    = bit_range(31, 35)
-    imm8_2  = bit_range(40, 43)
 
 class AtallaVMemToken(Token):
     class Info:
