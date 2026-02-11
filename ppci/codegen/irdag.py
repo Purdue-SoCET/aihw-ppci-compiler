@@ -416,12 +416,12 @@ class SelectionGraphBuilder:
         for out_val in node.output_values:
             # Determine the amount based on the type of out_val
             # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
             if isinstance(out_val, ir.AddressOf):
                 amount = out_val.src.amount
             elif isinstance(out_val, ir.GlobalValue):
                 amount = out_val.amount
-            else:
-                amount = None
+            # For other types, amount remains None and we use the default type
 
             if amount == 64 and self.arch.name == "atalla":
                 vreg = self.new_vreg(ir.vec)
@@ -448,12 +448,12 @@ class SelectionGraphBuilder:
             address = self.get_address(addr)
             # Determine the amount based on the type of addr
             # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
             if isinstance(addr, ir.AddressOf):
                 amount = addr.src.amount
             elif isinstance(addr, ir.GlobalValue):
                 amount = addr.amount
-            else:
-                amount = None
+            # For other types, amount remains None and we use the default type
 
             if amount == 64 and self.arch.name == "atalla":
                 ty = ir.vec
