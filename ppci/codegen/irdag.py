@@ -205,7 +205,6 @@ class SelectionGraphBuilder:
 
         # print(self.f_map)
 
-
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -252,8 +251,6 @@ class SelectionGraphBuilder:
         sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
-
-
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
@@ -425,7 +422,7 @@ class SelectionGraphBuilder:
                 amount = out_val.amount
             else:
                 amount = None
-            
+
             if amount == 64 and self.arch.name == "atalla":
                 vreg = self.new_vreg(ir.vec)
             else:
@@ -457,7 +454,7 @@ class SelectionGraphBuilder:
                 amount = addr.amount
             else:
                 amount = None
-            
+
             if amount == 64 and self.arch.name == "atalla":
                 ty = ir.vec
             else:
@@ -467,11 +464,8 @@ class SelectionGraphBuilder:
             output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            store_node = self.new_node(
-                "STR", ty, address, output
-            )
+            store_node = self.new_node("STR", ty, address, output)
             self.chain(store_node)
-
 
     def do_const(self, node):
         """Process constant instruction"""
