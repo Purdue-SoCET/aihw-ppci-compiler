@@ -129,15 +129,15 @@ def _new_v(context):
 def _new_s(context):
     return context.new_reg(AtallaRegister)
 
-def _split_imm13_signed(val: int):
-    # 13-bit signed: range [-4096, 4095]
-    if val < -4096 or val > 4095:
-        raise ValueError("imm13 out of range")
-    # two's complement form in 13 bits
-    u = val & 0x1FFF
-    imm8 = (u >> 5) & 0xFF
-    imm5 = u & 0x1F
-    return imm8, imm5
+# def _split_imm13_signed(val: int):
+#     # 13-bit signed: range [-4096, 4095]
+#     if val < -4096 or val > 4095:
+#         raise ValueError("imm13 out of range")
+#     # two's complement form in 13 bits
+#     u = val & 0x1FFF
+#     imm8 = (u >> 5) & 0xFF
+#     imm5 = u & 0x1F
+#     return imm8, imm5
 
 def emit_stackrel_u32(context, base_reg, tree, mark):
     d = context.new_reg(AtallaRegister)
@@ -164,18 +164,18 @@ def pattern_load_vecreg(context, tree, c0):
     return d
 
 @isa.pattern(
-    "vecreg",
-    "SPADRELU32",
+    "reg",
+    "SCPADRELU32",
     size=4,
     condition=lambda t: t.value.offset in range(-2048, 2048),
 )
-def pattern_spadreli32(context, tree):
+def pattern_scpadreli32(context, tree):
     return emit_stackrel_u32(context, SCPADFP, tree, "spadrel")
 
 @isa.pattern(
     "reg",
     "SCPADRELU32",
-    size=64,  # or whatever your vec size is
+    size=4,
     condition=lambda t: t.value.offset in range(-2048, 2048),
 )
 def pattern_scpadrel_vec(context, tree):
@@ -274,9 +274,9 @@ def patt_mneq_vv(ctx, tree, v0, v1):
 
 # ---------- VI (vector-immediate; 13-bit signed immediate) ----------
 
-def _emit_vi_binop(ctx, d, vsrc, imm, InsnClass):
-    imm8, imm5 = _split_imm13_signed(imm)
-    ctx.emit(InsnClass(d, vsrc, imm8, imm5))
+# def _emit_vi_binop(ctx, d, vsrc, imm, InsnClass):
+#     imm8, imm5 = _split_imm13_signed(imm)
+#     ctx.emit(InsnClass(d, vsrc, imm8, imm5))
 
 # # ADDI
 # @isa.pattern("vecreg", "ADDVECI32(vecreg, CONSTI32)", size=2,

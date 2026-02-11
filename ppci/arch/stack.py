@@ -22,7 +22,7 @@ class StackKind(enum.Enum):
 class StackLocation:
     """A stack location can store data just like a register"""
 
-    def __init__(self, offset: int, size: int, kind: StackKind):
+    def __init__(self, offset: int, size: int, kind: StackKind = StackKind.NORMAL):
         # self.frame = frame  # The frame in which this location lives
         self.offset = offset
         self.size = size

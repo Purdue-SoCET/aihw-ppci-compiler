@@ -7,11 +7,11 @@ class AtallaVectorRegister(Register):
 
     def __repr__(self):
         if self.is_colored:
-            return get_vec_register(self.color).name
             return f"v{self.color}"
         else:
             return self.name
-        
+    
+    @classmethod
     def from_num(cls, num):
         return num2regmap[num]
 
