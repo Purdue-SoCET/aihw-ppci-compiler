@@ -1,0 +1,104 @@
+{
+  "arch": "atalla",
+  "images": [],
+  "relocations": [
+    {
+      "addend": "0x0",
+      "offset": "0x91",
+      "section": "code",
+      "symbol_id": 2,
+      "type": "BR_i10"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0xf5",
+      "section": "code",
+      "symbol_id": 4,
+      "type": "BR_i10"
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": [
+        "120101f007a00001020020040100001204010400120101f8079284040200",
+        "1285040000000000000000000000009884857f0088048504009984040000",
+        "9284040000210600000083058605008185860500a0840500009285840000",
+        "1287050000000000000000000000009206040800a1050200009206040800",
+        "2186000000a1050200008305860500818586050020870500000000140000",
+        "000000000000000000000000000000210501000002050705001205050000",
+        "000000000092050500000000000000000000000000000000009205070000",
+        "000000000000000000000000000000928505000000000000000000000000",
+        "000000000000001400000000000000000000000000000000009285050000",
+        "00000000000000000000000000000021051a090088840405008184840500",
+        "928404000012850402001205050000000000000000000000009205050000",
+        "00000000000000000000000000000012010108009f000102001f04010000",
+        "120101100000000000000000"
+      ],
+      "name": "code"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "instruct_tests",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 1,
+      "name": "instruct_tests_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x19"
+    },
+    {
+      "binding": "local",
+      "id": 2,
+      "name": "instruct_tests_block3",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0xa5"
+    },
+    {
+      "binding": "local",
+      "id": 3,
+      "name": "instruct_tests_block4",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0xcd"
+    },
+    {
+      "binding": "local",
+      "id": 4,
+      "name": "instruct_tests_block6",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x131"
+    },
+    {
+      "binding": "local",
+      "id": 5,
+      "name": "instruct_tests_block2",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x109"
+    }
+  ]
+}
