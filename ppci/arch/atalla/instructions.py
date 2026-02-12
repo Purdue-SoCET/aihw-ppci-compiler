@@ -16,16 +16,22 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation, Abs32Imm12Relocation
+from .relocations import (
+    AtallaBR_Imm10_Relocation,
+    AtallaMI_JAL_Imm25_Relocation,
+    AtallaMI_Abs_Imm25_Relocation,
+    AtallaM_Imm12_Relocation,
+    AtallaI_JALR_Imm12_Relocation,
+)
 import struct
 
 isa = Isa()
 
-isa.register_relocation(BImm12Relocation)
-isa.register_relocation(BImm20Relocation)
-isa.register_relocation(AbsAddr32Relocation)
-isa.register_relocation(Abs32Imm12Relocation)
-
+isa.register_relocation(AtallaBR_Imm10_Relocation)
+isa.register_relocation(AtallaMI_JAL_Imm25_Relocation)
+isa.register_relocation(AtallaMI_Abs_Imm25_Relocation)
+isa.register_relocation(AtallaM_Imm12_Relocation)
+isa.register_relocation(AtallaI_JALR_Imm12_Relocation)
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -136,7 +142,7 @@ class BranchBase(AtallaBRInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [BImm12Relocation(self.imm12)]
+        return [AtallaBR_Imm10_Relocation(self.imm12)]
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
@@ -277,7 +283,7 @@ class Bl(AtallaBRInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [BImm20Relocation(self.target)]
+        return [AtallaMI_JAL_Imm25_Relocation(self.target)]
 
 class Blr(AtallaBRInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -296,26 +302,35 @@ class Blr(AtallaBRInstruction):
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
 
+# def dcd(v):
+#     if type(v) is int:
+#         return Dd(v)
+#     elif type(v) is str:
+#         return Dcd2(v)
+#     else:  # pragma: no cover
+#         raise NotImplementedError()
+
+# Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
     if type(v) is int:
         return Dd(v)
     elif type(v) is str:
-        return Dcd2(v)
-    else:  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError("dcd with symbol strings not yet supported for Atalla")
+    else:
+        raise NotImplementedError(f"dcd does not support type {type(v)}")
 
+# I think we can just comment out this instruction and the dcd() because for any r-type there is no addressing or relocating needed for the atalla isa
+# class Dcd2(AtallaRInstruction):
+#     v = Operand("v", str)
+#     syntax = Syntax(["dcd", "=", v])
 
-class Dcd2(AtallaRInstruction):
-    v = Operand("v", str)
-    syntax = Syntax(["dcd", "=", v])
+#     def encode(self):
+#         tokens = self.get_tokens()
+#         tokens[0][0:32] = 0
+#         return tokens[0].encode()
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:32] = 0
-        return tokens[0].encode()
-
-    def relocations(self):
-        return [AbsAddr32Relocation(self.v)]
+#     def relocations(self):
+#         return [AbsAddr32Relocation(self.v)]
 
 class PseudoAtallaInstruction(ArtificialInstruction):
     isa = isa
@@ -351,7 +366,7 @@ class Adrl(AtallaIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [Abs32Imm12Relocation(self.imm12)]
+        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
 
 class Labelrel(PseudoAtallaInstruction):
     rd = Operand("rd", AtallaRegister, write=True)

@@ -496,7 +496,8 @@ class DictSerializer:
     def write_source_location(self, loc):
         """Serialize a location object"""
         return {
-            "filename": loc.filename,
+            # "filename": loc.filename,
+            "filename": str(loc.filename), #think I need this for -g and debugger to work
             "row": loc.row,
             "column": loc.col,
             "length": loc.length,
