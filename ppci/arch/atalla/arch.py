@@ -89,6 +89,9 @@ from .vector_instructions import (
     DiviVi,
     ExpiVi,
     SqrtiVi,
+    VregLd,
+    VregSt,
+    isa as vec_isa,
 )
 
 from .vector_registers import (
@@ -186,6 +189,8 @@ class AtallaArch(Architecture):
         self.isa = isa + data_isa
         self.store = Sws
         self.load = Lws
+        # self.vec_store = VregSt
+        # self.vec_load = VregLd
         self.regclass = register_classes_swfp + vector_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
@@ -283,6 +288,8 @@ class AtallaArch(Architecture):
     def move(self, dst, src):
         """Generate a move from src to dst"""
         #no MOV function in ISA so we use a existing custom instruction addis to move
+        if V0 in src.registers or V0 in dst.registers:
+            return AddiVi(dst, src, 0)
         return Addis(dst, src, 0)
 
     # don't need until implement memory
@@ -403,7 +410,9 @@ class AtallaArch(Architecture):
     def peephole(self, frame):
         newinstructions = []
         for ins in frame.instructions:
-            if hasattr(ins, "fprel") and ins.fprel:
+            # idk if this causes a problem with vreg ld/st TODO: investigate
+            # identify during testing phase and fix if needed
+            if hasattr(ins, "fprel") and ins.fprel and not isinstance(ins, (VregLd, VregSt)):
                 ins.imm12 += round_up(frame.stacksize + 8) - 8
             newinstructions.append(ins)
         return newinstructions

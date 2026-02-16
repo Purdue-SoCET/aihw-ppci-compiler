@@ -255,6 +255,13 @@ class FpOffsetAddress:
 
     def __repr__(self):
         return f"@(FP + {self.offset})"
+    
+class ScpadOffsetAddress:
+    def __init__(self, offset):
+        self.offset = offset
+
+    def __repr__(self):
+        return f"@(SCPAD + {self.offset})"
 
 
 class UnknownAddress:

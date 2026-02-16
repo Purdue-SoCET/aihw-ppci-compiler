@@ -16,8 +16,8 @@ import logging
 
 from .. import ir
 from ..arch.generic_instructions import Label
-from ..arch.stack import StackLocation
-from ..binutils.debuginfo import FpOffsetAddress
+from ..arch.stack import StackLocation, StackKind
+from ..binutils.debuginfo import FpOffsetAddress, ScpadOffsetAddress
 from .selectiongraph import SelectionGraph, SGNode, SGValue
 
 
@@ -205,7 +205,6 @@ class SelectionGraphBuilder:
 
         # print(self.f_map)
 
-
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -252,8 +251,6 @@ class SelectionGraphBuilder:
         sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
-
-
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
@@ -338,22 +335,28 @@ class SelectionGraphBuilder:
 
     def do_alloc(self, node):
         """Process the alloc instruction"""
-        # TODO: check alignment?
-        # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
-        # fp_output = fp.new_output('fp')
-        # fp_output.wants_vreg = False
-        # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount, node.alignment)
-        # offset_output = offset.new_output('offset')
-        # offset_output.wants_vreg = False
-        sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        frame = self.function_info.frame
+
+        if node.amount == 64:
+            slot = frame.scpad_alloc(node.amount, node.alignment)
+        else:
+            slot = frame.alloc(node.amount, node.alignment)
+
+        if slot.kind == StackKind.NORMAL:
+            sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        else:
+            sgnode = self.new_node("SCPADREL", ir.ptr, value=slot)
 
         output = sgnode.new_output("alloc")
         output.wants_vreg = False
         self.add_map(node, output)
+
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(slot)
+            if slot.kind == StackKind.NORMAL:
+                dbg_var.address = FpOffsetAddress(slot)
+            else:
+                dbg_var.address = ScpadOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):
@@ -397,6 +400,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
+        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -410,7 +414,19 @@ class SelectionGraphBuilder:
 
         output_registers = []
         for out_val in node.output_values:
-            vreg = self.new_vreg(out_val.ty)
+            # Determine the amount based on the type of out_val
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(out_val, ir.AddressOf):
+                amount = out_val.src.amount
+            elif isinstance(out_val, ir.GlobalValue):
+                amount = out_val.amount
+            # For other types, amount remains None and we use the default type
+
+            if amount == 64 and self.arch.name == "atalla":
+                vreg = self.new_vreg(ir.vec)
+            else:
+                vreg = self.new_vreg(out_val.ty)
             output_registers.append(vreg)
 
         asm_node = self.new_node(
@@ -430,16 +446,26 @@ class SelectionGraphBuilder:
             zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
+            # Determine the amount based on the type of addr
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(addr, ir.AddressOf):
+                amount = addr.src.amount
+            elif isinstance(addr, ir.GlobalValue):
+                amount = addr.amount
+            # For other types, amount remains None and we use the default type
 
-            param_node = self.new_node("REG", address.ty, value=reg)
+            if amount == 64 and self.arch.name == "atalla":
+                ty = ir.vec
+            else:
+                ty = address.ty
+
+            param_node = self.new_node("REG", ty, value=reg)
             output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            store_node = self.new_node(
-                "STR", address.ty, address, output
-            )
+            store_node = self.new_node("STR", ty, address, output)
             self.chain(store_node)
-
 
     def do_const(self, node):
         """Process constant instruction"""

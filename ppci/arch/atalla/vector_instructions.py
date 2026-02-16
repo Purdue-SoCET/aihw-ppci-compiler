@@ -1,5 +1,5 @@
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
     AtallaVVToken,
@@ -12,18 +12,22 @@ from .registers import AtallaRegister
 
 class AtallaVVInstruction(Instruction):
     tokens = [AtallaVVToken]
+    isa = isa
 
 
 class AtallaVSInstruction(Instruction):
     tokens = [AtallaVSToken]
+    isa = isa
 
 
 class AtallaVIInstruction(Instruction):
     tokens = [AtallaVIToken]
+    isa = isa
 
 
 class AtallaVMemInstruction(Instruction):
     tokens = [AtallaVMemToken]
+    isa = isa
 
 
 def make_vv(mnemonic: str, opcode: int, *, default_mask: int = 0, default_sac: int = 0):
@@ -49,28 +53,38 @@ def make_vs(mnemonic: str, opcode: int, *, default_mask: int = 0):
 def make_vi(mnemonic: str, opcode: int, *, default_mask: int = 0):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
-    imm8 = Operand("imm8", int)
-    imm5 = Operand("imm5", int)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm8, ",", " ", imm5])
-    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm8": imm8, "imm5": imm5, "mask": default_mask}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm8": imm8, "imm5": imm5, "patterns": patterns, "opcode": opcode}
+    imm = Operand("imm", int)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm])
+    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask": default_mask}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm": imm, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaVIInstruction,), members)
 
 
-def make_vm(mnemonic: str, opcode: int, *,
-            default_tile_r_c_count: int = 0, default_rc: int = 0, default_sp: int = 0,
-            default_mask: int = 0, default_rc_id: int = 0):
-    vd  = Operand("vd",  AtallaVectorRegister, write=True)
-    rs1 = Operand("rs1", AtallaRegister,       read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ", ", rs1])
+def make_vm(mnemonic: str, opcode: int, load: bool):
+    vd  = Operand("vd",  AtallaVectorRegister, write=load, read=(not load))
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    num_cols = Operand("num_cols", int)
+    num_rows = Operand("num_rows", int)
+    rc = Operand("rc", int)
+    sid = Operand("sid", int)
+    rc_id = Operand("rc_id", int)
+    fprel = False
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", rs1,
+                       ",", " ", num_cols,
+                       ",", " ", num_rows,
+                       ",", " ", rc,
+                       ",", " ", rc_id,
+                       ",", " ", sid])
     patterns = {
         "opcode": opcode,
         "vd": vd, "rs1": rs1,
-        "tile_r_c_count": default_tile_r_c_count,
-        "rc": default_rc, "sp": default_sp,
-        "mask": default_mask, "rc_id": default_rc_id,
+        "num_cols": num_cols,
+        "rc": rc, "sid": sid,
+        "num_rows": num_rows, "rc_id": rc_id,
+        "fprel": fprel,
     }
-    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "opcode": opcode}
+    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "opcode": opcode,
+                "rc": rc, "sid": sid, "num_cols": num_cols, "num_rows": num_rows, "rc_id": rc_id, "fprel": fprel}
     return type(mnemonic.replace(".", "_"), (AtallaVMemInstruction,), members)
 
 
@@ -106,8 +120,8 @@ RmaxVi  = make_vi("rmax_vi",  0b0111111)
 ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # VM
-# VregLd = make_vm("vecreg_ld", <opcode>)
-# VregSt = make_vm("vecreg_st", <opcode>)
+VregLd = make_vm("vreg_ld", 0b1001101, True)
+VregSt = make_vm("vreg_st", 0b1001110, False)
 
 def _new_v(context):
     return context.new_reg(AtallaVectorRegister)
@@ -115,29 +129,64 @@ def _new_v(context):
 def _new_s(context):
     return context.new_reg(AtallaRegister)
 
-def _split_imm13_signed(val: int):
-    # 13-bit signed: range [-4096, 4095]
-    if val < -4096 or val > 4095:
-        raise ValueError("imm13 out of range")
-    # two's complement form in 13 bits
-    u = val & 0x1FFF
-    imm8 = (u >> 5) & 0xFF
-    imm5 = u & 0x1F
-    return imm8, imm5
+# def _split_imm13_signed(val: int):
+#     # 13-bit signed: range [-4096, 4095]
+#     if val < -4096 or val > 4095:
+#         raise ValueError("imm13 out of range")
+#     # two's complement form in 13 bits
+#     u = val & 0x1FFF
+#     imm8 = (u >> 5) & 0xFF
+#     imm5 = u & 0x1F
+#     return imm8, imm5
 
-# @isa.pattern(
-#     "reg",
-#     "FPRELU32",
-#     size=4,
-#     condition=lambda t: t.value.offset in range(-2048, 2048),
-# )
-# def pattern_fpreli32(context, tree):
-#     d = context.new_reg(AtallaRegister)
-#     offset = tree.value.offset
-#     Code = Addis(d, FP, offset)
-#     Code.fprel = True
-#     context.emit(Code)
-#     return d
+def emit_stackrel_u32(context, base_reg, tree, mark):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    code = Addis(d, base_reg, offset)
+    setattr(code, mark, True)
+    context.emit(code)
+    return d
+
+
+@isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
+def pattern_store_vecreg(context, tree, c0, v1):
+    Code = VregSt(v1, c0[0], 0, 0, 0, 0, 0)
+    Code.fprel = True
+    context.emit(Code)
+    #TODO: make sure this is correct
+
+@isa.pattern("vecreg", "LDRVEC(mem)", size=2)
+def pattern_load_vecreg(context, tree, c0):
+    d = context.new_reg(AtallaVectorRegister)
+    Code = VregLd(d, c0[0], 0, 0, 0, 0, 0)
+    Code.fprel = True
+    context.emit(Code)
+    return d
+
+@isa.pattern(
+    "reg",
+    "SCPADRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-2048, 2048),
+)
+def pattern_scpadreli32(context, tree):
+    return emit_stackrel_u32(context, SCPADFP, tree, "spadrel")
+
+@isa.pattern(
+    "reg",
+    "SCPADRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-2048, 2048),
+)
+def pattern_scpadrel_vec(context, tree):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    code = Addis(d, SCPADFP, offset)
+    code.spadrel = True
+    context.emit(code)
+    return d
+
+
 
 @isa.pattern("stm", "MOVVEC(vecreg)", size=2)
 def pattern_mov32(context, tree, c0):
@@ -225,9 +274,9 @@ def patt_mneq_vv(ctx, tree, v0, v1):
 
 # ---------- VI (vector-immediate; 13-bit signed immediate) ----------
 
-def _emit_vi_binop(ctx, d, vsrc, imm, InsnClass):
-    imm8, imm5 = _split_imm13_signed(imm)
-    ctx.emit(InsnClass(d, vsrc, imm8, imm5))
+# def _emit_vi_binop(ctx, d, vsrc, imm, InsnClass):
+#     imm8, imm5 = _split_imm13_signed(imm)
+#     ctx.emit(InsnClass(d, vsrc, imm8, imm5))
 
 # # ADDI
 # @isa.pattern("vecreg", "ADDVECI32(vecreg, CONSTI32)", size=2,

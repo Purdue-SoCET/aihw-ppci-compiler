@@ -6,7 +6,7 @@ from .registers import (
     AtallaRegister,
     R0,
     R13, R12, R10, R11, R9, R7, R6, R5, R4, R3, LR,
-    FP,
+    FP, SP, SCPADSP, SCPADFP
 )
 from ..generic_instructions import (
     Alignment,
@@ -82,6 +82,7 @@ def make_i(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     imm12 = Operand("imm12", int)
     fprel = False
+    scpadfprel = False
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm12])
     tokens = [AtallaIToken]
     patterns = {
@@ -93,6 +94,7 @@ def make_i(mnemonic, opcode):
     members = {
         "syntax": syntax,
         "fprel": fprel,
+        "scpadfprel": scpadfprel,
         "rd": rd,
         "rs1": rs1,
         "imm12": imm12,
@@ -139,14 +141,16 @@ class BranchBase(AtallaBRInstruction):
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
-    imm12 = Operand("imm12", str)
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
-
+    imm10 = Operand("imm10", str)
+    incr_imm7 = Operand("incr_imm7", str)
+    # syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10, ",", " ", incr_imm7])
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10])
     members = {
         "syntax": syntax,
         "rs1": rs1,
         "rs2": rs2,
-        "imm12": imm12,
+        "imm10": imm10,
+        "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
