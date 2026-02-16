@@ -1280,7 +1280,7 @@ class CSemantics:
 
     def ensure_integer(self, expr: expressions.CExpression):
         """Ensure typ is of any integer type."""
-        if not expr.typ.is_integer_or_enum:
+        if not expr.typ.is_integer_or_enum and not expr.typ.is_vector:
             self.error(
                 "integer or enum type expected "
                 + f"but got {type_to_str(expr.typ)}",
