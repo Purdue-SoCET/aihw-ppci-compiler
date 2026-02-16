@@ -141,14 +141,16 @@ class BranchBase(AtallaBRInstruction):
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
-    imm12 = Operand("imm12", str)
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm12])
-
+    imm10 = Operand("imm10", str)
+    incr_imm7 = Operand("incr_imm7", str)
+    # syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10, ",", " ", incr_imm7])
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10])
     members = {
         "syntax": syntax,
         "rs1": rs1,
         "rs2": rs2,
-        "imm12": imm12,
+        "imm10": imm10,
+        "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)

@@ -13,10 +13,9 @@ class AtallaBRToken(Token):
         size = 48
     opcode    = bit_range(0, 7)
     incr_imm7 = bit_range(7, 14)
-    in_       = bit_range(14, 15) # renamed 'in' to 'in_' to avoid keyword conflict
     rs1       = bit_range(15, 23)
     rs2       = bit_range(23, 31)
-    imm9      = bit_range(31, 40)
+    imm10     = bit_concat(bit_range(31, 40), bit_range(14,15))
 
 class AtallaIToken(Token):
     class Info:
