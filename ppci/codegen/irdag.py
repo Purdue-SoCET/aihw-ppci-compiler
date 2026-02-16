@@ -205,7 +205,6 @@ class SelectionGraphBuilder:
 
         # print(self.f_map)
 
-
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -252,8 +251,6 @@ class SelectionGraphBuilder:
         sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
-
-
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
@@ -417,7 +414,16 @@ class SelectionGraphBuilder:
 
         output_registers = []
         for out_val in node.output_values:
-            if out_val.src.amount == 64 and self.arch.name == "atalla":
+            # Determine the amount based on the type of out_val
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(out_val, ir.AddressOf):
+                amount = out_val.src.amount
+            elif isinstance(out_val, ir.GlobalValue):
+                amount = out_val.amount
+            # For other types, amount remains None and we use the default type
+
+            if amount == 64 and self.arch.name == "atalla":
                 vreg = self.new_vreg(ir.vec)
             else:
                 vreg = self.new_vreg(out_val.ty)
@@ -440,7 +446,16 @@ class SelectionGraphBuilder:
             zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
-            if addr.src.amount == 64 and self.arch.name == "atalla":
+            # Determine the amount based on the type of addr
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(addr, ir.AddressOf):
+                amount = addr.src.amount
+            elif isinstance(addr, ir.GlobalValue):
+                amount = addr.amount
+            # For other types, amount remains None and we use the default type
+
+            if amount == 64 and self.arch.name == "atalla":
                 ty = ir.vec
             else:
                 ty = address.ty
@@ -449,11 +464,8 @@ class SelectionGraphBuilder:
             output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            store_node = self.new_node(
-                "STR", ty, address, output
-            )
+            store_node = self.new_node("STR", ty, address, output)
             self.chain(store_node)
-
 
     def do_const(self, node):
         """Process constant instruction"""
