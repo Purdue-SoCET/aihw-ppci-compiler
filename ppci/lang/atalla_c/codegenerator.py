@@ -1548,10 +1548,11 @@ class CCodeGenerator:
         return self.builder.emit_add(base, offset, ir.ptr)
 
     def gen_gemm(self, expr: expressions.Gemm):
-        arg1 = self.gen_expr(expr.arg1)
-        arg2 = self.gen_expr(expr.arg2)
-        mask = self.gen_expr(expr.mask)
-        value = self.builder.emit(ir.Gemm(arg1, arg2, mask))
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
         return value
 
 

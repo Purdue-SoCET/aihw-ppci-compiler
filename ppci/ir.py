@@ -100,6 +100,9 @@ class FloatingPointTyp(BasicTyp):
 class VectorTyp(BasicTyp):
     pass
 
+class MaskTyp(BasicTyp):
+    pass
+
 
 class BlobDataTyp(Typ):
     """The type of a opaque data blob.
@@ -154,8 +157,9 @@ ptr = PointerTyp("ptr")  #: Pointer type
 # Atalla specific types
 bf16 = FloatingPointTyp("bf16", 16)  #: 16-bit floating point type
 vec = VectorTyp("vec", 32*16)  #: Vector type
+mask = MaskTyp("mask", 32)
 
-value_types = [vec, bf16, f32, f64, i64, i32, i16, i8, u64, u32, u16, u8]
+value_types = [vec, bf16, f32, f64, i64, i32, i16, i8, u64, u32, u16, u8, mask]
 all_types = value_types + [ptr]
 type_name_map = {t.name.lower(): t for t in value_types}
 
@@ -1388,9 +1392,14 @@ class JumpTable(JumpBase):
     def __str__(self):
         return f"jmp_table {self.v.name}"
 
-class Gemm(Instruction):
-    def __init__(self, arg1, arg2, mask):
-        super().__init__()
+class Gemm(LocalValue):
+
+    arg1 = value_use("arg1")
+    arg2 = value_use("arg2")
+    mask = value_use("mask")
+
+    def __init__(self, arg1, arg2, mask, name, ty):
+        super().__init__(name, ty)
         self.arg1 = arg1
         self.arg2 = arg2
         self.mask = mask

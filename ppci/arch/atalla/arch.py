@@ -104,6 +104,15 @@ from .vector_registers import (
     vector_register_classes,
 )
 
+from .mask_registers import (
+    M0, M1, M2, M3, M4, M5, M6, M7,
+    M8, M9, M10, M11, M12, M13, M14, M15,
+    M16,
+    AtallaMaskRegister,
+    mask_registers,
+    mask_register_classes,
+)
+
 from .registers import (
     R0,
     LR,
@@ -191,7 +200,7 @@ class AtallaArch(Architecture):
         self.load = Lws
         # self.vec_store = VregSt
         # self.vec_load = VregLd
-        self.regclass = register_classes_swfp + vector_register_classes
+        self.regclass = register_classes_swfp + vector_register_classes + mask_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
         # self.isa.sectinst = Section
@@ -225,6 +234,8 @@ class AtallaArch(Architecture):
                 "vec": ir.vec,
                 "float": ir.bf16,
                 ir.ptr: ir.u32,
+                ir.mask: TypeInfo(4, 4),
+                "mask": ir.mask,
             },
             register_classes=self.regclass,
         )
@@ -289,7 +300,8 @@ class AtallaArch(Architecture):
         """Generate a move from src to dst"""
         #no MOV function in ISA so we use a existing custom instruction addis to move
         if V0 in src.registers or V0 in dst.registers:
-            return AddiVi(dst, src, 0)
+
+            return AddiVi(dst, src, 0, M0)
         return Addis(dst, src, 0)
 
     # don't need until implement memory

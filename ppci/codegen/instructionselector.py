@@ -112,7 +112,8 @@ ops = [
     "MNEQ",  # Matrix/vector operations
     "EXP",
     "SQRT",
-    "NOT"
+    "NOT",
+    "MVSTM"
 ]
 
 # Add all possible terminals:

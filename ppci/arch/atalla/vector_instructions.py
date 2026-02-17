@@ -2,13 +2,16 @@ from ..encoding import Instruction, Operand, Syntax
 from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
+    AtallaSTMToken,
     AtallaVVToken,
     AtallaVSToken,
     AtallaVIToken,
     AtallaVMemToken,
 )
 from .vector_registers import AtallaVectorRegister
+from .mask_registers import M0, AtallaMaskRegister
 from .registers import AtallaRegister
+from .instructions import Lis
 
 class AtallaVVInstruction(Instruction):
     tokens = [AtallaVVToken]
@@ -30,33 +33,36 @@ class AtallaVMemInstruction(Instruction):
     isa = isa
 
 
-def make_vv(mnemonic: str, opcode: int, *, default_mask: int = 0, default_sac: int = 0):
+def make_vv(mnemonic: str, opcode: int, *, default_mask: int = 0xFFFFFFFF, default_sac: int = 0):
     vd  = Operand("vd",  AtallaVectorRegister, write=True)
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister, read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2])
+    mask = Operand("mask", AtallaMaskRegister, read=True)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask])
     patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "vs2": vs2, "mask": default_mask, "sac": default_sac}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "mask": mask}
     return type(mnemonic.replace(".", "_"), (AtallaVVInstruction,), members)
 
 
-def make_vs(mnemonic: str, opcode: int, *, default_mask: int = 0):
+def make_vs(mnemonic: str, opcode: int, *, default_mask: int = 0xFFFFFFFF):
     vd  = Operand("vd",  AtallaVectorRegister, write=True)
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     rs1 = Operand("rs1", AtallaRegister,       read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", rs1])
+    mask = Operand("mask", AtallaMaskRegister, read=True)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", rs1, ",", " ", mask])
     patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "rs1": rs1, "mask": default_mask}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "rs1": rs1, "patterns": patterns, "opcode": opcode}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "rs1": rs1, "patterns": patterns, "opcode": opcode, "mask": mask}
     return type(mnemonic.replace(".", "_"), (AtallaVSInstruction,), members)
 
 
-def make_vi(mnemonic: str, opcode: int, *, default_mask: int = 0):
+def make_vi(mnemonic: str, opcode: int, *, default_mask: int = 0xFFFFFFFF):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
     imm = Operand("imm", int)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm])
+    mask = Operand("mask", AtallaMaskRegister, read=True)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm, ",", " ", mask])
     patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask": default_mask}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm": imm, "patterns": patterns, "opcode": opcode}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm": imm, "patterns": patterns, "opcode": opcode, "mask": mask}
     return type(mnemonic.replace(".", "_"), (AtallaVIInstruction,), members)
 
 
@@ -123,6 +129,40 @@ ShiftVs = make_vs("shift_vs", 0b0111000)
 VregLd = make_vm("vreg_ld", 0b1001101, True)
 VregSt = make_vm("vreg_st", 0b1001110, False)
 
+# ========== Mask Instructions ==========
+
+class AtallaSTMInstruction(Instruction):
+    tokens = [AtallaSTMToken]
+    isa = isa
+
+def make_stm(mnemonic: str, opcode: int):
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    vmd = Operand("vmd", AtallaMaskRegister, write=True)
+    syntax = Syntax([mnemonic, " ", vmd, ",", " ", rs1])
+    patterns = {"opcode": opcode, "vmd": vmd, "rs1": rs1}
+    members = {"syntax": syntax, "vmd": vmd, "rs1": rs1, "patterns": patterns, "opcode": opcode}
+    return type(mnemonic.replace(".", "_"), (AtallaSTMInstruction,), members)
+
+MvStm = make_stm("mv_stm", 0b1001100)
+
+@isa.pattern("maskreg", "REGMASK(maskreg)", size=1)
+def pattern_maskreg(context, tree):
+    return tree.value
+
+# @isa.pattern("stm", "MOVMASK(maskreg)", size=1)
+# def pattern_movmask(context, tree, c0):
+#     context.move(tree.value, c0)
+#     return tree.value
+
+@isa.pattern("stm", "MVSTMMASK(reg)", size=2,
+             condition=lambda t: 0 <= t.children[0].value < 32)
+def pattern_mvstmmask(context, tree, rs1):
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MvStm(d, rs1))
+    return d
+
+# ========== Vector Instructions' Patterns ============
+
 def _new_v(context):
     return context.new_reg(AtallaVectorRegister)
 
@@ -188,52 +228,52 @@ def pattern_reg(context, tree):
 
 # ---------- VV (vector-vector) ----------
 
-@isa.pattern("vecreg", "ADDVEC(vecreg, vecreg)", size=2)
-def patt_add_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, stm)", size=2)
+def patt_add_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(AddVv(d, v0, v1))
+    ctx.emit(AddVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "SUBVEC(vecreg, vecreg)", size=2)
-def patt_sub_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, stm)", size=2)
+def patt_sub_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(SubVv(d, v0, v1))
+    ctx.emit(SubVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "MULVEC(vecreg, vecreg)", size=2)
-def patt_mul_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "MULVEC(vecreg, vecreg, stm)", size=2)
+def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MulVv(d, v0, v1))
+    ctx.emit(MulVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "DIVVEC(vecreg, vecreg)", size=2)
-def patt_div_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, stm)", size=2)
+def patt_div_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(DivVv(d, v0, v1))
+    ctx.emit(DivVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "ANDVEC(vecreg, vecreg)", size=2)
-def patt_and_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "ANDVEC(vecreg, vecreg, stm)", size=2)
+def patt_and_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(AndVv(d, v0, v1))
+    ctx.emit(AndVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "ORVEC(vecreg, vecreg)", size=2)
-def patt_or_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "ORVEC(vecreg, vecreg, stm)", size=2)
+def patt_or_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(OrVv(d, v0, v1))
+    ctx.emit(OrVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "XORVEC(vecreg, vecreg)", size=2)
-def patt_xor_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "XORVEC(vecreg, vecreg, stm)", size=2)
+def patt_xor_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(XorVv(d, v0, v1))
+    ctx.emit(XorVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("reg", "GEMMVEC(reg, reg, reg)", size=2)
-def patt_gemm_vv(ctx, tree, v0, v1, v2):
+@isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, stm)", size=2)
+def patt_gemm_vv(ctx, tree, v0, v1, mask):
     d = _new_v(ctx)
-    ctx.emit(GemmVv(d, v0, v1, v2))
+    ctx.emit(GemmVv(d, v0, v1, mask))
     return d
 
 # MVV types. TODO: how do these work?

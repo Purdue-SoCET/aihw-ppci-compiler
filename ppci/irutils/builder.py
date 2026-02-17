@@ -151,6 +151,10 @@ class Builder:
         if isinstance(b, int):
             b = self.emit_const(b, ty)
         return self.emit(ir.Binop(a, op, b, "tmp", ty))
+    
+    def emit_gemm(self, a, b, mask, ty):
+        """Emit a gemm instruction."""
+        return self.emit(ir.Gemm(a, b, mask, "tmp_gemm", ty))
 
     def emit_add(self, a, b, ty):
         """Emit addition operation."""
