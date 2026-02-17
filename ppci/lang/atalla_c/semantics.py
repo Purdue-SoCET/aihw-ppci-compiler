@@ -39,6 +39,7 @@ class CSemantics:
 
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
+        self.vec_type = self.get_type(["vec"])
         self.long_type = self.get_type(["long"])
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
@@ -985,8 +986,8 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
-    def on_gemm(self, argr, arg1, arg2, location):
-        expr = expressions.Gemm(argr, arg1, arg2, self.int_type, False, location)
+    def on_gemm(self, a, b, mask, location):
+        expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
@@ -1212,6 +1213,8 @@ class CSemantics:
         #     )
 
         if self.equal_types(from_type, to_type):
+            pass
+        elif from_type.is_vector or to_type.is_vector:
             pass
         elif isinstance(
             from_type, (types.PointerType, types.EnumType)

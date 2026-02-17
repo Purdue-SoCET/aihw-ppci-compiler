@@ -964,12 +964,18 @@ class Binop(LocalValue):
         super().__init__(name, ty)
         if operation not in Binop.ops:
             raise TypeError(f"operation should be one of {Binop.ops}")
+        
+        if isinstance(ty, VectorTyp):
+            if not isinstance(a.ty, VectorTyp) and not isinstance(b.ty, VectorTyp):
+                raise TypeError(f"At least one of the operands must be a vector type for operation {operation}")
+            
+        else:
 
-        if a.ty is not ty:
-            raise TypeError(f"Binop type mismatch {a.ty} != {ty}")
+            if a.ty is not ty:
+                raise TypeError(f"Binop type mismatch {a.ty} != {ty}")
 
-        if b.ty is not ty:
-            raise TypeError(f"Binop type mismatch {b.ty} != {ty}")
+            if b.ty is not ty:
+                raise TypeError(f"Binop type mismatch {b.ty} != {ty}")
 
         self.a = a
         self.b = b
@@ -1383,9 +1389,11 @@ class JumpTable(JumpBase):
         return f"jmp_table {self.v.name}"
 
 class Gemm(Instruction):
-    def __init__(self, argr, arg1, arg2):
+    def __init__(self, arg1, arg2, mask):
         super().__init__()
-        self.value = [argr, arg1, arg2]
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
 
     def __str__(self):
-        return f"gemm {self.value[0]}, {self.value[1]}, {self.value[2]}"
+        return f"gemm {self.arg1.name}, {self.arg2.name}, {self.mask.name}"

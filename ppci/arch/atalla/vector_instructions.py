@@ -129,16 +129,6 @@ def _new_v(context):
 def _new_s(context):
     return context.new_reg(AtallaRegister)
 
-# def _split_imm13_signed(val: int):
-#     # 13-bit signed: range [-4096, 4095]
-#     if val < -4096 or val > 4095:
-#         raise ValueError("imm13 out of range")
-#     # two's complement form in 13 bits
-#     u = val & 0x1FFF
-#     imm8 = (u >> 5) & 0xFF
-#     imm5 = u & 0x1F
-#     return imm8, imm5
-
 def emit_stackrel_u32(context, base_reg, tree, mark):
     d = context.new_reg(AtallaRegister)
     offset = tree.value.offset
@@ -147,13 +137,11 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
     context.emit(code)
     return d
 
-
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
     Code = VregSt(v1, c0[0], 0, 0, 0, 0, 0)
     Code.fprel = True
     context.emit(Code)
-    #TODO: make sure this is correct
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
@@ -248,6 +236,8 @@ def patt_gemm_vv(ctx, tree, v0, v1, v2):
     ctx.emit(GemmVv(d, v0, v1, v2))
     return d
 
+# MVV types. TODO: how do these work?
+
 @isa.pattern("vecreg", "MGTVEC(vecreg, vecreg)", size=2)
 def patt_mgt_vv(ctx, tree, v0, v1):
     d = _new_v(ctx)
@@ -272,101 +262,85 @@ def patt_mneq_vv(ctx, tree, v0, v1):
     ctx.emit(MneqVv(d, v0, v1))
     return d
 
-# ---------- VI (vector-immediate; 13-bit signed immediate) ----------
+# ---------- VI (vector-immediate) ----------
+# TODO: add support for fp immediates
 
-# def _emit_vi_binop(ctx, d, vsrc, imm, InsnClass):
-#     imm8, imm5 = _split_imm13_signed(imm)
-#     ctx.emit(InsnClass(d, vsrc, imm8, imm5))
 
-# # ADDI
-# @isa.pattern("vecreg", "ADDVECI32(vecreg, CONSTI32)", size=2,
+# ADDI
+@isa.pattern("vecreg", "ADDVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16)", size=2,
 #              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_add_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, AddiVi)
-#     return d
+def patt_add_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(AddiVi(d, vsrc, imm))
+    return d
 
-# # SUBI
-# @isa.pattern("vecreg", "SUBVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_sub_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, SubiVi)
-#     return d
+# SUBI
+@isa.pattern("vecreg", "SUBVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_sub_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(SubiVi(d, vsrc, imm))
+    return d
 
-# # MULI
-# @isa.pattern("vecreg", "MULVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_mul_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, MuliVi)
-#     return d
+# MULI
+@isa.pattern("vecreg", "MULVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_mul_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(MuliVi(d, vsrc, imm))
+    return d
 
-# # DIVI
-# @isa.pattern("vecreg", "DIVVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_div_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, DiviVi)
-#     return d
+# DIVI
+@isa.pattern("vecreg", "DIVVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_div_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(DiviVi(d, vsrc, imm))
+    return d
 
-# # EXP (immediate exponent)
-# @isa.pattern("vecreg", "EXPVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_exp_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, ExpiVi)
-#     return d
+# EXP (immediate exponent)
+@isa.pattern("vecreg", "EXPVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_exp_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(ExpiVi(d, vsrc, imm))
+    return d
 
-# # SQRT (mode/precision as imm if your ISA uses it)
-# @isa.pattern("vecreg", "SQRTVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_sqrt_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, SqrtiVi)
-#     return d
+# SQRT (mode/precision as imm if your ISA uses it)
+@isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_sqrt_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(SqrtiVi(d, vsrc, imm))
+    return d
 
-# # NOT (use imm as a control/mask if required by your ISA; 0 is typical)
-# @isa.pattern("vecreg", "NOTVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_not_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, NotVi)
-#     return d
+# NOT (use imm as a control/mask if required by your ISA; 0 is typical)
+@isa.pattern("vecreg", "INVVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_not_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(NotVi(d, vsrc, imm))
+    return d
 
-# # SHIFT (vector by immediate)
-# @isa.pattern("vecreg", "SHIFTVI(vecreg, CONSTI32)", size=2,
-#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# def patt_shift_vi(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     imm = tree.children[1].value
-#     _emit_vi_binop(ctx, d, vsrc, imm, ShiftVi)
-#     return d
-
-# # Fallback for VI when imm doesn't fit: lift to VS by materializing scalar
-# def _materialize_scalar_const(ctx, val: int):
-#     s = _new_s(ctx)
-#     # Reuse your existing scalar constant pattern helpers; if not available, emit li_s/addi_s etc.
-#     # Here we assume context has a utility to place an immediate into a scalar reg.
-#     ctx.emit_li(s, val)  # If you don't have ctx.emit_li, replace with your scalar sequence.
-#     return s
-
-# @isa.pattern("vecreg", "ADDVI(vecreg, CONSTI32)", size=4,
-#              condition=lambda t: not (-4096 <= t.children[1].value <= 4095))
-# def patt_add_vi_wide(ctx, tree, vsrc):
-#     d = _new_v(ctx)
-#     val = tree.children[1].value
-#     s = _materialize_scalar_const(ctx, val)
-#     ctx.emit(ShiftVs(d, vsrc, s))  # Replace with AddVs if/when you add the VS add opcode
-#     return d
-
+# SHIFT (vector by immediate)
+@isa.pattern("vecreg", "SHLVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+@isa.pattern("vecreg", "SHRVEC(vecreg, CONSTI32)", size=2,
+             condition=lambda t: -4096 <= t.children[1].value <= 4095)
+def patt_shift_vi(ctx, tree, vsrc):
+    d = _new_v(ctx)
+    imm = tree.children[1].value
+    ctx.emit(ShiftVi(d, vsrc, imm))
+    return d
 # # ---------- VS (vector-scalar) ----------
 
 # @isa.pattern("vecreg", "SHIFTVS(vecreg, reg)", size=2)

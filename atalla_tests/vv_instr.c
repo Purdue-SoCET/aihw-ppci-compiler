@@ -1,5 +1,6 @@
 int main(){
     vec v1;
+    int mask = 5;
     int vec_addr1 = 0xABCD;
 
     asm("vreg_ld %0, %1, 0, 0, 0, 0, 0"
@@ -21,6 +22,8 @@ int main(){
     vec v7 = v6 & v5;
     vec v8 = v7 | v1;
     vec v9 = v8 ^ v2;
+
+    // v9 = gemm(v9, v8, mask);
 
     int store_addr = 0xAAAA;
 

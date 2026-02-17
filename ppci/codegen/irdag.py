@@ -222,35 +222,36 @@ class SelectionGraphBuilder:
         sgnode.add_input(self.current_token)
 
     def do_gemm(self, node):
-        """Create GEMMVV node with three u32 register operands.
-
-        This will produce a node like: GEMMVV(REGU32(r0), REGU32(r1), REGU32(r2))
-        by moving the three input values into fresh u32 vregs, creating REG
-        nodes for those vregs and using their outputs as inputs to GEMMVV.
-        """
         # Gemm.ir stores its operands in node.value as a list
-        args = list(node.value)
-
-        reg_outputs = []
-        for arg in args:
-            # get SGValue for the argument
-            arg_val = self.get_value(arg)
-
-            # allocate a new vreg for a u32 register and move the value into it
-            vreg = self.new_vreg(ir.vec)
-            mov_node = self.new_node("MOV", ir.vec, arg_val, value=vreg)
-            self.chain(mov_node)
-
-            # create a REG node that represents the vreg and expose its output
-            reg_node = self.new_node("REG", ir.vec, value=vreg)
-            out = reg_node.new_output(vreg.name)
-            out.vreg = vreg
-            reg_outputs.append(out)
-
-        # Create the GEMMVV node taking the three register outputs as inputs
-        sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        mask = self.get_value(node.mask)
+        #TODO: add mask
+        sgnode = self.new_node("GEMMVV", node.ty, vs1, vs2, mask)
         self.debug_db.map(node, sgnode)
-        self.chain(sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+        # args = list(node.value)
+
+        # reg_outputs = []
+        # for arg in args:
+        #     # get SGValue for the argument
+        #     arg_val = self.get_value(arg)
+
+        #     # allocate a new vreg for a u32 register and move the value into it
+        #     vreg = self.new_vreg(ir.vec)
+        #     mov_node = self.new_node("MOV", ir.vec, arg_val, value=vreg)
+        #     self.chain(mov_node)
+
+        #     # create a REG node that represents the vreg and expose its output
+        #     reg_node = self.new_node("REG", ir.vec, value=vreg)
+        #     out = reg_node.new_output(vreg.name)
+        #     out.vreg = vreg
+        #     reg_outputs.append(out)
+
+        # # Create the GEMMVV node taking the three register outputs as inputs
+        # sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
+        # self.debug_db.map(node, sgnode)
+        # self.chain(sgnode)
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)

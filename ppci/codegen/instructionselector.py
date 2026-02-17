@@ -110,6 +110,9 @@ ops = [
     "MLT",
     "MEQ",
     "MNEQ",  # Matrix/vector operations
+    "EXP",
+    "SQRT",
+    "NOT"
 ]
 
 # Add all possible terminals:
@@ -124,7 +127,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-)
+) + tuple(x+y+z for x in ops for y in ["VEC"] for z in ["I32", "BF16"])
 
 
 class ContextInterface(abc.ABC):
