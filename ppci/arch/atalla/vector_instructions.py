@@ -1,3 +1,4 @@
+from ppci.wasm.execution.runtime import _f32_to_f16_bits, f16_reinterpret_i16
 from ..encoding import Instruction, Operand, Syntax
 from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
@@ -58,7 +59,7 @@ def make_vs(mnemonic: str, opcode: int):
 def make_vi(mnemonic: str, opcode: int):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
-    imm = Operand("imm", str) # TODO: should probably be a BF16?
+    imm = Operand("imm", int)
     mask = Operand("mask", AtallaMaskRegister, read=True)
     syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm, ",", " ", mask])
     patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask": mask}
@@ -317,15 +318,18 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
 #              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_add_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
-    ctx.emit(AddiVi(d, vsrc, str(imm), mask))
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)  # returns an int 0–65535
+    ctx.emit(AddiVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "ADDVEC(CONSTBF16, vecreg, stm)", size=2,
              condition=lambda t: -4096 <= t.children[0].value <= 4095)
 def patt_add_vi_comm(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(AddiVi(d, vsrc, str(tree.children[0].value), mask))
+    assert isinstance(tree.children[0].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[0].value)  # returns an int 0–65535
+    ctx.emit(AddiVi(d, vsrc, imm, mask))
     return d
 
 # SUBI
@@ -333,8 +337,9 @@ def patt_add_vi_comm(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_sub_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
-    ctx.emit(SubiVi(d, vsrc, str(imm), mask))
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(SubiVi(d, vsrc, imm, mask))
     return d
 
 # @isa.pattern("vecreg", "SUBVEC(CONSTBF16, vecreg, stm)", size=2,
@@ -351,16 +356,18 @@ def patt_sub_vi(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_mul_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
-    ctx.emit(MuliVi(d, vsrc, str(imm), mask))
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(MuliVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "MULVEC(CONSTBF16, vecreg, stm)", size=2,
              condition=lambda t: -4096 <= t.children[0].value <= 4095)
 def patt_mul_vi_comm(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[0].value
-    ctx.emit(MuliVi(d, vsrc, str(imm), mask))  # Same imm for commuted form
+    assert isinstance(tree.children[0].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[0].value)
+    ctx.emit(MuliVi(d, vsrc, imm, mask))  # Same imm for commuted form
     return d
 
 # DIVI
@@ -368,8 +375,9 @@ def patt_mul_vi_comm(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_div_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
-    ctx.emit(DiviVi(d, vsrc, str(imm), mask))
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(DiviVi(d, vsrc, imm, mask))
     return d
 
 # @isa.pattern("vecreg", "DIVVEC(CONSTBF16, vecreg, stm)", size=2,
@@ -386,7 +394,8 @@ def patt_div_vi(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_exp_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
     ctx.emit(ExpiVi(d, vsrc, imm, mask))
     return d
 
@@ -395,7 +404,8 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    imm = tree.children[1].value
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
     ctx.emit(SqrtiVi(d, vsrc, imm, mask))
     return d
 
@@ -403,19 +413,20 @@ def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
 @isa.pattern("vecreg", "INVVEC(vecreg, CONSTBF16, stm)", size=2)
 def patt_not_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(NotVi(d, vsrc, '0', mask))
+    ctx.emit(NotVi(d, vsrc, 0, mask))
     return d
 
-# SHIFT (vector by immediate)
-@isa.pattern("vecreg", "SHLVEC(vecreg, CONSTBF16, stm)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-@isa.pattern("vecreg", "SHRVEC(vecreg, CONSTBF16, stm)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_shift_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    imm = tree.children[1].value
-    ctx.emit(ShiftVi(d, vsrc, imm, mask))
-    return d
+# SHIFT (vector by immediate) 
+# Not used in the ISA
+# @isa.pattern("vecreg", "SHLVEC(vecreg, CONSTBF16, stm)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# @isa.pattern("vecreg", "SHRVEC(vecreg, CONSTBF16, stm)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_shift_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     imm = tree.children[1].value
+#     ctx.emit(ShiftVi(d, vsrc, imm, mask))
+#     return d
 # # ---------- VS (vector-scalar) ----------
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, reg, stm)", size=2)

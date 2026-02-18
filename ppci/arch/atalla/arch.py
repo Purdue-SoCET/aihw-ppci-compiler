@@ -301,7 +301,7 @@ class AtallaArch(Architecture):
         #no MOV function in ISA so we use a existing custom instruction addis to move
         if V0 in src.registers or V0 in dst.registers:
 
-            return AddiVi(dst, src, '0', M0)
+            return AddiVi(dst, src, 0, M0)
         return Addis(dst, src, 0)
 
     # don't need until implement memory
