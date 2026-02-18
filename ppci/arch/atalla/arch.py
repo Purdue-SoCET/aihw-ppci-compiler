@@ -72,9 +72,9 @@ from .vector_instructions import (
     AndVv,
     OrVv,
     XorVv,
-    MgtVv,
-    MltVv,
-    MeqVv,
+    # MgtVv,
+    # MltVv,
+    # MeqVv,
     # Vector-Unary
     NotVi,
     ExpiVi,

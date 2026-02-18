@@ -58,7 +58,7 @@ def make_vs(mnemonic: str, opcode: int):
 def make_vi(mnemonic: str, opcode: int):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
-    imm = Operand("imm", int)
+    imm = Operand("imm", int) # TODO: should probably be a BF16?
     mask = Operand("mask", AtallaMaskRegister, read=True)
     syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm, ",", " ", mask])
     patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask": mask}
@@ -95,34 +95,39 @@ def make_vm(mnemonic: str, opcode: int, load: bool):
 
 
 # VV
-AddVv   = make_vv("add_vv",   0b0101000)
-SubVv   = make_vv("sub_vv",   0b0101001)
-MulVv   = make_vv("mul_vv",   0b0101010)
-DivVv   = make_vv("div_vv",   0b0101011)
-AndVv   = make_vv("and_vv",   0b0101100)
-OrVv    = make_vv("or_vv",    0b0101101)
-XorVv   = make_vv("xor_vv",   0b0101110)
-GemmVv  = make_vv("gemm_vv",  0b0101111)
-MgtVv   = make_vv("mgt_vv",   0b0110000)
-MltVv   = make_vv("mlt_vv",   0b0110001)
-MeqVv   = make_vv("meq_vv",   0b0110010)
-MneqVv  = make_vv("mneq_vv",  0b0110011)
+AddVv   = make_vv("add_vv",   0b0110010)
+SubVv   = make_vv("sub_vv",   0b0110011)
+MulVv   = make_vv("mul_vv",   0b0110100)
+DivVv   = make_vv("div_vv",   0b0110101)
+AndVv   = make_vv("and_vv",   0b0110110)
+OrVv    = make_vv("or_vv",    0b0110111)
+XorVv   = make_vv("xor_vv",   0b0111000)
+GemmVv  = make_vv("gemm_vv",  0b0111001)
+# MgtVv   = make_vv("mgt_vv",   0b0110000)
+# MltVv   = make_vv("mlt_vv",   0b0110001)
+# MeqVv   = make_vv("meq_vv",   0b0110010)
+# MneqVv  = make_vv("mneq_vv",  0b0110011)
 
 # VI
-AddiVi  = make_vi("addi_vi",  0b0110100)
-SubiVi  = make_vi("subi_vi",  0b0110101)
-MuliVi  = make_vi("muli_vi",  0b0110110)
-DiviVi  = make_vi("divi_vi",  0b0110111)
-ExpiVi  = make_vi("expi_vi",  0b0111000)
-SqrtiVi = make_vi("sqrti_vi", 0b0111001)
-NotVi   = make_vi("not_vi",   0b0111010)
-ShiftVi = make_vi("shift_vi", 0b0111011)
-LwVi    = make_vi("lw_vi",    0b0111100)
-RsumVi  = make_vi("rsum_vi",  0b0111101)
-RminVi  = make_vi("rmin_vi",  0b0111110)
-RmaxVi  = make_vi("rmax_vi",  0b0111111)
+AddiVi  = make_vi("addi_vi",  0b0111110) # Binop
+SubiVi  = make_vi("subi_vi",  0b0111111) # Binop
+MuliVi  = make_vi("muli_vi",  0b1000000) # Binop
+DiviVi  = make_vi("divi_vi",  0b1000001) # Binop
 
-# VS
+ExpiVi  = make_vi("expi_vi",  0b1000010) # Intrinsic
+SqrtiVi = make_vi("sqrti_vi", 0b1000011) # Intrinsic
+NotVi   = make_vi("not_vi",   0b1000100) # Unop
+ShiftVi = make_vi("shift_vi", 0b1000101) # Binop
+LwVi    = make_vi("lw_vi",    0b1000110)
+RsumVi  = make_vi("rsum_vi",  0b1000111)
+RminVi  = make_vi("rmin_vi",  0b1001000)
+RmaxVi  = make_vi("rmax_vi",  0b1001001)
+
+# VS TODO: make these take BF16 and convert from INT32 -> BF16 (as per ISA)
+AddVs   = make_vs("add_vs",   0b1010000)
+SubVs   = make_vs("sub_vs",   0b1010001)
+MulVs   = make_vs("mul_vs",   0b1010010)
+DivVs   = make_vs("div_vs",   0b1010011)
 ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # VM
@@ -276,35 +281,34 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
     ctx.emit(GemmVv(d, v0, v1, mask))
     return d
 
-# MVV types. TODO: how do these work?
+# TODO: MVV types
 
-@isa.pattern("vecreg", "MGTVEC(vecreg, vecreg, stm)", size=2)
-def patt_mgt_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MgtVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "MGTVEC(vecreg, vecreg, stm)", size=2)
+# def patt_mgt_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(MgtVv(d, v0, v1, mask))
+#     return d
 
-@isa.pattern("vecreg", "MLTVEC(vecreg, vecreg, stm)", size=2)
-def patt_mlt_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MltVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "MLTVEC(vecreg, vecreg, stm)", size=2)
+# def patt_mlt_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(MltVv(d, v0, v1, mask))
+#     return d
 
-@isa.pattern("vecreg", "MEQVEC(vecreg, vecreg, stm)", size=2)
-def patt_meq_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MeqVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "MEQVEC(vecreg, vecreg, stm)", size=2)
+# def patt_meq_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(MeqVv(d, v0, v1, mask))
+#     return d
 
-@isa.pattern("vecreg", "MNEQVEC(vecreg, vecreg, stm)", size=2)
-def patt_mneq_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MneqVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "MNEQVEC(vecreg, vecreg, stm)", size=2)
+# def patt_mneq_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(MneqVv(d, v0, v1, mask))
+#     return d
 
 # ---------- VI (vector-immediate) ----------
-# TODO: add support for fp immediates
-
+# TODO: add support for fp immediates? 
 
 # ADDI
 @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTI32, stm)", size=2,
