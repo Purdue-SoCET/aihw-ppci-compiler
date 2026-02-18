@@ -40,6 +40,8 @@ int main(){
 
     vr = vr >> 5;
 
+    vr = vr << 5;
+
     // vr = ~vr;
 
 

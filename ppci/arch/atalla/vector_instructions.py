@@ -278,28 +278,28 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
 
 # MVV types. TODO: how do these work?
 
-@isa.pattern("vecreg", "MGTVEC(vecreg, vecreg)", size=2)
-def patt_mgt_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "MGTVEC(vecreg, vecreg, stm)", size=2)
+def patt_mgt_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MgtVv(d, v0, v1))
+    ctx.emit(MgtVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "MLTVEC(vecreg, vecreg)", size=2)
-def patt_mlt_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "MLTVEC(vecreg, vecreg, stm)", size=2)
+def patt_mlt_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MltVv(d, v0, v1))
+    ctx.emit(MltVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "MEQVEC(vecreg, vecreg)", size=2)
-def patt_meq_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "MEQVEC(vecreg, vecreg, stm)", size=2)
+def patt_meq_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MeqVv(d, v0, v1))
+    ctx.emit(MeqVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "MNEQVEC(vecreg, vecreg)", size=2)
-def patt_mneq_vv(ctx, tree, v0, v1):
+@isa.pattern("vecreg", "MNEQVEC(vecreg, vecreg, stm)", size=2)
+def patt_mneq_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MneqVv(d, v0, v1))
+    ctx.emit(MneqVv(d, v0, v1, mask))
     return d
 
 # ---------- VI (vector-immediate) ----------
@@ -307,79 +307,79 @@ def patt_mneq_vv(ctx, tree, v0, v1):
 
 
 # ADDI
-@isa.pattern("vecreg", "ADDVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "ADDVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 # @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16)", size=2,
 #              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_add_vi(ctx, tree, vsrc):
+def patt_add_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(AddiVi(d, vsrc, imm))
+    ctx.emit(AddiVi(d, vsrc, imm, mask))
     return d
 
 # SUBI
-@isa.pattern("vecreg", "SUBVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "SUBVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_sub_vi(ctx, tree, vsrc):
+def patt_sub_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(SubiVi(d, vsrc, imm))
+    ctx.emit(SubiVi(d, vsrc, imm, mask))
     return d
 
 # MULI
-@isa.pattern("vecreg", "MULVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "MULVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_mul_vi(ctx, tree, vsrc):
+def patt_mul_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(MuliVi(d, vsrc, imm))
+    ctx.emit(MuliVi(d, vsrc, imm, mask))
     return d
 
 # DIVI
-@isa.pattern("vecreg", "DIVVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "DIVVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_div_vi(ctx, tree, vsrc):
+def patt_div_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(DiviVi(d, vsrc, imm))
+    ctx.emit(DiviVi(d, vsrc, imm, mask))
     return d
 
 # EXP (immediate exponent)
-@isa.pattern("vecreg", "EXPVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "EXPVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_exp_vi(ctx, tree, vsrc):
+def patt_exp_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(ExpiVi(d, vsrc, imm))
+    ctx.emit(ExpiVi(d, vsrc, imm, mask))
     return d
 
 # SQRT (mode/precision as imm if your ISA uses it)
-@isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_sqrt_vi(ctx, tree, vsrc):
+def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(SqrtiVi(d, vsrc, imm))
+    ctx.emit(SqrtiVi(d, vsrc, imm, mask))
     return d
 
 # NOT (use imm as a control/mask if required by your ISA; 0 is typical)
-@isa.pattern("vecreg", "INVVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "INVVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_not_vi(ctx, tree, vsrc):
+def patt_not_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(NotVi(d, vsrc, imm))
+    ctx.emit(NotVi(d, vsrc, imm, mask))
     return d
 
 # SHIFT (vector by immediate)
-@isa.pattern("vecreg", "SHLVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "SHLVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-@isa.pattern("vecreg", "SHRVEC(vecreg, CONSTI32)", size=2,
+@isa.pattern("vecreg", "SHRVEC(vecreg, CONSTI32, stm)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_shift_vi(ctx, tree, vsrc):
+def patt_shift_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     imm = tree.children[1].value
-    ctx.emit(ShiftVi(d, vsrc, imm))
+    ctx.emit(ShiftVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------
 
