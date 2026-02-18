@@ -19,34 +19,30 @@ int main(){
     : "=v"(v2)
     : "r"(vec_addr2));
 
-    int a = 10;
-    int b = 5;
-
-    int c = a * b;
-    // TODO: add support for floats
-    // float a = 1.5;
+    float c = 3.6;
 
     vec v3 = v1 + c;
 
-    vr = v1 - c;
+    vr = v3 - 5.0;
 
-    vr = vr * c;
+    // vr = v1 - c;
 
-    vr = vr / c;
+    vr = c * vr;
+
+    vr = vr / 6.0;
 
     // exp, sqrt, rsum, rmin, rmax probably all need intrinsics
 
-    // vr = vr ** c;
+    //TODO: floats or ints for bitwise?
+    // vr = vr >> 5;
 
-    vr = vr >> 5;
+    // vr = vr << 5;
 
-    vr = vr << 5;
+    vec v5 = 3.2 + vr;
 
-    vec v5 = 3 + vr;
+    v5 *= 10.1;
 
-    v5 *= 10;
-
-    vr = ~vr;
+    vr = ~v5;
 
 
     
@@ -55,11 +51,11 @@ int main(){
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 
-    : "v"(vr), "r"(store_addr));
+    : "v"(v3), "r"(store_addr));
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 
-    : "v"(v5), "r"(store_addr));
+    : "v"(vr), "r"(store_addr));
 
     return 0;
 }

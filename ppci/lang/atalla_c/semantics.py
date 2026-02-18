@@ -1214,8 +1214,10 @@ class CSemantics:
 
         if self.equal_types(from_type, to_type):
             pass
-        elif from_type.is_vector or to_type.is_vector:
+        elif from_type.is_float and to_type.is_vector:
             pass
+        elif from_type.is_integer_or_enum and to_type.is_vector:
+            do_cast = True
         elif isinstance(
             from_type, (types.PointerType, types.EnumType)
         ) and isinstance(to_type, types.BasicType):

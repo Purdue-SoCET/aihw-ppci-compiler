@@ -73,6 +73,17 @@ Sras = make_r("sra_s", 0b0001011)
 Slts = make_r("slt_s", 0b0001100)
 Sltus = make_r("sltu_s", 0b0001101)
 
+#BF16 R-types:
+
+AddBf = make_r("add_bf", 0b0001110)
+SubBf = make_r("sub_bf", 0b0001111)
+MulBf = make_r("mul_bf", 0b0010000)
+DivBf = make_r("div_bf", 0b0010001)
+SltBf = make_r("slt_bf", 0b0010010)
+SltuBf = make_r("sltu_bf", 0b0010011)
+StbfS = make_r("stbf_s", 0b0010100)
+BftsS = make_r("bfts_s", 0b0010101)
+
 class AtallaIInstruction(Instruction):
     tokens = [AtallaIToken]
     isa = isa
@@ -1186,51 +1197,51 @@ def pattern_xor_i32_const_reg(context, tree, c0):
 
 @isa.pattern("reg", "ADDBF16(reg, reg)", size=20)
 def pattern_add_f16(context, tree, c0, c1):
-    return call_internal2(
-        context, "float16_add", c0, c1, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(AddBf(d, c0, c1))
+    return d
 
 
 @isa.pattern("reg", "SUBBF16(reg, reg)", size=20)
 def pattern_sub_f16(context, tree, c0, c1):
-    return call_internal2(
-        context, "float16_sub", c0, c1, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(SubBf(d, c0, c1))
+    return d
 
 
 @isa.pattern("reg", "MULBF16(reg, reg)", size=20)
 def pattern_mul_f16(context, tree, c0, c1):
-    return call_internal2(
-        context, "float16_mul", c0, c1, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(MulBf(d, c0, c1))
+    return d
 
 
 @isa.pattern("reg", "DIVBF16(reg, reg)", size=20)
 def pattern_div_f16(context, tree, c0, c1):
-    return call_internal2(
-        context, "float16_div", c0, c1, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(DivBf(d, c0, c1))
+    return d
 
 
 @isa.pattern("reg", "NEGBF16(reg)", size=20)
 def pattern_neg_f16(context, tree, c0):
-    return call_internal1(
-        context, "float16_neg", c0, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(SubBf(d, R0, c0))
+    return d
 
 
 @isa.pattern("reg", "BF16TOI32(reg)", size=20)
 def pattern_ftoi_f16_i32(context, tree, c0):
-    return call_internal1(
-        context, "float16_to_int32", c0, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(BftsS(d, c0, R0))
+    return d
 
-
+@isa.pattern("reg", "I32TOVEC(reg)", size=20)
 @isa.pattern("reg", "I32TOBF16(reg)", size=20)
 def pattern_itof_i32_f16(context, tree, c0):
-    return call_internal1(
-        context, "int32_to_float16", c0, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(AtallaRegister)
+    context.emit(StbfS(d, c0, R0))
+    return d
 
 
 @isa.pattern("stm", "CJMPBF16(reg, reg)", size=20)
