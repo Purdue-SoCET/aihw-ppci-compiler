@@ -536,7 +536,8 @@ class GraphColoringRegisterAllocator:
             and (not self.is_move_related(u))
             and self.is_colorable(u)
         ):
-            self.freeze_worklist.remove(u)
+            if u in self.freeze_worklist:
+                self.freeze_worklist.remove(u)
             self.simplify_worklist.add(u)
 
     def ok(self, t, r):

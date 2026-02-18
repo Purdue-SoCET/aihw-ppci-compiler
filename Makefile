@@ -1,6 +1,7 @@
 COMPILER=atalla_cc
 ARCH=atalla
 PPCI=python3 -m ppci
+INPUT=examples/c/sample2.c
 
 
 atalla-compile-o2-no-link:
