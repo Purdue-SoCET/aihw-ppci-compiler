@@ -42,7 +42,11 @@ int main(){
 
     vr = vr << 5;
 
-    // vr = ~vr;
+    vec v5 = 3 + vr;
+
+    v5 *= 10;
+
+    vr = ~vr;
 
 
     
@@ -55,7 +59,7 @@ int main(){
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 
-    : "v"(v3), "r"(store_addr));
+    : "v"(v5), "r"(store_addr));
 
     return 0;
 }
