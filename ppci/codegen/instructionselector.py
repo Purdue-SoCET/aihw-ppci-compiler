@@ -103,12 +103,17 @@ ops = [
     "F64TO",
     "BF16TO",
     "FPREL",
+    "SCPADREL",
     "SPREL",  # Frame/stack pointer relative
     "GEMM",
     "MGT",
     "MLT",
     "MEQ",
     "MNEQ",  # Matrix/vector operations
+    "EXP",
+    "SQRT",
+    "NOT",
+    "MVSTM"
 ]
 
 # Add all possible terminals:
@@ -123,7 +128,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-)
+) + tuple(x+y+z for x in ops for y in ["VEC"] for z in ["I32", "BF16"])
 
 
 class ContextInterface(abc.ABC):
@@ -410,8 +415,7 @@ class InstructionSelector1:
 
                     # Filter out pure virtual or comment instructions
                     real = [i for i in insts
-                            if hasattr(i, "opcode") or hasattr(i, "mnemonic")]
-                    print(real)
+                            if hasattr(i, "opcode") or hasattr(i, "mnemonic") or isinstance(i, InlineAssembly)]
                     print("created packets: ")
 
 
@@ -452,11 +456,11 @@ class InstructionSelector1:
 
         # Generate proper instructions:
         self.munch_trees(context, forest)
-        if self.arch.name == "atalla":
-            frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
-            self.logger.debug("bucket sizes: %s",
-                {getattr(b,'name','<blk>'):[len(x) for x in depths]
-                for b, depths in frame.buckets_by_block.items()})
+        # if self.arch.name == "atalla":
+        #     frame.buckets_by_block = _build_buckets_from_sgraph(sgraph, context)
+        #     self.logger.debug("bucket sizes: %s",
+        #         {getattr(b,'name','<blk>'):[len(x) for x in depths]
+        #         for b, depths in frame.buckets_by_block.items()})
 
         # Generate function tail:
         if isinstance(ir_function, ir.Function):
@@ -484,6 +488,10 @@ class InstructionSelector1:
 
         TODO: implement different strategies.
         """
+
+        #print selection trees
+        for tree in trees:
+            print(tree)
 
         # Match all splitted trees:
         for tree in trees:

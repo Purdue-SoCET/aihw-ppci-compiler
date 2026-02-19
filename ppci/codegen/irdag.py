@@ -16,8 +16,8 @@ import logging
 
 from .. import ir
 from ..arch.generic_instructions import Label
-from ..arch.stack import StackLocation
-from ..binutils.debuginfo import FpOffsetAddress
+from ..arch.stack import StackLocation, StackKind
+from ..binutils.debuginfo import FpOffsetAddress, ScpadOffsetAddress
 from .selectiongraph import SelectionGraph, SGNode, SGValue
 
 
@@ -205,7 +205,6 @@ class SelectionGraphBuilder:
 
         # print(self.f_map)
 
-
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -223,37 +222,21 @@ class SelectionGraphBuilder:
         sgnode.add_input(self.current_token)
 
     def do_gemm(self, node):
-        """Create GEMMVV node with three u32 register operands.
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_loc = self.new_vreg(ir.mask)
 
-        This will produce a node like: GEMMVV(REGU32(r0), REGU32(r1), REGU32(r2))
-        by moving the three input values into fresh u32 vregs, creating REG
-        nodes for those vregs and using their outputs as inputs to GEMMVV.
-        """
-        # Gemm.ir stores its operands in node.value as a list
-        args = list(node.value)
+        stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
+        # self.chain(stm_mv)
 
-        reg_outputs = []
-        for arg in args:
-            # get SGValue for the argument
-            arg_val = self.get_value(arg)
+        # Feed MVSTM result directly; avoid MOVMASK by not assigning a vreg here
+        mask_output = stm_mv.new_output("mask")
+        mask_output.wants_vreg = False
 
-            # allocate a new vreg for a u32 register and move the value into it
-            vreg = self.new_vreg(ir.vec)
-            mov_node = self.new_node("MOV", ir.vec, arg_val, value=vreg)
-            self.chain(mov_node)
-
-            # create a REG node that represents the vreg and expose its output
-            reg_node = self.new_node("REG", ir.vec, value=vreg)
-            out = reg_node.new_output(vreg.name)
-            out.vreg = vreg
-            reg_outputs.append(out)
-
-        # Create the GEMMVV node taking the three register outputs as inputs
-        sgnode = self.new_node("GEMMVEC", None, *reg_outputs)
+        sgnode = self.new_node("GEMM", node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
-        self.chain(sgnode)
-
-
+        self.add_map(node, sgnode.new_output(node.name))
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
@@ -338,22 +321,28 @@ class SelectionGraphBuilder:
 
     def do_alloc(self, node):
         """Process the alloc instruction"""
-        # TODO: check alignment?
-        # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
-        # fp_output = fp.new_output('fp')
-        # fp_output.wants_vreg = False
-        # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount, node.alignment)
-        # offset_output = offset.new_output('offset')
-        # offset_output.wants_vreg = False
-        sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        frame = self.function_info.frame
+
+        if node.amount == 64:
+            slot = frame.scpad_alloc(node.amount, node.alignment)
+        else:
+            slot = frame.alloc(node.amount, node.alignment)
+
+        if slot.kind == StackKind.NORMAL:
+            sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        else:
+            sgnode = self.new_node("SCPADREL", ir.ptr, value=slot)
 
         output = sgnode.new_output("alloc")
         output.wants_vreg = False
         self.add_map(node, output)
+
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(slot)
+            if slot.kind == StackKind.NORMAL:
+                dbg_var.address = FpOffsetAddress(slot)
+            else:
+                dbg_var.address = ScpadOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
     
     def do_vec_alloc(self, node):
@@ -401,13 +390,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        """Create selection graph node for inline asm code.
-
-        This is a little weird, as we really do not need to select
-        any instructions, but this special node will be filtered later
-        on.
-        """
-
+        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -416,20 +399,27 @@ class SelectionGraphBuilder:
             mov_sgnode = self.new_node(
                 "MOV", input_value.ty, arg_val, value=reg_loc
             )
-
             self.chain(mov_sgnode)
             input_registers.append(reg_loc)
 
-        if len(node.output_values) > 0:
-            issue = (
-                "Output registers on asm cannot be greater than "
-                "the number of input"
-            )
-            assert len(node.output_values) <= len(node.input_values), issue
-
         output_registers = []
+        for out_val in node.output_values:
+            # Determine the amount based on the type of out_val
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(out_val, ir.AddressOf):
+                amount = out_val.src.amount
+            elif isinstance(out_val, ir.GlobalValue):
+                amount = out_val.amount
+            # For other types, amount remains None and we use the default type
 
-        sgnode = self.new_node(
+            if amount == 64 and self.arch.name == "atalla":
+                vreg = self.new_vreg(ir.vec)
+            else:
+                vreg = self.new_vreg(out_val.ty)
+            output_registers.append(vreg)
+
+        asm_node = self.new_node(
             "ASM",
             None,
             value=(
@@ -439,21 +429,33 @@ class SelectionGraphBuilder:
                 node.clobbers,
             ),
         )
-        self.chain(sgnode)
-        self.debug_db.map(node, sgnode)
+        self.chain(asm_node)
+        self.debug_db.map(node, asm_node)
 
         for i, (reg, addr) in enumerate(
-            zip(node.clobbers, node.output_values)
+            zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
+            # Determine the amount based on the type of addr
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(addr, ir.AddressOf):
+                amount = addr.src.amount
+            elif isinstance(addr, ir.GlobalValue):
+                amount = addr.amount
+            # For other types, amount remains None and we use the default type
 
-            param_node = self.new_node("REG", address.ty, value=reg)
-            output = param_node.new_output("ret_" + str(i))
+            if amount == 64 and self.arch.name == "atalla":
+                ty = ir.vec
+            else:
+                ty = address.ty
+
+            param_node = self.new_node("REG", ty, value=reg)
+            output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            sgnode = self.new_node("STR", address.ty, address, output)
-
-            self.chain(sgnode)
+            store_node = self.new_node("STR", ty, address, output)
+            self.chain(store_node)
 
     def do_const(self, node):
         """Process constant instruction"""

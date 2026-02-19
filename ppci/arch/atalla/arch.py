@@ -72,9 +72,9 @@ from .vector_instructions import (
     AndVv,
     OrVv,
     XorVv,
-    MgtVv,
-    MltVv,
-    MeqVv,
+    # MgtVv,
+    # MltVv,
+    # MeqVv,
     # Vector-Unary
     NotVi,
     ExpiVi,
@@ -89,6 +89,9 @@ from .vector_instructions import (
     DiviVi,
     ExpiVi,
     SqrtiVi,
+    VregLd,
+    VregSt,
+    isa as vec_isa,
 )
 
 from .vector_registers import (
@@ -99,6 +102,15 @@ from .vector_registers import (
     AtallaVectorRegister,
     vector_registers,
     vector_register_classes,
+)
+
+from .mask_registers import (
+    M0, M1, M2, M3, M4, M5, M6, M7,
+    M8, M9, M10, M11, M12, M13, M14, M15,
+    M16,
+    AtallaMaskRegister,
+    mask_registers,
+    mask_register_classes,
 )
 
 from .registers import (
@@ -186,7 +198,9 @@ class AtallaArch(Architecture):
         self.isa = isa + data_isa
         self.store = Sws
         self.load = Lws
-        self.regclass = register_classes_swfp + vector_register_classes
+        # self.vec_store = VregSt
+        # self.vec_load = VregLd
+        self.regclass = register_classes_swfp + vector_register_classes + mask_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
         # self.isa.sectinst = Section
@@ -220,6 +234,8 @@ class AtallaArch(Architecture):
                 "vec": ir.vec,
                 "float": ir.bf16,
                 ir.ptr: ir.u32,
+                ir.mask: TypeInfo(4, 4),
+                "mask": ir.mask,
             },
             register_classes=self.regclass,
         )
@@ -283,6 +299,9 @@ class AtallaArch(Architecture):
     def move(self, dst, src):
         """Generate a move from src to dst"""
         #no MOV function in ISA so we use a existing custom instruction addis to move
+        if V0 in src.registers or V0 in dst.registers:
+
+            return AddiVi(dst, src, 0, M0)
         return Addis(dst, src, 0)
 
     # don't need until implement memory
@@ -403,7 +422,9 @@ class AtallaArch(Architecture):
     def peephole(self, frame):
         newinstructions = []
         for ins in frame.instructions:
-            if hasattr(ins, "fprel") and ins.fprel:
+            # idk if this causes a problem with vreg ld/st TODO: investigate
+            # identify during testing phase and fix if needed
+            if hasattr(ins, "fprel") and ins.fprel and not isinstance(ins, (VregLd, VregSt)):
                 ins.imm12 += round_up(frame.stacksize + 8) - 8
             newinstructions.append(ins)
         return newinstructions
@@ -483,7 +504,7 @@ class AtallaArch(Architecture):
 
     def gen_function_exit(self, rv):
         live_out = set()
-        if rv:
+        if rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield self.move(retval_loc, rv[1])
             live_out.add(retval_loc)

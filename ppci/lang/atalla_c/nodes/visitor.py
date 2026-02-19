@@ -149,7 +149,7 @@ class Visitor:
         elif isinstance(node, expressions.Gemm):
             self.visit(node.arg1)
             self.visit(node.arg2)
-            self.visit(node.argr)
+            self.visit(node.mask)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 

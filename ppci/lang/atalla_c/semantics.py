@@ -39,6 +39,7 @@ class CSemantics:
 
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
+        self.vec_type = self.get_type(["vec"])
         self.long_type = self.get_type(["long"])
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
@@ -645,7 +646,22 @@ class CSemantics:
     ):
         output_operands2 = []
         for constraint, asm_output_expr in output_operands:
-            assert constraint == "=r"
+            if constraint not in ("=r", "=v"):
+                raise NotImplementedError(
+                    f"Inline asm constraint not implemented: {constraint}"
+                )
+
+            if constraint == "=v" and not asm_output_expr.typ.is_vector:
+                self.error(
+                    "Expected vector output for '=v' constraint",
+                    asm_output_expr.location,
+                )
+
+            if constraint == "=r" and asm_output_expr.typ.is_vector:
+                self.error(
+                    "Use '=v' constraint for vector outputs",
+                    asm_output_expr.location,
+                )
 
             # Output must be l-value:
             if not asm_output_expr.lvalue:
@@ -656,10 +672,21 @@ class CSemantics:
         input_operands2 = []
         for constraint, asm_input_expr in input_operands:
             if constraint == "r":
+                if asm_input_expr.typ.is_vector:
+                    self.error(
+                        "Use 'v' constraint for vector inputs",
+                        asm_input_expr.location,
+                    )
                 # TODO: how to determine what type to cast to?
                 asm_input_expr = self.coerce(
                     asm_input_expr, self.get_type(["long"])
                 )
+            elif constraint == "v":
+                if not asm_input_expr.typ.is_vector:
+                    self.error(
+                        "Expected vector input for 'v' constraint",
+                        asm_input_expr.location,
+                    )
             else:
                 raise NotImplementedError(
                     f"Inline asm constraint not implemented: {constraint}"
@@ -959,8 +986,8 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
-    def on_gemm(self, argr, arg1, arg2, location):
-        expr = expressions.Gemm(argr, arg1, arg2, self.int_type, False, location)
+    def on_gemm(self, a, b, mask, location):
+        expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
@@ -1187,6 +1214,10 @@ class CSemantics:
 
         if self.equal_types(from_type, to_type):
             pass
+        elif from_type.is_float and to_type.is_vector:
+            pass
+        elif from_type.is_integer_or_enum and to_type.is_vector:
+            do_cast = True
         elif isinstance(
             from_type, (types.PointerType, types.EnumType)
         ) and isinstance(to_type, types.BasicType):
@@ -1254,7 +1285,7 @@ class CSemantics:
 
     def ensure_integer(self, expr: expressions.CExpression):
         """Ensure typ is of any integer type."""
-        if not expr.typ.is_integer_or_enum:
+        if not expr.typ.is_integer_or_enum and not expr.typ.is_vector:
             self.error(
                 "integer or enum type expected "
                 + f"but got {type_to_str(expr.typ)}",

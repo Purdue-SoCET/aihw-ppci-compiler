@@ -122,7 +122,19 @@ class CCodeGenerator:
         """Helper function to reserve some room on the stack."""
         size, alignment = self.data_layout(typ)
         name = "alloca"
+        # Outdated code for vector types:
+
         # Store here, to place them all at the beginning of the function:
+        # if typ.is_vector:
+        #     ir_typ = self.get_ir_type(typ)
+        #     ir_var = ir.Undefined(name, ir_typ)
+        #     self._allocs.append(ir_var)
+        #     #TODO: change Alloc to generate a scpad stack relocation?
+        #     return ir_var
+        # else:
+
+        # Outdated code for vector types end.
+
         ir_var = ir.Alloc(name, size, alignment)
         self._allocs.append(ir_var)
         ir_var = ir.AddressOf(ir_var, name + "_addr")
@@ -1554,10 +1566,11 @@ class CCodeGenerator:
         return self.builder.emit_add(base, offset, ir.ptr)
 
     def gen_gemm(self, expr: expressions.Gemm):
-        arg1 = self.gen_expr(expr.arg1)
-        arg2 = self.gen_expr(expr.arg2)
-        argr = self.gen_expr(expr.argr)
-        value = self.builder.emit(ir.Gemm(argr, arg1, arg2))
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
         return value
 
 
