@@ -30,6 +30,8 @@ class Visitor:
             self.visit_statement(node)
         elif isinstance(node, types.CType):
             self.visit_type(node)
+        elif isinstance(node, str):
+            pass
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 
@@ -147,6 +149,11 @@ class Visitor:
             self.visit(node.typ)
             self.visit(node.init)
         elif isinstance(node, expressions.Gemm):
+            self.visit(node.arg1)
+            self.visit(node.arg2)
+            self.visit(node.mask)
+        elif isinstance(node, expressions.VecOpMasked):
+            self.visit(node.op)
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)

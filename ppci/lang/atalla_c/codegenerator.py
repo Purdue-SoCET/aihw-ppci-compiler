@@ -1032,6 +1032,8 @@ class CCodeGenerator:
                 value = self.gen_builtin(expr)
             elif isinstance(expr, expressions.Gemm):
                 value = self.gen_gemm(expr)
+            elif isinstance(expr, expressions.VecOpMasked):
+                value = self.gen_vec_op_masked(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1553,6 +1555,17 @@ class CCodeGenerator:
         mask = self.gen_expr(expr.mask, rvalue=True)
         ir_typ = self.get_ir_type(expr.typ)
         value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
+        return value
+
+    def gen_vec_op_masked(self, expr: expressions.VecOpMasked):
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        op = expr.op
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_vec_op_masked(
+            op, arg1, arg2, mask, ir_typ
+        )
         return value
 
 

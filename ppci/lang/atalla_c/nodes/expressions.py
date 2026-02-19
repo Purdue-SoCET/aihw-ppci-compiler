@@ -184,6 +184,16 @@ class Gemm(CExpression):
         self.mask = mask
     def __repr__(self):
         return f"Gemm({self.arg1}, {self.arg2}, {self.mask})"
+    
+class VecOpMasked(CExpression):
+    def __init__(self, op, arg1, arg2, mask, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.op = op
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
+    def __repr__(self):
+        return f"VecOpMasked({self.op}, {self.arg1}, {self.arg2}, {self.mask})"
 
 class ArrayIndex(CExpression):
     """Array indexing"""

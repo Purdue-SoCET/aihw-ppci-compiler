@@ -989,6 +989,10 @@ class CSemantics:
     def on_gemm(self, a, b, mask, location):
         expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr
+    
+    def on_vec_op_masked(self, op, a, b, mask, location):
+        expr = expressions.VecOpMasked(op, a, b, mask, self.vec_type, False, location)
+        return expr
 
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""

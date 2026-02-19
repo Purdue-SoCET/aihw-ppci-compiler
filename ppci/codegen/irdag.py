@@ -238,6 +238,43 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
+    def do_vec_op_masked(self, node):
+        names = {
+                    "+": "ADD",
+                    "-": "SUB",
+                    "|": "OR",
+                    "<<": "SHL",
+                    "*": "MUL",
+                    "&": "AND",
+                    ">>": "SHR",
+                    "/": "DIV",
+                    "^": "XOR",
+                    "GEMM": "GEMM",
+                    "EXP": "EXP",
+                    "SQRT": "SQRT",
+                    "~": "NOT",
+                    "RSUM": "RSUM",
+                    "RMIN": "RMIN",
+                    "RMAX": "RMAX",
+                }
+
+        op = names[node.op]
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_loc = self.new_vreg(ir.mask)
+
+        stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
+        # self.chain(stm_mv)
+
+        # Feed MVSTM result directly; avoid MOVMASK by not assigning a vreg here
+        mask_output = stm_mv.new_output("mask")
+        mask_output.wants_vreg = False
+
+        sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
         sgnode.value = self.function_info.label_map[node.target]

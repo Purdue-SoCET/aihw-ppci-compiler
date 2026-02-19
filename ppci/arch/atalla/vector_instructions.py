@@ -160,8 +160,7 @@ def pattern_maskreg(context, tree):
 #     context.move(tree.value, c0)
 #     return tree.value
 
-@isa.pattern("stm", "MVSTMMASK(reg)", size=2,
-             condition=lambda t: 0 <= t.children[0].value < 32)
+@isa.pattern("stm", "MVSTMMASK(reg)", size=2)
 def pattern_mvstmmask(context, tree, rs1):
     d = context.new_reg(AtallaMaskRegister)
     context.emit(MvStm(d, rs1))
