@@ -131,7 +131,7 @@ Subis = make_i("subi_s", 0b0010111)  # WAS: 0b0010011
 Mulis = make_i("muli_s", 0b0011000)  # WAS: 0b0010100
 Divis = make_i("divi_s", 0b0011001)  # WAS: 0b0010101
 Modis = make_i("modi_s", 0b0011010)  # WAS: 0b0010110
-Oris = make_i("ori_s", 0b0011011)    # WAS: 0b0010111
+Oris  = make_i("ori_s",  0b0011011)    # WAS: 0b0010111
 Andis = make_i("andi_s", 0b0011100)  # WAS: 0b0011000
 Xoris = make_i("xori_s", 0b0011101)  # WAS: 0b0011001
 Sllis = make_i("slli_s", 0b0011110)  # WAS: 0b0011010
@@ -301,21 +301,21 @@ def make_nop(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
 
-class Bl(AtallaBRInstruction):
+class Bl(AtallaMIInstruction):
     target = Operand("target", str)
     rd = Operand("rd", AtallaRegister, write=True)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0101011 #changed this to the jal opcode
-        tokens[0][49:57] = self.rd.num
+        tokens[0][0:7] = 0b0101011 #changed this to the jal opcode
+        tokens[0][7:15] = self.rd.num
         return tokens[0].encode()
 
     def relocations(self):
         return [AtallaMI_JAL_Imm25_Relocation(self.target)]
 
-class Blr(AtallaBRInstruction):
+class Blr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     offset = Operand("offset", int)
@@ -323,10 +323,10 @@ class Blr(AtallaBRInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0101100 #changed this to the jalr opcode
-        tokens[0][49:57] = self.rd.num
-        tokens[0][41:49] = self.rs1.num
-        tokens[0][5:25] = self.offset #TODO: fix bitspec
+        tokens[0][0:7] = 0b0101100 #changed this to the jalr opcode
+        tokens[0][7:15] = self.rd.num
+        tokens[0][15:23] = self.rs1.num
+        tokens[0][23:35] = self.offset #TODO: fix bitspec
         return tokens[0].encode()
 
 Halt = make_nop("halt", 0b1111111)

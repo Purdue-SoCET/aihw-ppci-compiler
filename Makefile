@@ -1,16 +1,16 @@
-COMPILER=atalla_cc
-ARCH=atalla
-PPCI=python3 -m ppci
-INPUT=instructtest.c
+# COMPILER=atalla_cc
+# ARCH=atalla
+# PPCI=python3 -m ppci
+# INPUT=instructtest.c
 
 
-atalla-compile-o2-no-link:
-# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
-	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose -g
-# Because -g does stuff with debug and some item is not json serializable so just not doing -g
-# Wait that is fixed now!!!
-# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose
-# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -g -c
+# atalla-compile-o2-no-link:
+# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
+# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose -g
+# # Because -g does stuff with debug and some item is not json serializable so just not doing -g
+# # Wait that is fixed now!!!
+# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose
+# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -g -c
 
 
 
@@ -58,10 +58,10 @@ atalla-compile-o2-no-link:
 # Compile BOTH files to .o
 # -------------------------
 atalla-compile-objects:
-	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
-	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
-# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
-# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
+# 	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
+# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
 # 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
 
 

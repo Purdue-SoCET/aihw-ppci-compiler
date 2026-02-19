@@ -28,9 +28,9 @@ def dump_elf_better(input_file, output_file):
         code_start = 0x34
         code_end = 0xF0
         
-        for offset in range(code_start, code_end, 5):
-            if offset + 5 <= len(data):
-                insn_bytes = data[offset:offset+5]
+        for offset in range(code_start, code_end, 6):
+            if offset + 6 <= len(data):
+                insn_bytes = data[offset:offset+6]
                 hex_str = ' '.join(f'{b:02X}' for b in insn_bytes)
                 
                 # Show as binary for bit-level analysis

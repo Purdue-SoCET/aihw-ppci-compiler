@@ -75,8 +75,8 @@ OPCODES = {
     0b0101010: ("sw_s", "M"),
     
     # MI-type
-    0b0101011: ("jal", "MI_JAL"),
-    0b0101100: ("jalr", "JALR"),
+    0b0101011: ("jal", "MI"),
+    0b0101100: ("jalr", "MI"),
     0b0101101: ("li_s", "MI"),
     0b0101110: ("lui_s", "MI"),
     
@@ -134,7 +134,7 @@ def disassemble_instruction(insn_int, offset):
         imm10_signed = sign_extend(imm10, 10)
         
         # PC-relative offset (multiply by 5 for byte offset)
-        byte_offset = imm10_signed * 5
+        byte_offset = imm10_signed * 6
         target = offset + byte_offset
         
         return f"{mnemonic:10s} x{rs1}, x{rs2}, 0x{target:X}  # offset={imm10_signed}"
@@ -151,11 +151,12 @@ def disassemble_instruction(insn_int, offset):
         # MI-type: opcode rd imm25
         rd = extract_bits(insn_int, 7, 15)
         imm25 = extract_bits(insn_int, 15, 40)
+        print("MI")
         
         if mnemonic == "jal":
             # PC-relative jump
             imm25_signed = sign_extend(imm25, 25)
-            byte_offset = imm25_signed * 5
+            byte_offset = imm25_signed * 6
             target = offset + byte_offset
             return f"{mnemonic:10s} x{rd}, 0x{target:X}  # offset={imm25_signed}"
         else:
@@ -188,9 +189,9 @@ def disassemble_elf(input_file, output_file):
         
         offset = code_start
         while offset < code_end:
-            if offset + 5 <= len(data):
+            if offset + 6 <= len(data):
                 # Read 5 bytes (40 bits)
-                insn_bytes = data[offset:offset+5]
+                insn_bytes = data[offset:offset+6]
                 insn_int = bytes_to_int40(insn_bytes)
                 
                 # Format bytes
@@ -201,7 +202,7 @@ def disassemble_elf(input_file, output_file):
                 
                 out.write(f"0x{offset:04X}    {hex_str:<28} {disasm}\n")
                 
-                offset += 5
+                offset += 6
             else:
                 break
         
