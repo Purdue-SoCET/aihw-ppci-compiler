@@ -54,8 +54,8 @@ from .instructions import (
     Lws,
     Sws,
     # Jumps
-    Bl,
-    Blr,
+    Jal,
+    Jalr,
     #isa
     isa,
     Align,
@@ -245,9 +245,9 @@ class AtallaArch(Architecture):
 
     def branch(self, reg, lab):
         if isinstance(lab, AtallaRegister):
-            return Blr(reg, lab, 0, clobbers=self.caller_save)
+            return Jalr(reg, lab, 0, clobbers=self.caller_save)
         else:
-            return Bl(reg, lab, clobbers=self.caller_save)
+            return Jal(reg, lab, clobbers=self.caller_save)
 
     # def get_runtime(self):
     #     """Implement compiler runtime functions"""
@@ -401,7 +401,7 @@ class AtallaArch(Architecture):
         # if self.has_option("rvc"):
         #     yield CJr(LR)
         # else:
-        yield Blr(R0, LR, 0)
+        yield Jalr(R0, LR, 0)
 
         # Add final literal pool:
         yield from self.litpool(frame)
