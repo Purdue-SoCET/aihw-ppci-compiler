@@ -1,0 +1,75 @@
+{
+  "arch": "atalla",
+  "images": [],
+  "relocations": [
+    {
+      "addend": "0x0",
+      "offset": "0x32",
+      "section": "code",
+      "symbol_id": 2,
+      "type": "MI_jal_i25"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x4b",
+      "section": "code",
+      "symbol_id": 3,
+      "type": "MI_jal_i25"
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": [
+        "120101f807a00001020020040100001204010400120101f8071205060000",
+        "928406000081048504009284040000128604000000000000009204050000",
+        "928404000092848401009284040000000000000012850400001201010800",
+        "9f000102001f04010000120101080000000000000000"
+      ],
+      "name": "code"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "instruct_tests",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 1,
+      "name": "instruct_tests_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x23"
+    },
+    {
+      "binding": "global",
+      "id": 2,
+      "name": "helper",
+      "size": 0,
+      "typ": "func"
+    },
+    {
+      "binding": "local",
+      "id": 3,
+      "name": "instruct_tests_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x50"
+    }
+  ]
+}

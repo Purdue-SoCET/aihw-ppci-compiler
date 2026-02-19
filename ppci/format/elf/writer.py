@@ -34,6 +34,7 @@ def write_elf(obj, f, type="executable"):
         "x86_64": (64, Endianness.LITTLE),
         "xtensa": (32, Endianness.LITTLE),
         "riscv": (32, Endianness.LITTLE),
+        "atalla": (32, Endianness.LITTLE), #Added to see if it will generate elf file I think it is 64 bits in address space
     }
     bits, endianity = mapping[obj.arch.name]
     elf_file = ElfFile(bits=bits, endianness=endianity)
@@ -94,6 +95,7 @@ machine_map = {
     "x86_64": ElfMachine.X86_64,
     "xtensa": ElfMachine.XTENSA,
     "riscv": ElfMachine.RISCV,
+    "atalla": ElfMachine.ATALLA,
 }
 
 

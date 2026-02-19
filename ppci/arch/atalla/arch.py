@@ -569,5 +569,36 @@ class AtallaArch(Architecture):
         return saved_registers
 
 
+    # I added this function straight from chat
+    def get_reloc_type(self, reloc_type, symbol):
+        """Map PPCI relocation types to ELF relocation type numbers.
+        
+        These numbers are architecture-specific and should be documented
+        in your ISA specification. For now, we use arbitrary numbers.
+        """
+        # Map relocation class names to ELF relocation numbers
+        reloc_map = {
+            "BR_i10": 1,           # Branch 10-bit
+            "MI_jal_i25": 2,       # JAL 25-bit
+            "MI_abs_i25": 3,       # Absolute upper 25 bits
+            "M_i12": 4,            # Memory 12-bit
+            "I_i12": 5,            # I-type 12-bit (JALR)
+        }
+        
+        # Get the relocation name from the relocation type
+        if hasattr(reloc_type, 'name'):
+            reloc_name = reloc_type.name
+        elif isinstance(reloc_type, str):
+            reloc_name = reloc_type
+        else:
+            reloc_name = reloc_type.__class__.__name__
+        
+        if reloc_name in reloc_map:
+            return reloc_map[reloc_name]
+        else:
+            raise NotImplementedError(
+                f"ELF relocation type for '{reloc_name}' not defined"
+            )
+
 def round_up(s):
     return s + (16 - s % 16)

@@ -1,0 +1,60 @@
+{
+  "arch": "atalla",
+  "images": [],
+  "relocations": [
+    {
+      "addend": "0x0",
+      "offset": "0x28",
+      "section": "code",
+      "symbol_id": 2,
+      "type": "MI_jal_i25"
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": [
+        "120101f807a00001020020040100001204010400120101f8079204060000",
+        "928484000092840400000000000000128504000012010108009f00010200",
+        "1f040100001201010800000000000000"
+      ],
+      "name": "code"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "helper",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 1,
+      "name": "helper_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x1e"
+    },
+    {
+      "binding": "local",
+      "id": 2,
+      "name": "helper_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x2d"
+    }
+  ]
+}
