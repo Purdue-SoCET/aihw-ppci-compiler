@@ -33,11 +33,6 @@ int main(){
 
     // exp, sqrt, rsum, rmin, rmax probably all need intrinsics
 
-    //TODO: floats or ints for bitwise?
-    // vr = vr >> 5;
-
-    // vr = vr << 5;
-
     vec v5 = 3.2 + vr;
 
     v5 *= 10.1;
