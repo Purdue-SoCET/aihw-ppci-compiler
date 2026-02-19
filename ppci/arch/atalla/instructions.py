@@ -307,8 +307,8 @@ class Jal(AtallaMIInstruction):
 class Jalr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
-    imm25 = Operand("offset", int)
-    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm25])
+    imm12 = Operand("imm12", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm12])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -318,8 +318,8 @@ class Jalr(AtallaIInstruction):
         return tokens[0].encode()
     
     # TODO: This breaks it -- to be figured out
-    # def relocations(self):
-    #     return [AtallaI_JALR_Imm12_Relocation(self.offset)]
+    def relocations(self):
+        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
 
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
