@@ -248,14 +248,6 @@ class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
 
-class JalBase(AtallaMIInstruction):
-    def relocations(self):
-        return [AtallaMI_JAL_Imm25_Relocation(self.target)]
-    
-class JalrBase(AtallaIInstruction):
-    def relocations(self):
-        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
-
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     imm25 = Operand("imm25", int)
@@ -276,34 +268,7 @@ def make_mi(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
-def make_jal(mnemonic, opcode):
-    rd = Operand("rd", AtallaRegister, write=True)
-    imm25 = Operand("imm25", str)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm25])
-    members = {
-        "syntax": syntax,
-        "rd": rd,
-        "imm25": imm25,
-        "opcode": opcode,
-    }
-    return type(mnemonic + "_ins", (JalBase,), members)
 
-def make_jalr(mnemonic, opcode):
-    rd = Operand("rd", AtallaRegister, write=True)
-    rs1 = Operand("rs1", AtallaRegister, read=True)
-    imm12 = Operand("imm12", int)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm12])
-    members = {
-        "syntax": syntax,
-        "rd": rd,
-        "rs1": rs1,
-        "imm12": imm12,
-        "opcode": opcode,
-    }
-    return type(mnemonic + "_ins", (JalrBase,), members)
-
-Jal = make_jal("jal_s", 0b0101011)
-Jalr = make_jalr("jalr_s", 0b0101100)
 Lis = make_mi("li_s", 0b0101101)
 
 class AtallaNOPInstruction(Instruction):
@@ -325,23 +290,36 @@ def make_nop(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
 
+class Jal(AtallaMIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    imm25 = Operand("imm25", str)
+    syntax = Syntax(["jal", " ", rd, ",", " ", imm25])
 
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101011 #changed this to the jal opcode
+        tokens[0][7:15] = self.rd.num
+        return tokens[0].encode()
 
+    def relocations(self):
+        return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
 
+class Jalr(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    imm25 = Operand("offset", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm25])
 
-# class Blr(AtallaIInstruction):
-#     rd = Operand("rd", AtallaRegister, write=True)
-#     rs1 = Operand("rs1", AtallaRegister, read=True)
-#     offset = Operand("offset", int)
-#     syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
-
-#     def encode(self):
-#         tokens = self.get_tokens()
-#         tokens[0][0:7] = 0b0101100 #changed this to the jalr opcode
-#         tokens[0][7:15] = self.rd.num
-#         tokens[0][15:23] = self.rs1.num
-#         tokens[0][23:35] = self.offset #TODO: fix bitspec
-#         return tokens[0].encode()
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101100 #changed this to the jalr opcode
+        tokens[0][7:15] = self.rd.num
+        tokens[0][15:23] = self.rs1.num
+        return tokens[0].encode()
+    
+    # TODO: This breaks it -- to be figured out
+    # def relocations(self):
+    #     return [AtallaI_JALR_Imm12_Relocation(self.offset)]
 
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
