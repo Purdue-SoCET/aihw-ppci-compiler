@@ -65,8 +65,8 @@ atalla-compile-objects:
 # Generates Assembly Files for Comparison for the disassembler
 # ------------------------------------------------------------
 atalla-gen-asmfiles:
-	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
-	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
+	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -S -o $(OBJ3)
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -S -o $(OBJ4)
 
 # -------------------------
 # Link them (FORCES relocation)

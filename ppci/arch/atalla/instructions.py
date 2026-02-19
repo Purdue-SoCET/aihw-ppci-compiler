@@ -316,10 +316,6 @@ class Jalr(AtallaIInstruction):
         tokens[0][7:15] = self.rd.num
         tokens[0][15:23] = self.rs1.num
         return tokens[0].encode()
-    
-    # TODO: This breaks it -- to be figured out
-    def relocations(self):
-        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
 
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
