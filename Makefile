@@ -60,10 +60,13 @@ atalla-compile-o2-no-link:
 atalla-compile-objects:
 	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
-# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
-# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
-# 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
 
+# ------------------------------------------------------------
+# Generates Assembly Files for Comparison for the disassembler
+# ------------------------------------------------------------
+atalla-gen-asmfiles:
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
 
 # -------------------------
 # Link them (FORCES relocation)
@@ -71,17 +74,15 @@ atalla-compile-objects:
 atalla-link:
 	${PPCI} ld $(OBJ1) $(OBJ2) -o $(ELF)
 
-
 # -------------------------
 # One command: build + link
 # -------------------------
 atalla-test-reloc: atalla-compile-objects atalla-link
 	@echo "Relocation test build complete."
 
-
 # -------------------------
 # Clean
 # -------------------------
 clean:
-	rm -f *.o *.elf
+	rm -f *.o *.elf *.s
 
