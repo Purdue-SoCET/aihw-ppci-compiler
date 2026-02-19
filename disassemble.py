@@ -91,6 +91,8 @@ OPCODES = {
     
     # nop prolly
     0b0000000: ("nop", "S"),
+    # halt prolly
+    0b1111111: ("halt", "S"),
 }
 
 def disassemble_instruction(insn_int, offset):

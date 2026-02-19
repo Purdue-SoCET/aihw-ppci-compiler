@@ -13,7 +13,7 @@
   "sections": [
     {
       "address": "0x0",
-      "alignment": "0x4",
+      "alignment": "0x1",
       "data": "",
       "name": "data"
     },

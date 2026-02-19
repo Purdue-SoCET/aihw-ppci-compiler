@@ -308,7 +308,7 @@ class Bl(AtallaBRInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0100010
+        tokens[0][57:64] = 0b0101011 #changed this to the jal opcode
         tokens[0][49:57] = self.rd.num
         return tokens[0].encode()
 
@@ -323,7 +323,7 @@ class Blr(AtallaBRInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0100011
+        tokens[0][57:64] = 0b0101100 #changed this to the jalr opcode
         tokens[0][49:57] = self.rd.num
         tokens[0][41:49] = self.rs1.num
         tokens[0][5:25] = self.offset #TODO: fix bitspec
@@ -389,7 +389,7 @@ class Adrl(AtallaIInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0010010
+        tokens[0][57:64] = 0b0010110 #changed this to the addi_s opcode
         tokens[0][49:57] = self.rd.num
         tokens[0][0:41] = 0
         tokens[0][41:49] = self.rs1.num
