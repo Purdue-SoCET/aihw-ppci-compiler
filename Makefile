@@ -23,12 +23,12 @@ atalla-compile-o2-no-link:
 
 # atalla-compile-o2-no-link:
 # # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
-# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2 --super-verbose -g
+# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2 --super-verbose -g
+# 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
 # # Because -g does stuff with debug and some item is not json serializable so just not doing -g
 # # Wait that is fixed now!!!
 # # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose
 # # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -g -c
-
 
 
 COMPILER=atalla_cc
@@ -40,6 +40,9 @@ SRC2=helper.c
 
 OBJ1=instructtest2.o
 OBJ2=helper.o
+
+OBJ3=instructtest2.s
+OBJ4=helper.s
 
 ELF=output.elf
 
@@ -57,6 +60,9 @@ atalla-compile-o2-no-link:
 atalla-compile-objects:
 	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
+# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
+# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
+# 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
 
 
 # -------------------------

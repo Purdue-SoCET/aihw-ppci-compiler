@@ -20,7 +20,7 @@ def sign_extend(value, bits):
         return value - (1 << bits)
     return value
 
-# Opcode mappings (from your ISA)
+# Opcode mappings (from ISA spec)
 OPCODES = {
     # R-type
     0b0000001: ("add_s", "R"),
@@ -37,40 +37,59 @@ OPCODES = {
     0b0001100: ("slt_s", "R"),
     0b0001101: ("sltu_s", "R"),
     
+    # BF16 operations (R-type format, different opcodes) #these are not in instructions.py yet
+    0b0001110: ("add.bf", "R"),
+    0b0001111: ("sub.bf", "R"),
+    0b0010000: ("mul.bf", "R"),
+    0b0010001: ("div.bf", "R"),
+    0b0010010: ("slt.bf", "R"),
+    0b0010011: ("sltu.bf", "R"),
+    0b0010100: ("stbf_s", "I"),
+    0b0010101: ("bfts_s", "I"),
+    
     # I-type
-    0b0010010: ("addi_s", "I"),
-    0b0010011: ("subi_s", "I"),
-    0b0010100: ("muli_s", "I"),
-    0b0010101: ("divi_s", "I"),
-    0b0010110: ("modi_s", "I"),
-    0b0010111: ("ori_s", "I"),
-    0b0011000: ("andi_s", "I"),
-    0b0011001: ("xori_s", "I"),
-    0b0011010: ("slli_s", "I"),
-    0b0011011: ("srli_s", "I"),
-    0b0011100: ("srai_s", "I"),
-    0b0011101: ("slti_s", "I"),
-    0b0011110: ("sltui_s", "I"),
+    0b0010110: ("addi_s", "I"),
+    0b0010111: ("subi_s", "I"),
+    0b0011000: ("muli_s", "I"),
+    0b0011001: ("divi_s", "I"),
+    0b0011010: ("modi_s", "I"),
+    0b0011011: ("ori_s", "I"),
+    0b0011100: ("andi_s", "I"),
+    0b0011101: ("xori_s", "I"),
+    0b0011110: ("slli_s", "I"),
+    0b0011111: ("srli_s", "I"),
+    0b0100000: ("srai_s", "I"),
+    0b0100001: ("slti_s", "I"),
+    0b0100010: ("sltui_s", "I"),
     
     # BR-type
-    0b0001110: ("beq_s", "BR"),
-    0b0001111: ("bne_s", "BR"),
-    0b0010000: ("blt_s", "BR"),
-    0b0010001: ("bge_s", "BR"),
-    0b0010010: ("bgt_s", "BR"),
-    0b0010011: ("ble_s", "BR"),
+    0b0100011: ("beq_s", "BR"),
+    0b0100100: ("bne_s", "BR"),
+    0b0100101: ("blt_s", "BR"),
+    0b0100110: ("bge_s", "BR"),
+    0b0100111: ("bgt_s", "BR"),
+    0b0101000: ("ble_s", "BR"),
     
     # M-type
-    0b0011111: ("lw_s", "M"),
-    0b0100000: ("sw_s", "M"),
+    0b0101001: ("lw_s", "M"),
+    0b0101010: ("sw_s", "M"),
     
     # MI-type
-    0b0100001: ("li_s", "MI"),
-    0b0100010: ("jal", "MI"),
-    0b0100011: ("jalr", "I"),
+    0b0101011: ("jal", "MI_JAL"),
+    0b0101100: ("jalr", "JALR"),
+    0b0101101: ("li_s", "MI"),
+    0b0101110: ("lui_s", "MI"),
     
     # S-type
-    0b1111111: ("halt", "S"),
+    0b0101111: ("nop", "S"),
+    0b0110000: ("halt", "S"),
+    0b0110001: ("barrier", "S"),
+    
+    # Vector operations - I don't think these are in instructions.py yet either
+    0b0110010: ("add.vv", "VV"),
+    0b0110011: ("sub.vv", "VV"),
+    
+    # nop prolly
     0b0000000: ("nop", "S"),
 }
 

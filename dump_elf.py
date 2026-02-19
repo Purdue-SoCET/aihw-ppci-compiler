@@ -25,7 +25,7 @@ def dump_elf_better(input_file, output_file):
         out.write("=== CODE SECTION (estimated 0x30-0xF0) ===\n")
         out.write("Showing as 5-byte (40-bit) Atalla instructions:\n\n")
         
-        code_start = 0x30
+        code_start = 0x34
         code_end = 0xF0
         
         for offset in range(code_start, code_end, 5):

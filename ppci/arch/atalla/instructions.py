@@ -111,19 +111,34 @@ def make_i(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaIInstruction,), members)
 
 # I-types:
-Addis = make_i("addi_s", 0b0010010)
-Subis = make_i("subi_s", 0b0010011)
-Mulis = make_i("mulis_s", 0b0010100)
-Divis = make_i("divi_s", 0b0010101)
-Modis = make_i("modi_s", 0b0010110)
-Oris = make_i("ori_s", 0b0010111)
-Andis = make_i("andi_s", 0b0011000)
-Xoris = make_i("xori_s", 0b0011001)
-Sllis = make_i("sllis_s", 0b0011010)
-Srlis = make_i("srlis_s", 0b0011011)
-Srais = make_i("srai_s", 0b0011100)
-Sltis = make_i("slti_s", 0b0011101)
-Sltuis = make_i("sltui_s", 0b0011110)
+# Addis = make_i("addi_s", 0b0010010)
+# Subis = make_i("subi_s", 0b0010011)
+# Mulis = make_i("mulis_s", 0b0010100)
+# Divis = make_i("divi_s", 0b0010101)
+# Modis = make_i("modi_s", 0b0010110)
+# Oris = make_i("ori_s", 0b0010111)
+# Andis = make_i("andi_s", 0b0011000)
+# Xoris = make_i("xori_s", 0b0011001)
+# Sllis = make_i("sllis_s", 0b0011010)
+# Srlis = make_i("srlis_s", 0b0011011)
+# Srais = make_i("srai_s", 0b0011100)
+# Sltis = make_i("slti_s", 0b0011101)
+# Sltuis = make_i("sltui_s", 0b0011110)
+
+# These are the opcodes that are in the Atalla ISA sheet - James
+Addis = make_i("addi_s", 0b0010110)  # WAS: 0b0010010
+Subis = make_i("subi_s", 0b0010111)  # WAS: 0b0010011
+Mulis = make_i("muli_s", 0b0011000)  # WAS: 0b0010100
+Divis = make_i("divi_s", 0b0011001)  # WAS: 0b0010101
+Modis = make_i("modi_s", 0b0011010)  # WAS: 0b0010110
+Oris = make_i("ori_s", 0b0011011)    # WAS: 0b0010111
+Andis = make_i("andi_s", 0b0011100)  # WAS: 0b0011000
+Xoris = make_i("xori_s", 0b0011101)  # WAS: 0b0011001
+Sllis = make_i("slli_s", 0b0011110)  # WAS: 0b0011010
+Srlis = make_i("srli_s", 0b0011111)  # WAS: 0b0011011
+Srais = make_i("srai_s", 0b0100000)  # WAS: 0b0011100
+Sltis = make_i("slti_s", 0b0100001)  # WAS: 0b0011101
+Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
 
 
 class AtallaBRInstruction(Instruction):
@@ -162,12 +177,20 @@ def make_br(mnemonic, opcode):
     return type(mnemonic + "_ins", (BranchBase,), members)
 
 # Branch instructions (BR-types):
-Beqs = make_br("beq_s", 0b0001110)
-Bnes = make_br("bne_s", 0b0001111)
-Blts = make_br("blt_s", 0b0010000)
-Bges = make_br("bge_s", 0b0010001)
-Bgts = make_br("bgt_s", 0b0010010)
-Bles = make_br("ble_s", 0b0010011)
+# Beqs = make_br("beq_s", 0b0001110)
+# Bnes = make_br("bne_s", 0b0001111)
+# Blts = make_br("blt_s", 0b0010000)
+# Bges = make_br("bge_s", 0b0010001)
+# Bgts = make_br("bgt_s", 0b0010010)
+# Bles = make_br("ble_s", 0b0010011)
+
+# These are the opcodes that are in the Atalla ISA sheet - James
+Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
+Bnes = make_br("bne_s", 0b0100100)  # WAS: 0b0001111
+Blts = make_br("blt_s", 0b0100101)  # WAS: 0b0010000
+Bges = make_br("bge_s", 0b0100110)  # WAS: 0b0010001
+Bgts = make_br("bgt_s", 0b0100111)  # WAS: 0b0010010
+Bles = make_br("ble_s", 0b0101000)  # WAS: 0b0010011
 
 class AtallaMInstruction(Instruction):
     tokens = [AtallaMToken]
@@ -223,8 +246,12 @@ def make_m_store(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMInstruction,), members)
 
-Lws = make_m_load("lw_s", 0b0011111)
-Sws = make_m_store("sw_s", 0b0100000)
+# Lws = make_m_load("lw_s", 0b0011111)
+# Sws = make_m_store("sw_s", 0b0100000)
+
+# These are the opcodes that are in the Atalla ISA sheet - James
+Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
+Sws = make_m_store("sw_s", 0b0101010)  # WAS: 0b0100000
 
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
@@ -250,7 +277,10 @@ def make_mi(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
-Lis = make_mi("li_s", 0b0100001)
+# Lis = make_mi("li_s", 0b0100001)
+
+# These are the opcodes that are in the Atalla ISA sheet - James
+Lis = make_mi("li_s", 0b0101101)  # WAS: 0b0100001
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
