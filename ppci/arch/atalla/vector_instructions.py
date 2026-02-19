@@ -3,6 +3,7 @@ from ..encoding import Instruction, Operand, Syntax
 from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
+    AtallaSDMAToken,
     AtallaSTMToken,
     AtallaVVToken,
     AtallaVSToken,
@@ -471,3 +472,35 @@ def patt_div_vs(ctx, tree, vsrc, rs1, mask = M0):
     d = _new_v(ctx)
     ctx.emit(DivVs(d, vsrc, rs1, mask))
     return d
+
+
+class AtallaSDMAInstruction(Instruction):
+    tokens = [AtallaSDMAToken]
+    isa = isa
+
+
+def make_sdma(mnemonic: str, opcode: int):
+    rs2  = Operand("rs2",  AtallaRegister, read=True)
+    rs1_rd1 = Operand("rs1_rd1", AtallaRegister, read=True)
+    num_cols = Operand("num_cols", int)
+    num_rows = Operand("num_rows", int)
+    sid = Operand("sid", int)
+    fprel = False
+    syntax   = Syntax([mnemonic, " ", rs2, ",", " ", rs1_rd1,
+                       ",", " ", num_cols,
+                       ",", " ", num_rows,
+                       ",", " ", sid])
+    patterns = {
+        "opcode": opcode,
+        "rs2": rs2, "rs1_rd1": rs1_rd1,
+        "num_cols": num_cols,
+        "sid": sid,
+        "num_rows": num_rows,
+        "fprel": fprel,
+    }
+    members  = {"syntax": syntax, "rs2": rs2, "rs1_rd1": rs1_rd1, "patterns": patterns, "opcode": opcode,
+                "sid": sid, "num_cols": num_cols, "num_rows": num_rows, "fprel": fprel}
+    return type(mnemonic.replace(".", "_"), (AtallaSDMAInstruction,), members)
+
+ScpadLd = make_sdma("scpad_ld", 0b1011000)
+ScpadSt = make_sdma("scpad_st", 0b1011001)
