@@ -119,12 +119,11 @@ ExpiVi  = make_vi("expi_vi",  0b1000010) # Intrinsic
 SqrtiVi = make_vi("sqrti_vi", 0b1000011) # Intrinsic
 NotVi   = make_vi("not_vi",   0b1000100) # Unop
 ShiftVi = make_vi("shift_vi", 0b1000101) # Binop
-LwVi    = make_vi("lw_vi",    0b1000110)
+LwVi    = make_vi("lw_vi",    0b1000110) # TODO: weights?
 RsumVi  = make_vi("rsum_vi",  0b1000111)
 RminVi  = make_vi("rmin_vi",  0b1001000)
 RmaxVi  = make_vi("rmax_vi",  0b1001001)
 
-# VS TODO: make these take BF16 and convert from INT32 -> BF16 (as per ISA)
 AddVs   = make_vs("add_vs",   0b1010000)
 SubVs   = make_vs("sub_vs",   0b1010001)
 MulVs   = make_vs("mul_vs",   0b1010010)
@@ -150,6 +149,8 @@ def make_stm(mnemonic: str, opcode: int):
     return type(mnemonic.replace(".", "_"), (AtallaSTMInstruction,), members)
 
 MvStm = make_stm("mv_stm", 0b1001100)
+
+# TODO: MTS Usecase
 
 @isa.pattern("maskreg", "REGMASK(maskreg)", size=1)
 def pattern_maskreg(context, tree):
@@ -308,7 +309,6 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
 #     return d
 
 # ---------- VI (vector-immediate) ----------
-# TODO: add support for fp immediates? 
 
 # ADDI
 @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16, stm)", size=2,
@@ -393,9 +393,7 @@ def patt_div_vi(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_exp_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(ExpiVi(d, vsrc, imm, mask))
+    ctx.emit(ExpiVi(d, vsrc, 0, mask))
     return d
 
 # SQRT (mode/precision as imm if your ISA uses it)
@@ -403,9 +401,7 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
 def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(SqrtiVi(d, vsrc, imm, mask))
+    ctx.emit(SqrtiVi(d, vsrc, 0, mask))
     return d
 
 # NOT (use imm as a control/mask if required by your ISA; 0 is typical)
@@ -426,6 +422,30 @@ def patt_not_vi(ctx, tree, vsrc, mask = M0):
 #     imm = tree.children[1].value
 #     ctx.emit(ShiftVi(d, vsrc, imm, mask))
 #     return d
+
+@isa.pattern("vecreg", "RSUMVEC(vecreg, CONSTBF16, stm)", size=2)
+def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
+    d = _new_v(ctx)
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(RsumVi(d, vsrc, imm, mask))
+    return d
+
+@isa.pattern("vecreg", "RMINVEC(vecreg, CONSTBF16, stm)", size=2)
+def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
+    d = _new_v(ctx)
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(RminVi(d, vsrc, imm, mask))
+    return d
+
+@isa.pattern("vecreg", "RMAXVEC(vecreg, CONSTBF16, stm)", size=2)
+def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
+    d = _new_v(ctx)
+    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+    imm = _f32_to_f16_bits(tree.children[1].value)
+    ctx.emit(RmaxVi(d, vsrc, imm, mask))
+    return d
 # # ---------- VS (vector-scalar) ----------
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, reg, stm)", size=2)

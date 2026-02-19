@@ -113,7 +113,10 @@ ops = [
     "EXP",
     "SQRT",
     "NOT",
-    "MVSTM"
+    "MVSTM",
+    "RMIN",
+    "RMAX",
+    "RSUM",
 ]
 
 # Add all possible terminals:

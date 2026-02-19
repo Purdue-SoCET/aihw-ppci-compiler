@@ -29,12 +29,22 @@ int main(){
 
     v4 = vec_op_masked("GEMM", v3, v4, mask);
 
+    vec v5 = vec_op_masked("SQRT", v1, 0.0, 10);
+
+    v5 = vec_op_masked("RMIN", v5, 5.6, 10);
+
+
+    // These correctly error when uncommented.
+    // v5 = vec_op_masked("RSUM", v5, v4, 10);
+
+    // v5 = vec_op_masked("BS", v5, v4, 5);
+
 
     int store_addr = 0xAAAA;
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 
-    : "v"(v4), "r"(store_addr));
+    : "v"(v5), "r"(store_addr));
 
     // asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     // : 
