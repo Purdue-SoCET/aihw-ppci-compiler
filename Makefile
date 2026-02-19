@@ -84,5 +84,5 @@ atalla-test-reloc: atalla-compile-objects atalla-link
 # Clean
 # -------------------------
 clean:
-	rm -f *.o *.elf *.s
+	rm -f *.o *.elf *.s f.txt disassembly.txt 
 
