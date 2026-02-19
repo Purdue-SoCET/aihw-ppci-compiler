@@ -58,10 +58,10 @@ atalla-compile-o2-no-link:
 # Compile BOTH files to .o
 # -------------------------
 atalla-compile-objects:
-# 	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
-# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
-	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
-	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
+	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -c -o $(OBJ1)
+	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -c -o $(OBJ2)
+# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ3)
+# 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -S -o $(OBJ4)
 # 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
 
 
