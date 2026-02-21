@@ -1,36 +1,3 @@
-# COMPILER=atalla_cc
-# ARCH=atalla
-# PPCI=python3 -m ppci
-# INPUT=instructtest.c
-
-
-# atalla-compile-o2-no-link:
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
-# 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose -g
-# # Because -g does stuff with debug and some item is not json serializable so just not doing -g
-# # Wait that is fixed now!!!
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -g -c
-
-
-
-
-# COMPILER=atalla_cc
-# ARCH=atalla
-# PPCI=python3 -m ppci
-# INPUT=instructtest.c
-
-
-# atalla-compile-o2-no-link:
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -S -O2 --super-verbose -g
-# 	python3 -m ppci atalla_cc instructtest2.c -m atalla -S -o instructtest2.s
-# # Because -g does stuff with debug and some item is not json serializable so just not doing -g
-# # Wait that is fixed now!!!
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 --super-verbose
-# # 	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -g -c
-
-
 COMPILER=atalla_cc
 ARCH=atalla
 PPCI=python3 -m ppci
@@ -68,9 +35,9 @@ atalla-gen-asmfiles:
 	${PPCI} ${COMPILER} $(SRC1) -m ${ARCH} -O2 -S -o $(OBJ3)
 	${PPCI} ${COMPILER} $(SRC2) -m ${ARCH} -O2 -S -o $(OBJ4)
 
-# -------------------------
+# -----------------------------
 # Link them (FORCES relocation)
-# -------------------------
+# -----------------------------
 atalla-link:
 	${PPCI} ld $(OBJ1) $(OBJ2) -o $(ELF)
 
@@ -80,9 +47,22 @@ atalla-link:
 atalla-test-reloc: atalla-compile-objects atalla-link
 	@echo "Relocation test build complete."
 
+# ------------------------------------------
+# Dump the elf file and run the disassembler
+# ------------------------------------------
+atalla-dump-dis:
+	python3 dump_elf.py
+	python3 disassemble.py
+	@echo "Dumping binary elf file and disassembly complete!"
+
+#----------------------------------
+# ONE COMMAND TO RULE THEM ALL!!!!!
+#----------------------------------
+atalla-run-all: atalla-gen-asmfiles atalla-test-reloc atalla-dump-dis
+
 # -------------------------
 # Clean
 # -------------------------
 clean:
-	rm -f *.o *.elf *.s f.txt disassembly.txt 
+	rm -f *.o *.elf *.s f.txt disassembly.txt output_detailed.txt
 

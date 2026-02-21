@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Atalla ISA Disassembler
-Decodes 40-bit Atalla instructions from ELF binary
+Decodes 48-bit Atalla instructions from ELF binary
 """
 
 def extract_bits(value, start, end):
@@ -151,7 +151,7 @@ def disassemble_instruction(insn_int, offset):
         # MI-type: opcode rd imm25
         rd = extract_bits(insn_int, 7, 15)
         imm25 = extract_bits(insn_int, 15, 40)
-        print("MI")
+        # print("MI")
         
         if mnemonic == "jal":
             # PC-relative jump

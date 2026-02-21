@@ -20,7 +20,6 @@ from .relocations import (
     AtallaBR_Imm10_Relocation,
     AtallaMI_JAL_Imm25_Relocation,
     AtallaMI_Abs_Imm25_Relocation,
-    AtallaM_Imm12_Relocation,
     AtallaI_JALR_Imm12_Relocation,
 )
 import struct
@@ -30,7 +29,6 @@ isa = Isa()
 isa.register_relocation(AtallaBR_Imm10_Relocation)
 isa.register_relocation(AtallaMI_JAL_Imm25_Relocation)
 isa.register_relocation(AtallaMI_Abs_Imm25_Relocation)
-isa.register_relocation(AtallaM_Imm12_Relocation)
 isa.register_relocation(AtallaI_JALR_Imm12_Relocation)
 
 class AtallaRInstruction(Instruction):
