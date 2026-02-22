@@ -1,4 +1,4 @@
-from ppci.wasm.execution.runtime import _f32_to_f16_bits, f16_reinterpret_i16
+from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
 from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 

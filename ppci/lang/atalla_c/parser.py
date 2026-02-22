@@ -1180,7 +1180,11 @@ class CParser(RecursiveDescentParser):
                 args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
-            assert len(args) == 3
+            if len(args) != 3:
+                self.error(
+                    "gemm(...) expects 3 arguments, got %d" % len(args),
+                    location,
+                )
             expr = self.semantics.on_gemm(args[0], args[1], args[2], location)
             self.consume(")")
         elif self.peek == "vec_op_masked":
@@ -1195,7 +1199,8 @@ class CParser(RecursiveDescentParser):
                     args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
-            assert len(args) == 4
+            if len(args) != 4:
+                self.error(f"vec_op_masked(...) expects 4 arguments, got {len(args)}")
             expr = self.semantics.on_vec_op_masked(args[0], args[1], args[2], args[3], location)
             self.consume(")")
         elif self.peek == "(":

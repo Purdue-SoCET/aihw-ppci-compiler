@@ -20,7 +20,6 @@ The result of parser-semantic actions is a type-checked AST.
 import difflib
 import logging
 
-from ppci import ir
 
 from ...utils.integer_set import IntegerSet
 from . import init, utils
