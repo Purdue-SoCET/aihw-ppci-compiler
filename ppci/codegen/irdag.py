@@ -238,6 +238,13 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
+    def do_vec_index(self, node):
+        base = self.get_value(node.arg1)
+        index = self.get_value(node.index)
+        sgnode = self.new_node("VECIDX", node.ty, base, index)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
     def do_vec_op_masked(self, node):
         names = {
                     "+": "ADD",

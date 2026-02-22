@@ -116,6 +116,9 @@ class Visitor:
             self.visit(node.base)
             self.visit(node.index)
             self.visit(node.typ)
+        elif isinstance(node, expressions.VecIndex):
+            self.visit(node.base)
+            self.visit(node.index)
         elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
         elif isinstance(node, expressions.FunctionCall):

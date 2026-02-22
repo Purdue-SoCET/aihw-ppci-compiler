@@ -117,6 +117,7 @@ ops = [
     "RMIN",
     "RMAX",
     "RSUM",
+    "VECIDX",
 ]
 
 # Add all possible terminals:

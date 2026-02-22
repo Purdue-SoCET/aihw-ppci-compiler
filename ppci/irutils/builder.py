@@ -156,6 +156,10 @@ class Builder:
         """Emit a gemm instruction."""
         return self.emit(ir.Gemm(a, b, mask, "tmp_gemm", ty))
     
+    def emit_vec_index(self, base, index, ty):
+        """Emit a vector index instruction."""
+        return self.emit(ir.VecIndex(base, index, "tmp_vec_index", ty))
+    
     def emit_vec_op_masked(self, op, a, b, mask, ty):
         """Emit a vector operation with mask instruction."""
         return self.emit(ir.VecOpMasked(op, a, b, mask, "tmp_vec_op_masked", ty))

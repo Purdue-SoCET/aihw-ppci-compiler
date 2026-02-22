@@ -5,6 +5,7 @@ from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 from .tokens import (
     AtallaSDMAToken,
     AtallaSTMToken,
+    AtallaVTSToken,
     AtallaVVToken,
     AtallaVSToken,
     AtallaVIToken,
@@ -504,3 +505,24 @@ def make_sdma(mnemonic: str, opcode: int):
 
 ScpadLd = make_sdma("scpad_ld", 0b1011000)
 ScpadSt = make_sdma("scpad_st", 0b1011001)
+
+class AtallaVTSInstruction(Instruction):
+    tokens = [AtallaVTSToken]
+    isa = isa
+
+def make_vts(mnemonic: str, opcode: int):
+    rd  = Operand("rd",  AtallaRegister, write=True)
+    vs1 = Operand("vs1", AtallaVectorRegister, read=True)
+    imm8 = Operand("imm8", int)
+    syntax   = Syntax([mnemonic, " ", rd, ",", " ", vs1, ",", " ", imm8])
+    patterns = {"opcode": opcode, "rd": rd, "vs1": vs1, "imm8": imm8}
+    members  = {"syntax": syntax, "rd": rd, "vs1": vs1, "imm8": imm8, "patterns": patterns, "opcode": opcode}
+    return type(mnemonic.replace(".", "_"), (AtallaVTSInstruction,), members)
+
+VecIdx = make_vts("vmov_vts", 0b1001111)
+
+@isa.pattern("reg", "VECIDXBF16(vecreg, CONSTI32)", size=2)
+def pattern_vecidx(context, tree, vsrc):
+    d = context.new_reg(AtallaRegister)
+    context.emit(VecIdx(d, vsrc, tree.children[1].value))
+    return d

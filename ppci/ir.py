@@ -1433,3 +1433,17 @@ class VecOpMasked(LocalValue):
 
     def __str__(self):
         return f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+    
+class VecIndex(LocalValue):
+    """Extract an element from a vector"""
+
+    arg1 = value_use("arg1")
+    index = value_use("index")
+
+    def __init__(self, arg1, index, name, ty):
+        super().__init__(name, ty)
+        self.arg1 = arg1
+        self.index = index
+
+    def __str__(self):
+        return f"vec_index {self.arg1.name}, {self.index.name}"

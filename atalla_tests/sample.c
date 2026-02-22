@@ -1,17 +1,8 @@
-
-// int vec_addr1 = 0xABCD;
+int give_5(){
+    return 5;
+}
 
 int main(){
-    // int a = 5;
-
-    // int b = 3;
-
-    // int c;
-
-    // asm("mul_s %0, %1, %2"
-    // : "=r"(c)
-    // : "r"(a), "r"(b));
-
     vec v1;
     int vec_addr1 = 0xABCD;
 
@@ -32,22 +23,23 @@ int main(){
 
     vec v2;
     int vec_addr2 = 0xDEAD;
-
     asm("vreg_ld %0, %1, 0, 0, 0, 0, 0"
     : "=v"(v2)
     : "r"(vec_addr2));
 
     vec v3 = v1 + v2;
-
-    vec v4 = v1 * v2;
-
+    vec v4 = v1 * 3.6;
+    v4 /= give_5();
+    v4 = vec_op_masked("EXP", v4, 0.0, 0xFFFA0000);
     v4 = gemm(v3, v4, 10);
 
-    // gemm(v3, v1, v2);
+    float elem = v4[5];
 
-    
+    asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
+    : 
+    : "v"(v4), "r"(vec_addr1));
 
-    return 0;
+    return (int)elem;
 
     // gemm(v3, v2, v1);
 }
