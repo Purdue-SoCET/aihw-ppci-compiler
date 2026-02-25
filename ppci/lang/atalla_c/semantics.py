@@ -20,6 +20,7 @@ The result of parser-semantic actions is a type-checked AST.
 import difflib
 import logging
 
+
 from ...utils.integer_set import IntegerSet
 from . import init, utils
 from .nodes import declarations, expressions, nodes, statements, types
@@ -44,6 +45,7 @@ class CSemantics:
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
         self.va_list_type = self.get_type(["__builtin_va_list"])
+        self.float_type = self.get_type(["float"])
 
         # Choose proper integer type for difference:
         if self.context.sizeof(self.int_type) == self.context.sizeof(
@@ -989,6 +991,10 @@ class CSemantics:
     def on_gemm(self, a, b, mask, location):
         expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr
+    
+    def on_vec_op_masked(self, op, a, b, mask, location):
+        expr = expressions.VecOpMasked(op, a, b, mask, self.vec_type, False, location)
+        return expr
 
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""
@@ -1007,6 +1013,9 @@ class CSemantics:
         if not base.lvalue:
             # TODO: must array base be an lvalue?
             self.error("Expected lvalue", location)
+
+        if types.is_vector(base.typ):
+            return expressions.VecIndex(base, index, self.float_type, False, location)
 
         if not isinstance(base.typ, types.IndexableType):
             self.error(
