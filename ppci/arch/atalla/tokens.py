@@ -53,7 +53,7 @@ class AtallaVVToken(Token):
     vd     = bit_range(7, 15)
     vs1    = bit_range(15, 23)
     vs2    = bit_range(23, 31)
-    mask   = bit_range(31, 35)
+    mask_reg   = bit_range(31, 35)
 
 class AtallaVSToken(Token):
     class Info:
@@ -62,7 +62,7 @@ class AtallaVSToken(Token):
     vd     = bit_range(7, 15)
     vs1    = bit_range(15, 23)
     rs1    = bit_range(23, 31)
-    mask   = bit_range(31, 35)
+    mask_reg   = bit_range(31, 35)
 
 class AtallaVIToken(Token):
     class Info:
@@ -71,7 +71,7 @@ class AtallaVIToken(Token):
     vd      = bit_range(7, 15)
     vs1     = bit_range(15, 23)
     imm = bit_concat(bit_range(23, 31), bit_range(40, 42))
-    mask    = bit_range(31, 35)
+    mask_reg    = bit_range(31, 35)
 
 class AtallaVMemToken(Token):
     class Info:
@@ -124,7 +124,7 @@ class AtallaMVVToken(Token):
     vmd    = bit_range(7, 15)
     vs1    = bit_range(15, 23)
     vs2    = bit_range(23, 31)
-    mask   = bit_range(31, 35)
+    mask_reg   = bit_range(31, 35)
 
 class AtallaMVSToken(Token):
     class Info:
@@ -133,4 +133,4 @@ class AtallaMVSToken(Token):
     vmd    = bit_range(7, 15)
     vs1    = bit_range(15, 23)
     rs1    = bit_range(23, 31)
-    mask   = bit_range(31, 35)
+    mask_reg   = bit_range(31, 35)
