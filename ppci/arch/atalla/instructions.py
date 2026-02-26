@@ -108,36 +108,20 @@ def make_i(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaIInstruction,), members)
 
-# I-types:
-# Addis = make_i("addi_s", 0b0010010)
-# Subis = make_i("subi_s", 0b0010011)
-# Mulis = make_i("mulis_s", 0b0010100)
-# Divis = make_i("divi_s", 0b0010101)
-# Modis = make_i("modi_s", 0b0010110)
-# Oris = make_i("ori_s", 0b0010111)
-# Andis = make_i("andi_s", 0b0011000)
-# Xoris = make_i("xori_s", 0b0011001)
-# Sllis = make_i("sllis_s", 0b0011010)
-# Srlis = make_i("srlis_s", 0b0011011)
-# Srais = make_i("srai_s", 0b0011100)
-# Sltis = make_i("slti_s", 0b0011101)
-# Sltuis = make_i("sltui_s", 0b0011110)
-
 # These are the opcodes that are in the Atalla ISA sheet - James
-Addis = make_i("addi_s", 0b0010110)  # WAS: 0b0010010
-Subis = make_i("subi_s", 0b0010111)  # WAS: 0b0010011
-Mulis = make_i("muli_s", 0b0011000)  # WAS: 0b0010100
-Divis = make_i("divi_s", 0b0011001)  # WAS: 0b0010101
-Modis = make_i("modi_s", 0b0011010)  # WAS: 0b0010110
-Oris  = make_i("ori_s",  0b0011011)    # WAS: 0b0010111
-Andis = make_i("andi_s", 0b0011100)  # WAS: 0b0011000
-Xoris = make_i("xori_s", 0b0011101)  # WAS: 0b0011001
-Sllis = make_i("slli_s", 0b0011110)  # WAS: 0b0011010
-Srlis = make_i("srli_s", 0b0011111)  # WAS: 0b0011011
-Srais = make_i("srai_s", 0b0100000)  # WAS: 0b0011100
-Sltis = make_i("slti_s", 0b0100001)  # WAS: 0b0011101
+Addis = make_i("addi_s", 0b0010110)   # WAS: 0b0010010
+Subis = make_i("subi_s", 0b0010111)   # WAS: 0b0010011
+Mulis = make_i("muli_s", 0b0011000)   # WAS: 0b0010100
+Divis = make_i("divi_s", 0b0011001)   # WAS: 0b0010101
+Modis = make_i("modi_s", 0b0011010)   # WAS: 0b0010110
+Oris  = make_i("ori_s",  0b0011011)   # WAS: 0b0010111
+Andis = make_i("andi_s", 0b0011100)   # WAS: 0b0011000
+Xoris = make_i("xori_s", 0b0011101)   # WAS: 0b0011001
+Sllis = make_i("slli_s", 0b0011110)   # WAS: 0b0011010
+Srlis = make_i("srli_s", 0b0011111)   # WAS: 0b0011011
+Srais = make_i("srai_s", 0b0100000)   # WAS: 0b0011100
+Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
 Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
-
 
 class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
@@ -164,14 +148,6 @@ def make_br(mnemonic, opcode):
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
-
-# Branch instructions (BR-types):
-# Beqs = make_br("beq_s", 0b0001110)
-# Bnes = make_br("bne_s", 0b0001111)
-# Blts = make_br("blt_s", 0b0010000)
-# Bges = make_br("bge_s", 0b0010001)
-# Bgts = make_br("bgt_s", 0b0010010)
-# Bles = make_br("ble_s", 0b0010011)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
 Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
@@ -234,9 +210,6 @@ def make_m_store(mnemonic, opcode):
         "tokens" : tokens
     }
     return type(mnemonic + "_ins", (AtallaMInstruction,), members)
-
-# Lws = make_m_load("lw_s", 0b0011111)
-# Sws = make_m_store("sw_s", 0b0100000)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
 Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
@@ -317,14 +290,6 @@ class Jalr(AtallaIInstruction):
 
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
-
-# def dcd(v):
-#     if type(v) is int:
-#         return Dd(v)
-#     elif type(v) is str:
-#         return Dcd2(v)
-#     else:  # pragma: no cover
-#         raise NotImplementedError()
 
 # Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):

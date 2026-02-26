@@ -44,7 +44,7 @@ atalla-link:
 # -------------------------
 # One command: build + link
 # -------------------------
-atalla-test-reloc: atalla-compile-objects atalla-link
+atalla-test-link: atalla-compile-objects atalla-link
 	@echo "Relocation test build complete."
 
 # ------------------------------------------
@@ -58,7 +58,13 @@ atalla-dump-dis:
 #----------------------------------
 # ONE COMMAND TO RULE THEM ALL!!!!!
 #----------------------------------
-atalla-run-all: atalla-gen-asmfiles atalla-test-reloc atalla-dump-dis
+atalla-run-all: atalla-gen-asmfiles atalla-test-link atalla-dump-dis
+
+#--------------------------
+# Test relocations
+#--------------------------
+atalla-test-reloc:
+	python3 test_relocations.py
 
 # -------------------------
 # Clean
