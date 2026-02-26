@@ -20,6 +20,7 @@ The result of parser-semantic actions is a type-checked AST.
 import difflib
 import logging
 
+
 from ...utils.integer_set import IntegerSet
 from . import init, utils
 from .nodes import declarations, expressions, nodes, statements, types
@@ -39,10 +40,12 @@ class CSemantics:
 
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
+        self.vec_type = self.get_type(["vec"])
         self.long_type = self.get_type(["long"])
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
         self.va_list_type = self.get_type(["__builtin_va_list"])
+        self.float_type = self.get_type(["float"])
 
         # Choose proper integer type for difference:
         if self.context.sizeof(self.int_type) == self.context.sizeof(
@@ -985,8 +988,12 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
-    def on_gemm(self, argr, arg1, arg2, location):
-        expr = expressions.Gemm(argr, arg1, arg2, self.int_type, False, location)
+    def on_gemm(self, a, b, mask, location):
+        expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
+        return expr
+    
+    def on_vec_op_masked(self, op, a, b, mask, location):
+        expr = expressions.VecOpMasked(op, a, b, mask, self.vec_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
@@ -1006,6 +1013,9 @@ class CSemantics:
         if not base.lvalue:
             # TODO: must array base be an lvalue?
             self.error("Expected lvalue", location)
+
+        if types.is_vector(base.typ):
+            return expressions.VecIndex(base, index, self.float_type, False, location)
 
         if not isinstance(base.typ, types.IndexableType):
             self.error(
@@ -1213,6 +1223,10 @@ class CSemantics:
 
         if self.equal_types(from_type, to_type):
             pass
+        elif from_type.is_float and to_type.is_vector:
+            pass
+        elif from_type.is_integer_or_enum and to_type.is_vector:
+            do_cast = True
         elif isinstance(
             from_type, (types.PointerType, types.EnumType)
         ) and isinstance(to_type, types.BasicType):
@@ -1280,7 +1294,7 @@ class CSemantics:
 
     def ensure_integer(self, expr: expressions.CExpression):
         """Ensure typ is of any integer type."""
-        if not expr.typ.is_integer_or_enum:
+        if not expr.typ.is_integer_or_enum and not expr.typ.is_vector:
             self.error(
                 "integer or enum type expected "
                 + f"but got {type_to_str(expr.typ)}",

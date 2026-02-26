@@ -30,6 +30,8 @@ class Visitor:
             self.visit_statement(node)
         elif isinstance(node, types.CType):
             self.visit_type(node)
+        elif isinstance(node, str):
+            pass
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 
@@ -114,6 +116,9 @@ class Visitor:
             self.visit(node.base)
             self.visit(node.index)
             self.visit(node.typ)
+        elif isinstance(node, expressions.VecIndex):
+            self.visit(node.base)
+            self.visit(node.index)
         elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
         elif isinstance(node, expressions.FunctionCall):
@@ -149,7 +154,12 @@ class Visitor:
         elif isinstance(node, expressions.Gemm):
             self.visit(node.arg1)
             self.visit(node.arg2)
-            self.visit(node.argr)
+            self.visit(node.mask)
+        elif isinstance(node, expressions.VecOpMasked):
+            self.visit(node.op)
+            self.visit(node.arg1)
+            self.visit(node.arg2)
+            self.visit(node.mask)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 

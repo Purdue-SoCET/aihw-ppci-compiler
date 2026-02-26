@@ -91,6 +91,7 @@ class CParser(RecursiveDescentParser):
             "continue",
             "sizeof",
             "gemm",
+            "vec_op_masked",
             "struct",
             "union",
             "enum",
@@ -1179,7 +1180,28 @@ class CParser(RecursiveDescentParser):
                 args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
+            if len(args) != 3:
+                self.error(
+                    "gemm(...) expects 3 arguments, got %d" % len(args),
+                    location,
+                )
             expr = self.semantics.on_gemm(args[0], args[1], args[2], location)
+            self.consume(")")
+        elif self.peek == "vec_op_masked":
+            location = self.consume("vec_op_masked").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                if self.peek == "STRING":
+                    txt = self.next_token().val
+                    args.append(txt)
+                else:
+                    args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 4:
+                self.error(f"vec_op_masked(...) expects 4 arguments, got {len(args)}")
+            expr = self.semantics.on_vec_op_masked(args[0], args[1], args[2], args[3], location)
             self.consume(")")
         elif self.peek == "(":
             loc = self.consume("(").loc

@@ -1032,6 +1032,10 @@ class CCodeGenerator:
                 value = self.gen_builtin(expr)
             elif isinstance(expr, expressions.Gemm):
                 value = self.gen_gemm(expr)
+            elif isinstance(expr, expressions.VecOpMasked):
+                value = self.gen_vec_op_masked(expr)
+            elif isinstance(expr, expressions.VecIndex):
+                value = self.gen_vec_index(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1546,12 +1550,33 @@ class CCodeGenerator:
 
         # Calculate address:
         return self.builder.emit_add(base, offset, ir.ptr)
+    
+    def gen_vec_index(self, expr: expressions.VecIndex):
+        """Generate code for vector indexing"""
+        base = self.gen_expr(expr.base, rvalue=True)
+        index = self.gen_expr(expr.index, rvalue=True)
+        ir_typ = self.get_ir_type(expr.typ)
+
+        value = self.builder.emit_vec_index(base, index, ir_typ)
+        return value
 
     def gen_gemm(self, expr: expressions.Gemm):
-        arg1 = self.gen_expr(expr.arg1)
-        arg2 = self.gen_expr(expr.arg2)
-        argr = self.gen_expr(expr.argr)
-        value = self.builder.emit(ir.Gemm(argr, arg1, arg2))
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
+        return value
+
+    def gen_vec_op_masked(self, expr: expressions.VecOpMasked):
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        op = expr.op
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_vec_op_masked(
+            op, arg1, arg2, mask, ir_typ
+        )
         return value
 
 
