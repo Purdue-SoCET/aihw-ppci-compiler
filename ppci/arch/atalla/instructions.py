@@ -139,7 +139,6 @@ class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
     isa = isa
 
-
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
         return [AtallaBR_Imm10_Relocation(self.imm10)]
@@ -165,8 +164,10 @@ def make_br(mnemonic, opcode):
         "imm10": imm10,
         # "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
+        "patterns": patterns,
+        "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (BranchBase,), members)
+    return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
 Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
