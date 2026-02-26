@@ -16,16 +16,20 @@ from ..generic_instructions import (
     SectionInstruction,
 )
 from ..data_instructions import Dd
-from .relocations import BImm12Relocation, BImm20Relocation, AbsAddr32Relocation, Abs32Imm12Relocation
+from .relocations import (
+    AtallaBR_Imm10_Relocation,
+    AtallaMI_JAL_Imm25_Relocation,
+    AtallaMI_Abs_Imm25_Relocation,
+    AtallaI_JALR_Imm12_Relocation,
+)
 import struct
 
 isa = Isa()
 
-isa.register_relocation(BImm12Relocation)
-isa.register_relocation(BImm20Relocation)
-isa.register_relocation(AbsAddr32Relocation)
-isa.register_relocation(Abs32Imm12Relocation)
-
+isa.register_relocation(AtallaBR_Imm10_Relocation)
+isa.register_relocation(AtallaMI_JAL_Imm25_Relocation)
+isa.register_relocation(AtallaMI_Abs_Imm25_Relocation)
+isa.register_relocation(AtallaI_JALR_Imm12_Relocation)
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -104,21 +108,20 @@ def make_i(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaIInstruction,), members)
 
-# I-types:
-Addis = make_i("addi_s", 0b0010010)
-Subis = make_i("subi_s", 0b0010011)
-Mulis = make_i("mulis_s", 0b0010100)
-Divis = make_i("divi_s", 0b0010101)
-Modis = make_i("modi_s", 0b0010110)
-Oris = make_i("ori_s", 0b0010111)
-Andis = make_i("andi_s", 0b0011000)
-Xoris = make_i("xori_s", 0b0011001)
-Sllis = make_i("sllis_s", 0b0011010)
-Srlis = make_i("srlis_s", 0b0011011)
-Srais = make_i("srai_s", 0b0011100)
-Sltis = make_i("slti_s", 0b0011101)
-Sltuis = make_i("sltui_s", 0b0011110)
-
+# These are the opcodes that are in the Atalla ISA sheet - James
+Addis = make_i("addi_s", 0b0010110)   # WAS: 0b0010010
+Subis = make_i("subi_s", 0b0010111)   # WAS: 0b0010011
+Mulis = make_i("muli_s", 0b0011000)   # WAS: 0b0010100
+Divis = make_i("divi_s", 0b0011001)   # WAS: 0b0010101
+Modis = make_i("modi_s", 0b0011010)   # WAS: 0b0010110
+Oris  = make_i("ori_s",  0b0011011)   # WAS: 0b0010111
+Andis = make_i("andi_s", 0b0011100)   # WAS: 0b0011000
+Xoris = make_i("xori_s", 0b0011101)   # WAS: 0b0011001
+Sllis = make_i("slli_s", 0b0011110)   # WAS: 0b0011010
+Srlis = make_i("srli_s", 0b0011111)   # WAS: 0b0011011
+Srais = make_i("srai_s", 0b0100000)   # WAS: 0b0011100
+Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
+Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
 
 class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
@@ -126,17 +129,8 @@ class AtallaBRInstruction(Instruction):
 
 
 class BranchBase(AtallaBRInstruction):
-    imm12 = Operand("imm12", str)
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][57:64] = self.opcode
-        tokens[0][41:49] = self.rs1.num
-        tokens[0][17:25] = self.rs2.num
-        return tokens[0].encode()
-
     def relocations(self):
-        return [BImm12Relocation(self.imm12)]
+        return [AtallaBR_Imm10_Relocation(self.imm12)]
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
@@ -155,13 +149,13 @@ def make_br(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
 
-# Branch instructions (BR-types):
-Beqs = make_br("beq_s", 0b0001110)
-Bnes = make_br("bne_s", 0b0001111)
-Blts = make_br("blt_s", 0b0010000)
-Bges = make_br("bge_s", 0b0010001)
-Bgts = make_br("bgt_s", 0b0010010)
-Bles = make_br("ble_s", 0b0010011)
+# These are the opcodes that are in the Atalla ISA sheet - James
+Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
+Bnes = make_br("bne_s", 0b0100100)  # WAS: 0b0001111
+Blts = make_br("blt_s", 0b0100101)  # WAS: 0b0010000
+Bges = make_br("bge_s", 0b0100110)  # WAS: 0b0010001
+Bgts = make_br("bgt_s", 0b0100111)  # WAS: 0b0010010
+Bles = make_br("ble_s", 0b0101000)  # WAS: 0b0010011
 
 class AtallaMInstruction(Instruction):
     tokens = [AtallaMToken]
@@ -217,8 +211,9 @@ def make_m_store(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMInstruction,), members)
 
-Lws = make_m_load("lw_s", 0b0011111)
-Sws = make_m_store("sw_s", 0b0100000)
+# These are the opcodes that are in the Atalla ISA sheet - James
+Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
+Sws = make_m_store("sw_s", 0b0101010)  # WAS: 0b0100000
 
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
@@ -244,7 +239,8 @@ def make_mi(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
-Lis = make_mi("li_s", 0b0100001)
+
+Lis = make_mi("li_s", 0b0101101)
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -265,57 +261,57 @@ def make_nop(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaNOPInstruction,), members)
 
 
-class Bl(AtallaBRInstruction):
-    target = Operand("target", str)
+class Jal(AtallaMIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
-    syntax = Syntax(["jal", " ", rd, ",", " ", target])
+    imm25 = Operand("imm25", str)
+    syntax = Syntax(["jal", " ", rd, ",", " ", imm25])
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0100010
-        tokens[0][49:57] = self.rd.num
+        tokens[0][0:7] = 0b0101011 #changed this to the jal opcode
+        tokens[0][7:15] = self.rd.num
         return tokens[0].encode()
 
     def relocations(self):
-        return [BImm20Relocation(self.target)]
+        return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
 
-class Blr(AtallaBRInstruction):
+class Jalr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
-    offset = Operand("offset", int)
-    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
+    imm12 = Operand("imm12", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm12])
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0100011
-        tokens[0][49:57] = self.rd.num
-        tokens[0][41:49] = self.rs1.num
-        tokens[0][5:25] = self.offset #TODO: fix bitspec
+        tokens[0][0:7] = 0b0101100 #changed this to the jalr opcode
+        tokens[0][7:15] = self.rd.num
+        tokens[0][15:23] = self.rs1.num
         return tokens[0].encode()
 
 Halt = make_nop("halt", 0b1111111)
 Nop = make_nop("nop", 0x00000000)
 
+# Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
     if type(v) is int:
         return Dd(v)
     elif type(v) is str:
-        return Dcd2(v)
-    else:  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError("dcd with symbol strings not yet supported for Atalla")
+    else:
+        raise NotImplementedError(f"dcd does not support type {type(v)}")
 
+# I think we can just comment out this instruction and the dcd() because for any r-type there is no addressing or relocating needed for the atalla isa
+# class Dcd2(AtallaRInstruction):
+#     v = Operand("v", str)
+#     syntax = Syntax(["dcd", "=", v])
 
-class Dcd2(AtallaRInstruction):
-    v = Operand("v", str)
-    syntax = Syntax(["dcd", "=", v])
+#     def encode(self):
+#         tokens = self.get_tokens()
+#         tokens[0][0:32] = 0
+#         return tokens[0].encode()
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:32] = 0
-        return tokens[0].encode()
-
-    def relocations(self):
-        return [AbsAddr32Relocation(self.v)]
+#     def relocations(self):
+#         return [AbsAddr32Relocation(self.v)]
 
 class PseudoAtallaInstruction(ArtificialInstruction):
     isa = isa
@@ -344,14 +340,14 @@ class Adrl(AtallaIInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][57:64] = 0b0010010
+        tokens[0][57:64] = 0b0010110 #changed this to the addi_s opcode
         tokens[0][49:57] = self.rd.num
         tokens[0][0:41] = 0
         tokens[0][41:49] = self.rs1.num
         return tokens[0].encode()
 
     def relocations(self):
-        return [Abs32Imm12Relocation(self.imm12)]
+        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
 
 class Labelrel(PseudoAtallaInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -386,7 +382,7 @@ def pattern_movi8(context, tree, c0):
 def pattern_jmp(context, tree):
     reg = R0
     tgt = tree.value
-    context.emit(Bl(reg, tgt.name, jumps=[tgt]))
+    context.emit(Jal(reg, tgt.name, jumps=[tgt]))
 
 
 @isa.pattern("stm", "MOVB(reg, reg)", size=40)
@@ -531,7 +527,7 @@ def pattern_cjmpi(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blts, "==": Beqs, "!=": Bnes, ">=": Bges, "<=": Bles, ">": Bgts}
     Bop = opnames[op]
-    jmp_ins = Bl(R0,no_label.name, jumps=[no_label])
+    jmp_ins = Jal(R0,no_label.name, jumps=[no_label])
     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
 
@@ -1256,7 +1252,7 @@ def call_internal2(context, name, a, b, clobbers=()):
     context.move(R13, b)
     context.emit(RegisterUseDef(uses=(R12, R13)))
     context.emit(Global(name))
-    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(Jal(LR, name, clobbers=clobbers))
     context.emit(RegisterUseDef(uses=(R10,)))
     context.move(d, R10)
     return d
@@ -1267,7 +1263,7 @@ def call_internal1(context, name, a, clobbers=()):
     context.move(R12, a)
     context.emit(RegisterUseDef(uses=(R12,)))
     context.emit(Global(name))
-    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(Jal(LR, name, clobbers=clobbers))
     context.emit(RegisterUseDef(uses=(R10,)))
     context.move(d, R10)
     return d

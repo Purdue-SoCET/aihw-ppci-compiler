@@ -54,8 +54,8 @@ from .instructions import (
     Lws,
     Sws,
     # Jumps
-    Bl,
-    Blr,
+    Jal,
+    Jalr,
     #isa
     isa,
     Align,
@@ -245,9 +245,9 @@ class AtallaArch(Architecture):
 
     def branch(self, reg, lab):
         if isinstance(lab, AtallaRegister):
-            return Blr(reg, lab, 0, clobbers=self.caller_save)
+            return Jalr(reg, lab, 0, clobbers=self.caller_save)
         else:
-            return Bl(reg, lab, clobbers=self.caller_save)
+            return Jal(reg, lab, clobbers=self.caller_save)
 
     # def get_runtime(self):
     #     """Implement compiler runtime functions"""
@@ -401,7 +401,7 @@ class AtallaArch(Architecture):
         # if self.has_option("rvc"):
         #     yield CJr(LR)
         # else:
-        yield Blr(R0, LR, 0)
+        yield Jalr(R0, LR, 0)
 
         # Add final literal pool:
         yield from self.litpool(frame)
@@ -568,6 +568,37 @@ class AtallaArch(Architecture):
                 saved_registers.append(register)
         return saved_registers
 
+
+    # I added this function straight from chat
+    def get_reloc_type(self, reloc_type, symbol):
+        """Map PPCI relocation types to ELF relocation type numbers.
+        
+        These numbers are architecture-specific and should be documented
+        in your ISA specification. For now, we use arbitrary numbers.
+        """
+        # Map relocation class names to ELF relocation numbers
+        reloc_map = {
+            "BR_i10": 1,           # Branch 10-bit
+            "MI_jal_i25": 2,       # JAL 25-bit
+            "MI_abs_i25": 3,       # Absolute upper 25 bits
+            "M_i12": 4,            # Memory 12-bit
+            "I_i12": 5,            # I-type 12-bit (JALR)
+        }
+        
+        # Get the relocation name from the relocation type
+        if hasattr(reloc_type, 'name'):
+            reloc_name = reloc_type.name
+        elif isinstance(reloc_type, str):
+            reloc_name = reloc_type
+        else:
+            reloc_name = reloc_type.__class__.__name__
+        
+        if reloc_name in reloc_map:
+            return reloc_map[reloc_name]
+        else:
+            raise NotImplementedError(
+                f"ELF relocation type for '{reloc_name}' not defined"
+            )
 
 def round_up(s):
     return s + (16 - s % 16)

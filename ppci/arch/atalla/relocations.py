@@ -2,73 +2,45 @@ from ...utils.bitfun import wrap_negative, BitView
 from ..encoding import Relocation
 from .tokens import *
 
+# 6 byte aligned means 48 bits
+ATALLA_INSN_ALIGNMENT = 6
 
-class BImm12Relocation(Relocation):
-    name = "b_imm12"
+class AtallaBR_Imm10_Relocation(Relocation):
+    name = "BR_i10"
     token = AtallaBRToken
-    field = "imm"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 8 == 0
-        assert reloc_value % 8 == 0
-        offset = (sym_value - reloc_value) // 8
-        return wrap_negative(offset, 12)
+        offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
+        return wrap_negative(offset, 10)
 
     def apply(self, sym_value, data, reloc_value):
-        assert self.token is not None
+        imm10 = self.calc(sym_value, reloc_value)
         token = self.token.from_data(data)
-        assert self.field is not None
-        assert hasattr(token, self.field)
-        setattr(token, self.field, self.calc(sym_value, reloc_value))
+        token.imm10 = imm10
         return token.encode()
 
-
-class BImm20Relocation(Relocation):
-    name = "b_imm20"
+class AtallaMI_JAL_Imm25_Relocation(Relocation):
+    name = "MI_jal_i25"
     token = AtallaMIToken
-    field = "imm"
+    field = "imm25"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 8 == 0
-        assert reloc_value % 8 == 0
-        offset = (sym_value - reloc_value) // 8
-        return wrap_negative(offset, 20)
+        offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
+        return wrap_negative(offset, 25)
 
-    def apply(self, sym_value, data, reloc_value):
-        assert self.token is not None
-        token = self.token.from_data(data)
-        assert self.field is not None
-        assert hasattr(token, self.field)
-        setattr(token, self.field, self.calc(sym_value, reloc_value))
-        return token.encode()
+# Maybe don't need this, but if lui uses or loads symbol addresses then it would be needed
+class AtallaMI_Abs_Imm25_Relocation(Relocation):
+    name = "MI_abs_i25"
+    token = AtallaMIToken
+    field = "imm25"
+    
+    def calc(self, sym_value, reloc_value):
+        return sym_value & 0x1FFFFFF #for masking to 25 bits
 
-class AbsAddr32Relocation(Relocation):
-    name = "absaddr32"
-    token = AtallaRToken
-
-    def apply(self, sym_value, data, reloc_value):
-        offset = sym_value
-        bv = BitView(data, 0, 4)
-        bv[0:32] = offset
-        return data
-
-class Abs32Imm12Relocation(Relocation):
-    name = "abs32_imm12"
+# May not need JALR if the offset is always literal and not a symbol value
+class AtallaI_JALR_Imm12_Relocation(Relocation):
+    name = "I_i12"
     token = AtallaIToken
     field = "imm12"
-
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 2 == 0
-        return sym_value & 0xFFF
-
-    def apply(self, sym_value, data, reloc_value):
-        """Apply this relocation type given some parameters.
-
-        This is the default implementation which stores the outcome of
-        the calculate function into the proper token."""
-        assert self.token is not None
-        token = self.token.from_data(data)
-        assert self.field is not None
-        assert hasattr(token, self.field)
-        setattr(token, self.field, self.calc(sym_value, reloc_value))
-        return token.encode()
+        return sym_value & 0xFFF # You need the lower 12 bits absolute for jalr

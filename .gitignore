@@ -12,3 +12,7 @@ sample.c
 .vscode/
 venv/
 *.out
+*.out
+*.elf
+*.txt
+*.o
