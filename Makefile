@@ -1,6 +1,7 @@
 COMPILER=atalla_cc
 ARCH=atalla
 PPCI=python3 -m ppci
+INPUT=examples/c/sample2.c
 
 SRC1=instructtest2.c
 SRC2=helper.c

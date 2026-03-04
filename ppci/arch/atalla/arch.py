@@ -420,13 +420,26 @@ class AtallaArch(Architecture):
         yield Align(4)  # Align at 4 bytes
 
     def peephole(self, frame):
+        removed = set()
         newinstructions = []
         for ins in frame.instructions:
             # idk if this causes a problem with vreg ld/st TODO: investigate
             # identify during testing phase and fix if needed
             if hasattr(ins, "fprel") and ins.fprel and not isinstance(ins, (VregLd, VregSt)):
                 ins.imm12 += round_up(frame.stacksize + 8) - 8
+            # Remove redundant addi_s rd, rs, 0 when rd == rs (no MOV in ISA)
+            if isinstance(ins, instructions.Addis) and ins.imm12 == 0:
+                rd_real = ins.rd.get_real() if ins.rd.is_colored else ins.rd
+                rs1_real = ins.rs1.get_real() if ins.rs1.is_colored else ins.rs1
+                if rd_real is rs1_real or rd_real == rs1_real:
+                    removed.add(ins)
+                    continue  # identity move, drop instruction
             newinstructions.append(ins)
+        # Atalla emits from frame.buckets_by_block, so drop removed instructions there too
+        if removed and getattr(frame, "buckets_by_block", None):
+            for depth_list in frame.buckets_by_block.values():
+                for i, chunk in enumerate(depth_list):
+                    depth_list[i] = [inst for inst in chunk if inst not in removed]
         return newinstructions
 
     def gen_call(self, frame, label, args, rv):
