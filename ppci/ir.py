@@ -1400,9 +1400,14 @@ class Gemm(LocalValue):
 
     def __init__(self, arg1, arg2, mask, name, ty):
         super().__init__(name, ty)
+
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
+        
         self.arg1 = arg1
         self.arg2 = arg2
         self.mask = mask
+        
 
     def __str__(self):
         return f"gemm {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
@@ -1425,6 +1430,9 @@ class VecOpMasked(LocalValue):
         if isinstance(ty, VectorTyp):
             if not isinstance(arg1.ty, VectorTyp) and not isinstance(arg2.ty, VectorTyp):
                 raise TypeError(f"At least one of the operands must be a vector type for operation {op}")
+            
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
             
         self.arg1 = arg1
         self.arg2 = arg2
@@ -1465,6 +1473,9 @@ class MakeMask(LocalValue):
         if isinstance(ty, VectorTyp):
             if not isinstance(arg1.ty, VectorTyp) and not isinstance(arg2.ty, VectorTyp):
                 raise TypeError(f"At least one of the operands must be a vector type for operation {op}")
+            
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
             
         self.arg1 = arg1
         self.arg2 = arg2

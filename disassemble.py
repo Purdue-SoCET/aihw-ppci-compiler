@@ -186,9 +186,9 @@ OPCODES = {
     0b0110011: ("sub_vv", "VV"),
     0b0110100: ("mul_vv", "VV"),
     0b0110101: ("div_vv", "VV"),
-    0b0110110: ("and_vv", "VV"),
-    0b0110111: ("or_vv", "VV"),
-    0b0111000: [("xor_vv", "VV"), ("shift_vs", "VS")],
+    # 0b0110110: ("and_vv", "VV"),
+    # 0b0110111: ("or_vv", "VV"),
+    0b0111000: ("shift_vs", "VS"),
     0b0111001: ("gemm_vv", "VV"),
 
     # Mask MVV
@@ -384,9 +384,6 @@ def disassemble_instruction(insn_int, offset):
     entry = OPCODES.get(opcode)
     if entry is None:
         return f"UNKNOWN (opcode=0x{opcode:02X})"
-
-    if isinstance(entry, list):
-        return " | ".join(decode_one(mnemonic, fmt, insn_int, offset) for mnemonic, fmt in entry)
 
     mnemonic, fmt = entry
     return decode_one(mnemonic, fmt, insn_int, offset)
