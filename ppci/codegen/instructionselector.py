@@ -118,6 +118,7 @@ ops = [
     "RMAX",
     "RSUM",
     "VECIDX",
+    "MASKTO",
 ]
 
 # Add all possible terminals:

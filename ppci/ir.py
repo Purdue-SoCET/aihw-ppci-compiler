@@ -1447,3 +1447,29 @@ class VecIndex(LocalValue):
 
     def __str__(self):
         return f"vec_index {self.arg1.name}, {self.index.name}"
+    
+class MakeMask(LocalValue):
+    """Make a mask from a vector"""
+
+    arg1 = value_use("arg1")
+    arg2 = value_use("arg2")
+    mask = value_use("mask")
+    op = [">", "<", "==", "!="]
+
+    def __init__(self, op, arg1, arg2, mask, name, ty):
+        super().__init__(name, ty)
+        
+        if op not in MakeMask.op:
+            raise TypeError(f"operation should be one of {MakeMask.op}")
+        
+        if isinstance(ty, VectorTyp):
+            if not isinstance(arg1.ty, VectorTyp) and not isinstance(arg2.ty, VectorTyp):
+                raise TypeError(f"At least one of the operands must be a vector type for operation {op}")
+            
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
+        self.op = op
+
+    def __str__(self):
+        return f"make_mask {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"

@@ -47,6 +47,7 @@ class RootScope:
             # type_tuple("long", "double"): BasicType.LONGDOUBLE,
             type_tuple("vec"): BasicType.VECTOR,
             type_tuple("__builtin_va_list"): BasicType.VA_LIST,
+            type_tuple("mask"): BasicType.MASK,
         }
 
     def is_valid(self, type_specifiers):

@@ -61,6 +61,7 @@ class CCodeGenerator:
 
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
             BasicType.VECTOR: (ir.vec, 64),
+            BasicType.MASK: (ir.mask, 4),
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 
@@ -1036,6 +1037,8 @@ class CCodeGenerator:
                 value = self.gen_vec_op_masked(expr)
             elif isinstance(expr, expressions.VecIndex):
                 value = self.gen_vec_index(expr)
+            elif isinstance(expr, expressions.MakeMask):
+                value = self.gen_make_mask(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1577,6 +1580,15 @@ class CCodeGenerator:
         value = self.builder.emit_vec_op_masked(
             op, arg1, arg2, mask, ir_typ
         )
+        return value
+    
+    def gen_make_mask(self, expr: expressions.MakeMask):
+        arg1 = self.gen_expr(expr.arg1, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        mask = self.gen_expr(expr.mask, rvalue=True)
+        op = expr.op
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.builder.emit_make_mask(op, arg1, arg2, mask, ir_typ)
         return value
 
 
