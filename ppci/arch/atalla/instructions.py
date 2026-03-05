@@ -141,7 +141,7 @@ class AtallaBRInstruction(Instruction):
 
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
-        return [AtallaBR_Imm10_Relocation(self.imm12)]
+        return [AtallaBR_Imm10_Relocation(self.imm10)]
 
 def make_br(mnemonic, opcode):
     rs1 = Operand("rs1", AtallaRegister, read=True)
