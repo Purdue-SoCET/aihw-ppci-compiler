@@ -4,8 +4,6 @@ Atalla ISA Disassembler
 Decodes 48-bit Atalla instructions from ELF binary
 """
 
-import struct
-
 def extract_bits(value, start, end):
     """Extract bits [start:end) from value (LSB = bit 0)"""
     mask = (1 << (end - start)) - 1
@@ -22,103 +20,7 @@ def sign_extend(value, bits):
         return value - (1 << bits)
     return value
 
-
-def _read_c_string(blob, start):
-    end = blob.find(b"\x00", start)
-    if end == -1:
-        return ""
-    return blob[start:end].decode("utf-8", errors="replace")
-
-
-def find_code_bounds_elf(data):
-    """Find code section bounds from ELF section headers.
-
-    Returns (offset, end_offset). Falls back to old heuristic if parsing fails.
-    """
-    if len(data) < 16 or data[:4] != b"\x7fELF":
-        return 0x34, min(0xF0, len(data))
-
-    elf_class = data[4]   # 1=ELF32, 2=ELF64
-    elf_data = data[5]    # 1=little, 2=big
-    if elf_data not in (1, 2):
-        return 0x34, min(0xF0, len(data))
-
-    endian = "<" if elf_data == 1 else ">"
-
-    try:
-        if elf_class == 1:
-            # ELF32: e_shoff @ 0x20 (4), e_shentsize @ 0x2E (2), e_shnum @ 0x30 (2), e_shstrndx @ 0x32 (2)
-            e_shoff = struct.unpack_from(endian + "I", data, 0x20)[0]
-            e_shentsize = struct.unpack_from(endian + "H", data, 0x2E)[0]
-            e_shnum = struct.unpack_from(endian + "H", data, 0x30)[0]
-            e_shstrndx = struct.unpack_from(endian + "H", data, 0x32)[0]
-            sh_fmt = endian + "IIIIIIIIII"
-            sh_size = 40
-            sh_offset_idx = 4
-            sh_size_idx = 5
-        elif elf_class == 2:
-            # ELF64: e_shoff @ 0x28 (8), e_shentsize @ 0x3A (2), e_shnum @ 0x3C (2), e_shstrndx @ 0x3E (2)
-            e_shoff = struct.unpack_from(endian + "Q", data, 0x28)[0]
-            e_shentsize = struct.unpack_from(endian + "H", data, 0x3A)[0]
-            e_shnum = struct.unpack_from(endian + "H", data, 0x3C)[0]
-            e_shstrndx = struct.unpack_from(endian + "H", data, 0x3E)[0]
-            sh_fmt = endian + "IIQQQQIIQQ"
-            sh_size = 64
-            sh_offset_idx = 4
-            sh_size_idx = 5
-        else:
-            return 0x34, min(0xF0, len(data))
-
-        if e_shoff == 0 or e_shnum == 0:
-            return 0x34, min(0xF0, len(data))
-
-        entry_size = e_shentsize if e_shentsize else sh_size
-
-        def read_sh(i):
-            base = e_shoff + i * entry_size
-            if base + sh_size > len(data):
-                raise ValueError("Section header out of range")
-            return struct.unpack_from(sh_fmt, data, base)
-
-        # Section-name string table header
-        shstr = read_sh(e_shstrndx)
-        shstr_off = shstr[sh_offset_idx]
-        shstr_size = shstr[sh_size_idx]
-        if shstr_off + shstr_size > len(data):
-            return 0x34, min(0xF0, len(data))
-        shstrtab = data[shstr_off:shstr_off + shstr_size]
-
-        preferred_names = {".text", "text", ".code", "code"}
-        code_candidates = []
-
-        for i in range(e_shnum):
-            sh = read_sh(i)
-            name_off = sh[0]
-            sec_off = sh[sh_offset_idx]
-            sec_size = sh[sh_size_idx]
-            if sec_size == 0:
-                continue
-
-            if name_off >= len(shstrtab):
-                continue
-            sec_name = _read_c_string(shstrtab, name_off)
-            if sec_name in preferred_names:
-                code_candidates.append((sec_name, sec_off, sec_size))
-
-        if code_candidates:
-            # Prefer exact ".text" / "code" ordering, otherwise first candidate
-            name_order = [".text", "code", "text", ".code"]
-            code_candidates.sort(key=lambda item: name_order.index(item[0]) if item[0] in name_order else len(name_order))
-            _, code_start, code_size = code_candidates[0]
-            code_end = min(code_start + code_size, len(data))
-            return code_start, code_end
-
-    except Exception:
-        pass
-
-    return 0x34, min(0xF0, len(data))
-
-# Opcode mappings (from ppci/arch/atalla/instructions.py and vector_instructions.py)
+# Opcode mappings (from ISA spec)
 OPCODES = {
     # R-type
     0b0000001: ("add_s", "R"),
@@ -237,8 +139,8 @@ OPCODES = {
     0b1011001: ("scpad_st", "SDMA"),
 
     # Special canonical encodings used by current backend
-    0b0000000: ("nop", "S"),
-    0b1111111: ("halt", "S"),
+    0b0000000: ("all0s", "S"),
+    0b1111111: ("all1", "S"),
 }
 
 def decode_one(mnemonic, fmt, insn_int, offset):
@@ -398,10 +300,11 @@ def disassemble_elf(input_file, output_file):
         out.write(f"Atalla Disassembly: {input_file}\n")
         out.write("=" * 100 + "\n\n")
         
-        code_start, code_end = find_code_bounds_elf(data)
+        # Code section starts around 0x30, ends around 0xF0
+        code_start = 0x34  # Adjust if needed
+        code_end = 0xF0
         
         out.write("=== CODE SECTION ===\n\n")
-        out.write(f"Code bytes: 0x{code_start:04X} .. 0x{code_end:04X}\n\n")
         out.write(f"{'Offset':<10} {'Bytes':<30} {'Instruction'}\n")
         out.write("-" * 100 + "\n")
         
