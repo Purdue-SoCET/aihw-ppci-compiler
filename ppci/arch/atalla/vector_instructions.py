@@ -123,7 +123,7 @@ def make_mvs(mnemonic: str, opcode: int):
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
     syntax   = Syntax([mnemonic, " ", vmd, ",", " ", vs1, ",", " ", rs1, ",", " ", mask_reg])
     patterns = {"opcode": opcode, "vs1": vs1, "rs1": rs1, "vmd": vmd, "mask_reg": mask_reg}
-    members  = {"syntax": syntax, "vs1": vs1, "rs1": rs1, "patterns": patterns, "opcode": opcode, "vmd": vmd}
+    members  = {"syntax": syntax, "vs1": vs1, "rs1": rs1, "patterns": patterns, "opcode": opcode, "vmd": vmd, "mask_reg": mask_reg}
     return type(mnemonic.replace(".", "_"), (AtallaMVSInstruction,), members)
 
 # VV
@@ -247,6 +247,30 @@ def pattern_mkmskeqvec(context, tree, v0, v1, mask):
 def pattern_mkmskneqvec(context, tree, v0, v1, mask):
     d = context.new_reg(AtallaMaskRegister)
     context.emit(MneqMvv(d, v0, v1, mask))
+    return d
+
+@isa.pattern("maskreg", "MLTMASK(vecreg, reg, maskreg)", size=2)
+def pattern_mkmskltvec_scalar(context, tree, v0, rs1, mask):
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MltMvs(d, v0, rs1, mask))
+    return d
+
+@isa.pattern("maskreg", "MGTMASK(vecreg, reg, maskreg)", size=2)
+def pattern_mkmskgtvec_scalar(context, tree, v0, rs1, mask):
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MgtMvs(d, v0, rs1, mask))
+    return d
+
+@isa.pattern("maskreg", "MEQMASK(vecreg, reg, maskreg)", size=2)
+def pattern_mkmskeqvec_scalar(context, tree, v0, rs1, mask):
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MeqMvs(d, v0, rs1, mask))
+    return d
+
+@isa.pattern("maskreg", "MNEQMASK(vecreg, reg, maskreg)", size=2)
+def pattern_mkmskneqvec_scalar(context, tree, v0, rs1, mask):
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MneqMvs(d, v0, rs1, mask))
     return d
 # ========== Vector Instructions' Patterns ============
 

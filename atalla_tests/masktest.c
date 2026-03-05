@@ -15,11 +15,17 @@ int main(){
     : "=v"(v2)
     : "r"(vec_addr2));
 
+    int full_mask;
 
-    int m = make_mask("<", v1, v2, 0);
+    asm("mv_mts %0, m0"
+    : "=r"(full_mask));
 
-    vec v3 = gemm(v1, v2, make_mask("<", v1, v2, m));
-    vec v4 = gemm(v3, v2, 0xABCD);
+
+    int m = make_mask("<", v1, 5.0, full_mask);
+    int m1 = make_mask("==", v1, v2, full_mask);
+
+    vec v3 = vec_op_masked("*", v1, v2, m);
+    vec v4 = gemm(v3, v2, m1);
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 

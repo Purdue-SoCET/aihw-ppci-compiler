@@ -67,9 +67,14 @@ atalla-run-all: atalla-gen-asmfiles atalla-test-link atalla-dump-dis
 atalla-test-reloc:
 	python3 test_relocations.py
 
+compile:
+	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -S
+	${PPCI} ${COMPILER} $(INPUT) -m ${ARCH} -O2 -c -o obj.o
+	${PPCI} ld obj.o -o $(ELF)
+
 # -------------------------
 # Clean
 # -------------------------
 clean:
-	rm -f *.o *.elf *.s f.txt disassembly.txt output_detailed.txt
+	rm -f *.out *.o *.elf *.s f.txt disassembly.txt output_detailed.txt
 
