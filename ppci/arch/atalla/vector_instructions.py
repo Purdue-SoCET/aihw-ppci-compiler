@@ -131,9 +131,12 @@ AddVv   = make_vv("add_vv",   0b0110010)
 SubVv   = make_vv("sub_vv",   0b0110011)
 MulVv   = make_vv("mul_vv",   0b0110100)
 DivVv   = make_vv("div_vv",   0b0110101)
-AndVv   = make_vv("and_vv",   0b0110110)
-OrVv    = make_vv("or_vv",    0b0110111)
-XorVv   = make_vv("xor_vv",   0b0111000)
+
+# Not in the ISA anymore:
+# AndVv   = make_vv("and_vv",   0b0110110)
+# OrVv    = make_vv("or_vv",    0b0110111)
+# XorVv   = make_vv("xor_vv",   0b0111000)
+
 GemmVv  = make_vv("gemm_vv",  0b0111001)
 
 # MVV
@@ -363,23 +366,25 @@ def patt_div_vv(ctx, tree, v0, v1, mask = M0):
     ctx.emit(DivVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "ANDVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_and_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(AndVv(d, v0, v1, mask))
-    return d
 
-@isa.pattern("vecreg", "ORVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_or_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(OrVv(d, v0, v1, mask))
-    return d
+# Not in the ISA anymore:
+# @isa.pattern("vecreg", "ANDVEC(vecreg, vecreg, maskreg)", size=2)
+# def patt_and_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(AndVv(d, v0, v1, mask))
+#     return d
 
-@isa.pattern("vecreg", "XORVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_xor_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(XorVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "ORVEC(vecreg, vecreg, maskreg)", size=2)
+# def patt_or_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(OrVv(d, v0, v1, mask))
+#     return d
+
+# @isa.pattern("vecreg", "XORVEC(vecreg, vecreg, maskreg)", size=2)
+# def patt_xor_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(XorVv(d, v0, v1, mask))
+#     return d
 
 @isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_gemm_vv(ctx, tree, v0, v1, mask):
