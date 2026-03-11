@@ -72,6 +72,19 @@ def main() -> int:
         action="store_true",
         help="Enable emulator debug mode.",
     )
+    ap.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip running verify_emulator_packets.py after emulator run.",
+    )
+    ap.add_argument(
+        "--verify-smoke-run",
+        action="store_true",
+        help=(
+            "Run verifier with its own emulator smoke run. "
+            "By default verifier uses --skip-smoke-run since compile_test.py already runs emulator."
+        ),
+    )
     args = ap.parse_args()
 
     src_path = resolve_source_path(args.source)
@@ -88,6 +101,7 @@ def main() -> int:
     mreg_out = emulator_out_dir / f"{test_name}_output_mregs.out"
     scpad0_out = emulator_out_dir / f"{test_name}_output_scpad0.out"
     scpad1_out = emulator_out_dir / f"{test_name}_output_scpad1.out"
+    verify_report = emulator_out_dir / f"{test_name}_verify_report.txt"
 
     src_for_make = rel_or_abs(src_path)
     asm_for_make = rel_or_abs(asm_out)
@@ -139,6 +153,24 @@ def main() -> int:
             run_emulator_cmd.append("--debug")
 
         run_cmd(run_emulator_cmd, cwd=REPO_ROOT)
+
+        if not args.no_verify:
+            run_verify_cmd = [
+                sys.executable,
+                str(REPO_ROOT / "verify_emulator_packets.py"),
+                "--asm",
+                str(asm_out),
+                "--compiled-in",
+                str(compiled_in),
+                "--packet-length",
+                str(args.packet_length),
+                "--report",
+                str(verify_report),
+            ]
+            if not args.verify_smoke_run:
+                run_verify_cmd.append("--skip-smoke-run")
+
+            run_cmd(run_verify_cmd, cwd=REPO_ROOT)
     except subprocess.CalledProcessError as exc:
         print(f"[ERROR] Command failed with exit code {exc.returncode}")
         return exc.returncode
@@ -147,6 +179,10 @@ def main() -> int:
     print(f"[OK] Assembly output: {asm_out}")
     print(f"[OK] Emulator input: {compiled_in}")
     print(f"[OK] Emulator outputs: {emulator_out_dir}")
+    if args.no_verify:
+        print("[OK] Verifier skipped (--no-verify).")
+    else:
+        print(f"[OK] Verifier report: {verify_report}")
     return 0
 
 

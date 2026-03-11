@@ -7,7 +7,7 @@
 //     return x + global_data;
 // }
 
-int instruct_tests(int a, int b) {
+int main(int a, int b) {
     int r_acc = 0;
 
     // // R-type: operate purely on registers : add_s, sub_s

@@ -5,6 +5,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterable
 
 import build_softmax as base
 from instruction_latency import latency
@@ -62,6 +63,40 @@ class AsmInstr:
     ops: list[str]
     comment: str
     labels: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SchedInfo:
+    idx: int
+    mnemonic: str
+    instr_type: str
+    reads: set[str]
+    writes: set[str]
+    latency: int
+    is_vector: bool
+    is_memory: bool
+    is_store: bool
+    is_control: bool
+    mem_key: tuple | None
+
+
+MEMORY_MNEMONICS = {
+    "lw.s",
+    "sw.s",
+    "lhw.s",
+    "shw.s",
+    "vreg.ld",
+    "vreg.st",
+    "scpad.ld",
+    "scpad.st",
+}
+MEMORY_STORE_MNEMONICS = {"sw.s", "shw.s", "vreg.st", "scpad.st"}
+VECTOR_TYPES = {"VV", "VI", "VS", "VM", "VTS", "MVV", "MVS"}
+CONTROL_MNEMONICS = {"jal", "jalr", "halt.s", "barrier.s", "ret"}
+NORM_MEM_RE = re.compile(
+    r"^([+-]?(?:0x[0-9a-fA-F]+|0b[01]+|\d+))\(\s*\$(\d+)\s*\)$",
+    re.IGNORECASE,
+)
 
 
 def strip_comment(line: str) -> tuple[str, str]:
@@ -217,54 +252,399 @@ def inject_main_bootstrap(
     return bootstrap + instructions, shifted_labels
 
 
-def is_control_mnemonic(mnemonic: str) -> bool:
-    return mnemonic in {"jal", "jalr"} or mnemonic.startswith("b")
+def is_control_mnemonic(mnemonic: str, instr_type: str) -> bool:
+    return instr_type == "BR" or mnemonic in CONTROL_MNEMONICS
 
 
-def split_packets_for_control_and_labels(
-    packets: list[list[int]], instructions: list[AsmInstr], labels: dict[str, int]
-) -> list[list[int]]:
+def _reg_scalar(reg: int | None) -> str | None:
+    return f"s{reg}" if reg is not None else None
+
+
+def _reg_vector(reg: int | None) -> str | None:
+    return f"v{reg}" if reg is not None else None
+
+
+def _reg_mask(reg: int | None) -> str | None:
+    return f"m{reg}" if reg is not None else None
+
+
+def _parse_reg(op: str) -> int:
+    return base.parse_reg(op)
+
+
+def _parse_imm(op: str) -> int:
+    return base.parse_int(op)
+
+
+def _parse_mem_operand(op: str) -> tuple[int, int]:
+    m = NORM_MEM_RE.match(op.replace(" ", ""))
+    if not m:
+        raise ValueError(f"Expected normalized memory operand imm($reg), got {op!r}")
+    imm = _parse_imm(m.group(1))
+    rs1 = int(m.group(2))
+    return rs1, imm
+
+
+def _latency_for(mnemonic: str) -> int:
+    m = mnemonic.lower()
+    base_name = m.split(".", 1)[0]
+    for key in (m, base_name):
+        if key in latency:
+            try:
+                return max(1, int(latency[key]))
+            except (TypeError, ValueError):
+                pass
+    return 1
+
+
+def _add_reg(target: set[str], reg: str | None) -> None:
+    if reg is not None:
+        target.add(reg)
+
+
+def _build_sched_info(inst: AsmInstr, idx: int) -> SchedInfo:
+    mnemonic = inst.mnemonic
+    if mnemonic not in base.INVERT_OPCODES:
+        raise ValueError(f"Unknown mnemonic for scheduling: {mnemonic!r}")
+
+    _, instr_type = base.INVERT_OPCODES[mnemonic]
+    reads: set[str] = set()
+    writes: set[str] = set()
+    mem_key = None
+
+    if instr_type == "R":
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[1])))
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[2])))
+        _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))
+
+    elif instr_type == "I":
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[1])))
+        _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))
+
+    elif instr_type == "BR":
+        rs1 = _parse_reg(inst.ops[0])
+        _add_reg(reads, _reg_scalar(rs1))
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[1])))
+        # Emulator updates rs1 by incr_imm for BR instructions.
+        _add_reg(writes, _reg_scalar(rs1))
+
+    elif instr_type == "M":
+        rd = _parse_reg(inst.ops[0])
+        if len(inst.ops) == 2:
+            rs1, imm = _parse_mem_operand(inst.ops[1])
+        else:
+            rs1 = _parse_reg(inst.ops[1])
+            imm = _parse_imm(inst.ops[2])
+        _add_reg(reads, _reg_scalar(rs1))
+        mem_key = ("scalar_mem", rs1, imm)
+        if mnemonic in {"sw.s", "shw.s"}:
+            _add_reg(reads, _reg_scalar(rd))
+        else:
+            _add_reg(writes, _reg_scalar(rd))
+
+    elif instr_type == "MI":
+        if mnemonic == "jal":
+            if len(inst.ops) == 1:
+                rd = 0
+            else:
+                rd = _parse_reg(inst.ops[0])
+            if rd != 0:
+                _add_reg(writes, _reg_scalar(rd))
+        elif mnemonic in {"li.s", "lui.s"} and inst.ops:
+            _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))
+
+    elif instr_type == "VV":
+        _add_reg(writes, _reg_vector(_parse_reg(inst.ops[0])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[2])))
+        if len(inst.ops) >= 4:
+            _add_reg(reads, _reg_mask(_parse_imm(inst.ops[3])))
+
+    elif instr_type == "VS":
+        _add_reg(writes, _reg_vector(_parse_reg(inst.ops[0])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[2])))
+        if len(inst.ops) >= 4:
+            _add_reg(reads, _reg_mask(_parse_imm(inst.ops[3])))
+
+    elif instr_type == "VI":
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+        if mnemonic != "lw.vi":
+            _add_reg(writes, _reg_vector(_parse_reg(inst.ops[0])))
+            if len(inst.ops) >= 4:
+                _add_reg(reads, _reg_mask(_parse_imm(inst.ops[3])))
+
+    elif instr_type == "VM":
+        vd = _parse_reg(inst.ops[0])
+        rs1 = _parse_reg(inst.ops[1])
+        num_cols = _parse_imm(inst.ops[2])
+        num_rows = _parse_imm(inst.ops[3])
+        sid = _parse_imm(inst.ops[4])
+        rc = _parse_imm(inst.ops[5])
+        rc_id = _parse_imm(inst.ops[6])
+        mem_key = ("vreg_mem", sid, rs1, num_cols, num_rows, rc, rc_id)
+        _add_reg(reads, _reg_scalar(rs1))
+        if mnemonic == "vreg.st":
+            _add_reg(reads, _reg_vector(vd))
+        else:
+            _add_reg(writes, _reg_vector(vd))
+
+    elif instr_type == "SDMA":
+        rs1_rd1 = _parse_reg(inst.ops[0])
+        rs2 = _parse_reg(inst.ops[1])
+        num_cols = _parse_imm(inst.ops[2])
+        num_rows = _parse_imm(inst.ops[3])
+        sid = _parse_imm(inst.ops[4])
+        _add_reg(reads, _reg_scalar(rs1_rd1))
+        _add_reg(reads, _reg_scalar(rs2))
+        mem_key = ("scpad_mem", sid, rs1_rd1, rs2, num_cols, num_rows)
+
+    elif instr_type == "MTS":
+        _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))
+        _add_reg(reads, _reg_mask(_parse_imm(inst.ops[1])))
+
+    elif instr_type == "STM":
+        _add_reg(writes, _reg_mask(_parse_imm(inst.ops[0])))
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[1])))
+
+    elif instr_type == "VTS":
+        _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+
+    elif instr_type == "MVV":
+        _add_reg(writes, _reg_mask(_parse_imm(inst.ops[0])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[2])))
+        _add_reg(reads, _reg_mask(_parse_imm(inst.ops[3])))
+
+    elif instr_type == "MVS":
+        _add_reg(writes, _reg_mask(_parse_imm(inst.ops[0])))
+        _add_reg(reads, _reg_vector(_parse_reg(inst.ops[1])))
+        _add_reg(reads, _reg_scalar(_parse_reg(inst.ops[2])))
+        _add_reg(reads, _reg_mask(_parse_imm(inst.ops[3])))
+
+    is_vector = instr_type in VECTOR_TYPES
+    is_memory = mnemonic in MEMORY_MNEMONICS
+    is_store = mnemonic in MEMORY_STORE_MNEMONICS
+    is_control = is_control_mnemonic(mnemonic, instr_type)
+
+    return SchedInfo(
+        idx=idx,
+        mnemonic=mnemonic,
+        instr_type=instr_type,
+        reads=reads,
+        writes=writes,
+        latency=_latency_for(mnemonic),
+        is_vector=is_vector,
+        is_memory=is_memory,
+        is_store=is_store,
+        is_control=is_control,
+        mem_key=mem_key,
+    )
+
+
+def _validate_packets(
+    packets: list[list[int]],
+    infos: list[SchedInfo],
+    labels: dict[str, int],
+) -> None:
+    errors: list[str] = []
+    expected = list(range(len(infos)))
+    flat = [idx for packet in packets for idx in packet]
+
+    if flat != expected:
+        errors.append("Scheduled instruction order does not match original in-order sequence.")
+
     labeled_indices = set(labels.values())
-    out: list[list[int]] = []
+    seen = set()
 
-    for packet in packets:
-        if not packet:
-            out.append([])
-            continue
+    for pkt_idx, packet in enumerate(packets):
+        if len(packet) > base.REAL_PACKET_SIZE:
+            errors.append(f"packet {pkt_idx} has width {len(packet)} > {base.REAL_PACKET_SIZE}")
 
-        current: list[int] = []
-        for idx in packet:
-            mnem = instructions[idx].mnemonic
+        vector_count = 0
+        memory_count = 0
+        packet_reads: set[str] = set()
+        packet_writes: set[str] = set()
 
-            # Labels must begin a packet so jumps can target packet PCs safely.
-            if current and idx in labeled_indices:
-                out.append(current)
-                current = []
+        for slot, idx in enumerate(packet):
+            if idx in seen:
+                errors.append(f"instruction index {idx} appears in more than one packet")
+                continue
+            seen.add(idx)
 
-            # Control instructions must start/end packets.
-            if current and is_control_mnemonic(mnem):
-                out.append(current)
-                current = []
+            info = infos[idx]
+            if idx in labeled_indices and slot != 0:
+                errors.append(f"label target instruction {idx} is not at packet start")
 
-            current.append(idx)
+            if info.is_control and (slot != 0 or len(packet) != 1):
+                errors.append(f"control instruction {idx} is not isolated in its packet")
 
-            if is_control_mnemonic(mnem):
-                out.append(current)
-                current = []
+            if info.is_vector:
+                vector_count += 1
+            if info.is_memory:
+                memory_count += 1
 
-        if current:
-            out.append(current)
+            for reg in info.reads:
+                if reg in packet_writes:
+                    errors.append(f"packet {pkt_idx} RAW hazard on {reg} at instruction {idx}")
+            for reg in info.writes:
+                if reg in packet_reads:
+                    errors.append(f"packet {pkt_idx} WAR hazard on {reg} at instruction {idx}")
+                if reg in packet_writes:
+                    errors.append(f"packet {pkt_idx} WAW hazard on {reg} at instruction {idx}")
 
-    return out
+            packet_reads.update(info.reads)
+            packet_writes.update(info.writes)
+
+        if vector_count > 1:
+            errors.append(f"packet {pkt_idx} has {vector_count} vector instructions")
+        if memory_count > 1:
+            errors.append(f"packet {pkt_idx} has {memory_count} memory instructions")
+
+    if len(seen) != len(infos):
+        missing = sorted(set(range(len(infos))) - seen)
+        errors.append(f"missing scheduled instructions: {missing}")
+
+    if errors:
+        joined = "\n".join(f"- {e}" for e in errors[:40])
+        extra = "" if len(errors) <= 40 else f"\n... {len(errors) - 40} more"
+        raise ValueError(f"Packet validation failed:\n{joined}{extra}")
+
+
+def _iter_block_starts(
+    infos: Iterable[SchedInfo],
+    labels: dict[str, int],
+    n_instructions: int,
+) -> set[int]:
+    starts = {0}
+    starts.update(labels.values())
+    for info in infos:
+        if info.is_control and (info.idx + 1) < n_instructions:
+            starts.add(info.idx + 1)
+    return starts
+
+
+def _can_admit(
+    info: SchedInfo,
+    current_packet: list[int],
+    packet_reads: set[str],
+    packet_writes: set[str],
+    packet_vector_count: int,
+    packet_memory_count: int,
+    labeled_indices: set[int],
+) -> bool:
+    if len(current_packet) >= base.REAL_PACKET_SIZE:
+        return False
+    if info.idx in labeled_indices and current_packet:
+        return False
+    if info.is_control:
+        return len(current_packet) == 0
+    if info.is_vector and packet_vector_count >= 1:
+        return False
+    if info.is_memory and packet_memory_count >= 1:
+        return False
+
+    for reg in info.reads:
+        if reg in packet_writes:
+            return False
+    for reg in info.writes:
+        if reg in packet_reads or reg in packet_writes:
+            return False
+    return True
 
 
 def schedule_program(instructions: list[AsmInstr], labels: dict[str, int]) -> tuple[list[int], list[list[int]]]:
-    # Reuse softmax scheduler but feed mnemonics directly.
-    sched_inputs = [(inst.mnemonic, [], [], None) for inst in instructions]
-    ready = base.build_dependency_graph(sched_inputs, latency)
-    packets = base.greedy_pack(sched_inputs, ready)
-    packets = split_packets_for_control_and_labels(packets, instructions, labels)
-    return ready, packets
+    infos = [_build_sched_info(inst, idx) for idx, inst in enumerate(instructions)]
+    block_starts = _iter_block_starts(infos, labels, len(instructions))
+    labeled_indices = set(labels.values())
+
+    reg_ready: dict[str, int] = {}
+    store_ready: dict[tuple, int] = {}
+    last_mem_cycle = -1
+
+    issue_cycle = [0 for _ in range(len(instructions))]
+    packets: list[list[int]] = []
+    current_cycle = 0
+    current_packet: list[int] = []
+    packet_reads: set[str] = set()
+    packet_writes: set[str] = set()
+    packet_vector_count = 0
+    packet_memory_count = 0
+
+    def flush_packet() -> None:
+        nonlocal current_cycle, current_packet, packet_reads, packet_writes, packet_vector_count, packet_memory_count
+        if not current_packet:
+            return
+        packets.append(current_packet)
+        current_packet = []
+        packet_reads = set()
+        packet_writes = set()
+        packet_vector_count = 0
+        packet_memory_count = 0
+        current_cycle += 1
+
+    def insert_empty_cycle() -> None:
+        nonlocal current_cycle
+        packets.append([])
+        current_cycle += 1
+
+    for info in infos:
+        if info.idx in block_starts and current_packet:
+            flush_packet()
+
+        earliest = 0
+        for reg in info.reads:
+            earliest = max(earliest, reg_ready.get(reg, 0))
+        if info.is_memory:
+            earliest = max(earliest, last_mem_cycle + 1)
+            if info.mem_key is not None:
+                earliest = max(earliest, store_ready.get(info.mem_key, 0))
+
+        while current_cycle < earliest:
+            if current_packet:
+                flush_packet()
+            else:
+                insert_empty_cycle()
+
+        while not _can_admit(
+            info,
+            current_packet,
+            packet_reads,
+            packet_writes,
+            packet_vector_count,
+            packet_memory_count,
+            labeled_indices,
+        ):
+            flush_packet()
+            while current_cycle < earliest:
+                insert_empty_cycle()
+
+        current_packet.append(info.idx)
+        packet_reads.update(info.reads)
+        packet_writes.update(info.writes)
+        if info.is_vector:
+            packet_vector_count += 1
+        if info.is_memory:
+            packet_memory_count += 1
+        issue_cycle[info.idx] = current_cycle
+
+        ready = current_cycle + info.latency
+        for reg in info.writes:
+            reg_ready[reg] = max(reg_ready.get(reg, 0), ready)
+        if info.is_memory:
+            last_mem_cycle = current_cycle
+            if info.is_store and info.mem_key is not None:
+                store_ready[info.mem_key] = max(store_ready.get(info.mem_key, 0), ready)
+
+        if info.is_control or len(current_packet) >= base.REAL_PACKET_SIZE:
+            flush_packet()
+
+    if current_packet:
+        flush_packet()
+
+    _validate_packets(packets, infos, labels)
+    return issue_cycle, packets
 
 
 def build_pc_maps(
