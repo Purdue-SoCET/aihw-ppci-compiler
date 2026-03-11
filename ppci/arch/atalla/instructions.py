@@ -644,6 +644,25 @@ def pattern_sub_i32(context, tree, c0, c1):
     context.emit(Subs(d, c0, c1))
     return d
 
+
+@isa.pattern(
+    "reg",
+    "SUBI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "SUBU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 2048,
+)
+def pattern_sub_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Subis(d, c0, c1))
+    return d
+
 '''
 # TODO: configure for globals
 @isa.pattern("reg", "LABEL", size=6)
@@ -876,6 +895,12 @@ def pattern_and_i(context, tree, c0, c1):
     size=2,
     condition=lambda t: t.children[1].value < 2048,
 )
+@isa.pattern(
+    "reg",
+    "ANDU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 2048,
+)
 def pattern_and_i32(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     c1 = tree.children[1].value
@@ -902,6 +927,25 @@ def pattern_and8_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "ANDI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "ANDU32(CONSTU32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 2048,
+)
+def pattern_and_i32_const_reg(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[0].value
+    context.emit(Andis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "ORU32(reg, reg)", size=2)
 @isa.pattern("reg", "ORI32(reg, reg)", size=2)
 @isa.pattern("reg", "ORU16(reg, reg)", size=2)
@@ -920,6 +964,12 @@ def pattern_or_i32(context, tree, c0, c1):
     size=2,
     condition=lambda t: t.children[1].value < 2048,
 )
+@isa.pattern(
+    "reg",
+    "ORU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 2048,
+)
 def pattern_or_i32_reg_const(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     c1 = tree.children[1].value
@@ -930,6 +980,12 @@ def pattern_or_i32_reg_const(context, tree, c0):
 @isa.pattern(
     "reg",
     "ORI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "ORU32(CONSTU32, reg)",
     size=2,
     condition=lambda t: t.children[0].value < 2048,
 )
@@ -987,6 +1043,25 @@ def pattern_shr_i32_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "SHRU32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "SHRU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_shr_u32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Srlis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "SHLU8(reg, reg)", size=2)
 @isa.pattern("reg", "SHLI8(reg, reg)", size=2)
 @isa.pattern("reg", "SHLU16(reg, reg)", size=2)
@@ -1002,6 +1077,12 @@ def pattern_shl_i32(context, tree, c0, c1):
 @isa.pattern(
     "reg",
     "SHLI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "SHLU32(reg, CONSTU32)",
     size=2,
     condition=lambda t: t.children[1].value < 32,
 )
@@ -1023,6 +1104,44 @@ def pattern_mul_i32(context, tree, c0, c1):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "MULI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "MULU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+def pattern_mul_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Mulis(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "MULI32(CONSTI32, reg)",
+    size=10,
+    condition=lambda t: t.children[0].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "MULU32(CONSTU32, reg)",
+    size=10,
+    condition=lambda t: t.children[0].value < 2048,
+)
+def pattern_mul_i32_const_reg(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[0].value
+    context.emit(Mulis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "LDRI32(ADDI32(reg, CONSTI32))", size=2)
 def pattern_ldr_i32_add(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -1039,6 +1158,25 @@ def pattern_div_i32(context, tree, c0, c1):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "DIVI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "DIVU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+def pattern_div_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Divis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "DIVU16(reg, reg)", size=10)
 @isa.pattern("reg", "DIVU32(reg, reg)", size=10)
 def pattern_div_u32(context, tree, c0, c1):
@@ -1052,6 +1190,25 @@ def pattern_div_u32(context, tree, c0, c1):
 def pattern_rem_i32(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
     context.emit(Mods(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "REMI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "REMU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 2048,
+)
+def pattern_rem_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Modis(d, c0, c1))
     return d
 
 
@@ -1082,6 +1239,12 @@ def pattern_xor_i32(context, tree, c0, c1):
     size=2,
     condition=lambda t: t.children[1].value < 2048,
 )
+@isa.pattern(
+    "reg",
+    "XORU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 2048,
+)
 def pattern_xor_i32_reg_const(context, tree, c0):
     d = context.new_reg(AtallaRegister)
     c1 = tree.children[1].value
@@ -1092,6 +1255,12 @@ def pattern_xor_i32_reg_const(context, tree, c0):
 @isa.pattern(
     "reg",
     "XORI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 2048,
+)
+@isa.pattern(
+    "reg",
+    "XORU32(CONSTU32, reg)",
     size=2,
     condition=lambda t: t.children[0].value < 2048,
 )
