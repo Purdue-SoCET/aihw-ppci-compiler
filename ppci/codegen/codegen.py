@@ -194,20 +194,49 @@ class CodeGenerator:
             [FunctionOutputStream(instruction_list.append), output_stream]
         )
         peep_hole_stream = PeepHoleStream(output_stream)
-        if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
-            self._emit_packets_from_buckets(frame, peep_hole_stream, debug=debug, slots_per_packet=4)
-        else:
-            self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
-        peep_hole_stream.flush()
 
-        # Emit proper return / exit sequence at the end of function
-        if isinstance(ir_function, ir.Function):
-            if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
-                rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+        if self.arch.name == "atalla":
+            # Collect ALL instructions (prologue + body + epilogue + exit) into
+            # a staging list so the packetizer sees the full hazard picture.
+            staging = []
+            staging_stream = PeepHoleStream(
+                MasterOutputStream([FunctionOutputStream(staging.append)])
+            )
+
+            if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
+                self._emit_packets_from_buckets(frame, staging_stream, debug=debug, slots_per_packet=4)
             else:
-                rv = None
-            for ins in self.arch.gen_function_exit(rv):
+                self.emit_frame_to_stream(frame, staging_stream, debug=debug)
+
+            if isinstance(ir_function, ir.Function):
+                if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                    rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+                else:
+                    rv = None
+                for ins in self.arch.gen_function_exit(rv):
+                    staging_stream.emit(ins)
+
+            staging_stream.flush()
+
+            # Now run packetization over the complete staged list and emit.
+            packed = self._pack_flat_vliw(staging, max_width=4)
+            for ins in packed:
                 peep_hole_stream.emit(ins)
+            peep_hole_stream.flush()
+        else:
+            if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
+                self._emit_packets_from_buckets(frame, peep_hole_stream, debug=debug, slots_per_packet=4)
+            else:
+                self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
+            peep_hole_stream.flush()
+
+            if isinstance(ir_function, ir.Function):
+                if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                    rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+                else:
+                    rv = None
+                for ins in self.arch.gen_function_exit(rv):
+                    peep_hole_stream.emit(ins)
 
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:
@@ -376,3 +405,170 @@ class CodeGenerator:
 
         if value.binding == ir.Binding.GLOBAL:
             output_stream.emit(Global(value.name))
+
+    def _pack_flat_vliw(self, instructions, max_width=4):
+        """Take a flat list of instructions (including prologue/epilogue) and
+        return a NOP-padded flat list where every max_width instructions form
+        a valid VLIW packet free from RAW, WAW, WAR, and structural hazards."""
+        import sys, os
+        sys.path.insert(0, os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..")
+        ))
+        try:
+            from instruction_latency import latency as latency_map
+        except ImportError:
+            latency_map = {}
+
+        from ..arch.generic_instructions import Label
+        from ..arch.atalla.instructions import BranchBase, Bl, Blr
+        from ..arch.atalla.vector_instructions import (
+            AtallaVVInstruction, AtallaVSInstruction,
+            AtallaVIInstruction, AtallaVMemInstruction,
+        )
+        _VECTOR_BASES = (AtallaVVInstruction, AtallaVSInstruction,
+                         AtallaVIInstruction, AtallaVMemInstruction)
+
+        def make_nop():
+            return self.arch.make_nop()
+
+        def get_op(ins):
+            s = str(ins).strip()
+            return s.split()[0] if s else ""
+
+        def is_branch(ins):
+            return getattr(ins, "is_jump", False) or isinstance(ins, (BranchBase, Bl, Blr))
+
+        def is_vector(ins):
+            return isinstance(ins, _VECTOR_BASES)
+
+        blocks = []
+        current = []
+        for ins in instructions:
+            if isinstance(ins, Label):
+                if current:
+                    blocks.append(current)
+                current = [ins]
+            else:
+                current.append(ins)
+                if is_branch(ins):
+                    blocks.append(current)
+                    current = []
+        if current:
+            blocks.append(current)
+
+        result = []
+
+        for block in blocks:
+            labels    = [ins for ins in block if isinstance(ins, Label)]
+            real_insts = [ins for ins in block if not isinstance(ins, Label)]
+
+            result.extend(labels)
+
+            if not real_insts:
+                continue
+
+            last_write    = {}  # reg_num -> cycle value is available
+            last_mem_cycle = -1
+            last_store_at  = {}
+            ready_time = [0] * len(real_insts)
+
+            for i, ins in enumerate(real_insts):
+                reads = list(getattr(ins, "used_registers", []))
+                curr_ready = max((last_write.get(r.num, 0) for r in reads), default=0)
+
+                op       = get_op(ins)
+                is_load  = op.startswith("lw")
+                is_store = op.startswith("sw") or op.startswith("sd")
+                is_mem   = is_load or is_store
+
+                mem_key = None
+                if is_mem and hasattr(ins, "rs1") and hasattr(ins, "imm12"):
+                    base    = ins.rs1.num if hasattr(ins.rs1, "num") else ins.rs1
+                    mem_key = (base, ins.imm12)
+
+                if is_mem and last_mem_cycle + 1 > curr_ready:
+                    curr_ready = last_mem_cycle + 1
+
+                if is_mem and mem_key is not None:
+                    dep = last_store_at.get(mem_key, 0)
+                    if dep > curr_ready:
+                        curr_ready = dep
+
+                ready_time[i] = curr_ready
+
+                lat = latency_map.get(op, 1)
+                for r in getattr(ins, "defined_registers", []):
+                    last_write[r.num] = curr_ready + lat
+
+                if is_mem:
+                    last_mem_cycle = curr_ready
+                    if is_store and mem_key is not None:
+                        last_store_at[mem_key] = curr_ready + lat
+
+            scheduled     = [False] * len(real_insts)
+            current_cycle = 0
+            max_iters     = len(real_insts) * max_width
+
+            for _ in range(max_iters):
+                if all(scheduled):
+                    break
+
+                packet_reads  = set()
+                packet_writes = set()
+                mem_in_packet = False
+                vec_in_packet = False
+                count = 0
+
+                for i, ins in enumerate(real_insts):
+                    if scheduled[i] or ready_time[i] > current_cycle:
+                        continue
+
+                    op = get_op(ins)
+
+                    # Branches always go alone in slot 0
+                    if is_branch(ins):
+                        if count == 0:
+                            result.append(ins)
+                            for _ in range(max_width - 1):
+                                result.append(make_nop())
+                            scheduled[i] = True
+                        break
+
+                    is_mem = op.startswith("lw") or op.startswith("sw") or op.startswith("sd")
+                    if mem_in_packet and is_mem:
+                        continue
+
+                    if vec_in_packet and is_vector(ins):
+                        continue
+
+                    hazard = any(
+                        r.num in packet_writes
+                        for r in getattr(ins, "used_registers", [])
+                    ) or any(
+                        d.num in packet_writes or d.num in packet_reads
+                        for d in getattr(ins, "defined_registers", [])
+                    )
+                    if hazard:
+                        continue
+
+                    result.append(ins)
+                    for r in getattr(ins, "used_registers", []):
+                        packet_reads.add(r.num)
+                    for d in getattr(ins, "defined_registers", []):
+                        packet_writes.add(d.num)
+                    if is_mem:
+                        mem_in_packet = True
+                    if is_vector(ins):
+                        vec_in_packet = True
+                    scheduled[i] = True
+                    count += 1
+                    if count == max_width:
+                        break
+
+                if 0 < count < max_width:
+                    for _ in range(max_width - count):
+                        result.append(make_nop())
+
+                current_cycle += 1
+
+        return result
