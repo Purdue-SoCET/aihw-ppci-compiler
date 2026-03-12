@@ -1,3 +1,9 @@
+// void str_vec(vec smth, int addr){
+//     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
+//     : 
+//     : "v"(smth), "r"(addr));
+// }
+
 int give_5(){
     return 5;
 }
@@ -27,13 +33,19 @@ int main(){
     : "=v"(v2)
     : "r"(vec_addr2));
 
+    int m = make_mask("<", v1, v2, 0);
+    // int m = 0xFAF;
+
     vec v3 = v1 + v2;
     vec v4 = v1 * 3.6;
-    v4 /= give_5();
-    v4 = vec_op_masked("EXP", v4, 0.0, 0xFFFA0000);
-    v4 = gemm(v3, v4, 10);
+    // v4 /= give_5();
+    v4 = vec_op_masked("EXP", v4, 0.0, m);
+    // v4 = gemm(v3, v4, m);
+    v4 = vec_op_masked("*", v4, v3, m);
 
     float elem = v4[5];
+
+    // str_vec(v4, 0xABCD);
 
     asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
     : 
