@@ -1212,11 +1212,12 @@ def pattern_mul_f16(context, tree, c0, c1):
     return d
 
 
-@isa.pattern("reg", "DIVBF16(reg, reg)", size=20)
+@isa.pattern("reg", "DIVBF16(reg, reg)", size=40)
 def pattern_div_f16(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
-    context.emit(RcpBf(d, c0, R0))
-    context.emit(MulBf(d, d, c1))
+    # Implement c0 / c1 as rcp(c1) * c0
+    context.emit(RcpBf(d, c1, R0))
+    context.emit(MulBf(d, d, c0))
     return d
 
 
