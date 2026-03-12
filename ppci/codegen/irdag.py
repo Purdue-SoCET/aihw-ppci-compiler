@@ -221,19 +221,22 @@ class SelectionGraphBuilder:
         sgnode = self.new_node("EXIT", None)
         sgnode.add_input(self.current_token)
 
+    def prepare_mask(self, scalar_mask):
+        if scalar_mask.ty != ir.mask:
+            mask_loc = self.new_vreg(ir.mask)
+            stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
+            mask_output = stm_mv.new_output("mask")
+            mask_output.wants_vreg = False
+        else:
+            mask_output = scalar_mask
+
+        return mask_output
+
     def do_gemm(self, node):
         vs1 = self.get_value(node.arg1)
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
-        mask_loc = self.new_vreg(ir.mask)
-
-        stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
-        # self.chain(stm_mv)
-
-        # Feed MVSTM result directly; avoid MOVMASK by not assigning a vreg here
-        mask_output = stm_mv.new_output("mask")
-        mask_output.wants_vreg = False
-
+        mask_output = self.prepare_mask(scalar_mask)
         sgnode = self.new_node("GEMM", node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
@@ -242,6 +245,22 @@ class SelectionGraphBuilder:
         base = self.get_value(node.arg1)
         index = self.get_value(node.index)
         sgnode = self.new_node("VECIDX", node.ty, base, index)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_make_mask(self, node):
+        names = {
+            "==": "EQ",
+            "!=": "NEQ",
+            "<": "LT",
+            ">": "GT"
+        }
+        op = names[node.op]
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_output = self.prepare_mask(scalar_mask)
+        sgnode = self.new_node(f"M{op}", node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
@@ -269,15 +288,7 @@ class SelectionGraphBuilder:
         vs1 = self.get_value(node.arg1)
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
-        mask_loc = self.new_vreg(ir.mask)
-
-        stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
-        # self.chain(stm_mv)
-
-        # Feed MVSTM result directly; avoid MOVMASK by not assigning a vreg here
-        mask_output = stm_mv.new_output("mask")
-        mask_output.wants_vreg = False
-
+        mask_output = self.prepare_mask(scalar_mask)
         sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
