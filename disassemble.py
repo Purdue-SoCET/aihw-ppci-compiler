@@ -154,7 +154,6 @@ def decode_one(mnemonic, fmt, insn_int, offset):
 
     elif fmt == "BR":
         # BR-type: opcode incr_imm7 i1 rs1 rs2 imm9
-        print("BR")
         incr_imm7 = extract_bits(insn_int, 7, 14)
         i1 = extract_bits(insn_int, 14, 15)
         rs1 = extract_bits(insn_int, 15, 23)

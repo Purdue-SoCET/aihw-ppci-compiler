@@ -1,15 +1,11 @@
 # Tests that JAL and JALR instructions correctly resolve to their intended targets.
 # Parses ELF symbol table and disassembly output to verify relocations.
-# """
-# # Claude made this, had to change how it was parsing the header but it is good otherwise
-
-"""
-Atalla Relocation Verification Script - Auto-Discovery Mode
-Automatically discovers and verifies ALL relocations without configuration.
-"""
+# Claude made this, had to change how it was parsing the header but it is good otherwise
+# Atalla Relocation Verification Script - Auto-Discovery Mode
+# Automatically discovers and verifies ALL relocations without configuration.
 
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 class ELFParser:
     """Parse ELF file to extract code section bounds and symbol table"""
