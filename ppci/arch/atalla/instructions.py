@@ -167,7 +167,7 @@ def make_br(mnemonic, opcode):
         "patterns": patterns,
         "tokens" : tokens
     }
-    return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
+    return type(mnemonic + "_ins", (BranchBase,), members)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
 Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
