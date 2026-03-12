@@ -82,7 +82,7 @@ Sltus = make_r("sltu_s", 0b0001101)
 AddBf = make_r("add_bf", 0b0001110)
 SubBf = make_r("sub_bf", 0b0001111)
 MulBf = make_r("mul_bf", 0b0010000)
-DivBf = make_r("div_bf", 0b0010001)
+RcpBf = make_r("rcp_bf", 0b0010001)
 SltBf = make_r("slt_bf", 0b0010010)
 SltuBf = make_r("sltu_bf", 0b0010011)
 StbfS = make_r("stbf_s", 0b0010100)
@@ -1215,7 +1215,8 @@ def pattern_mul_f16(context, tree, c0, c1):
 @isa.pattern("reg", "DIVBF16(reg, reg)", size=20)
 def pattern_div_f16(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
-    context.emit(DivBf(d, c0, c1))
+    context.emit(RcpBf(d, c0, R0))
+    context.emit(MulBf(d, d, c1))
     return d
 
 
