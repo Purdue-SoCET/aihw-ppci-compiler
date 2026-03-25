@@ -252,6 +252,7 @@ def make_mi(mnemonic, opcode):
 
 
 Lis = make_mi("li_s", 0b0101101)
+Luis = make_mi("lui_s", 0b0101110)
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -489,8 +490,16 @@ def pattern_32_to_8_16(context, tree, c0):
     return c0
 
 
-@isa.pattern("reg", "CONSTI32", size=4)
-@isa.pattern("reg", "CONSTU32", size=4)
+@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value >= 2**25)
+def pattern_const_i32_large(context, tree):
+    d = context.new_reg(AtallaRegister)
+    c0 = tree.value
+    context.emit(Luis(d, c0 >> 7))
+    context.emit(Addis(d, d, c0 & 0x7F))
+    return d
+
+@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)
+@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value < 2**25)
 @isa.pattern("reg", "CONSTI16", size=4)
 @isa.pattern("reg", "CONSTU16", size=4)
 @isa.pattern(
@@ -636,7 +645,7 @@ def pattern_sub_i32(context, tree, c0, c1):
     return d
 
 '''
-# TODO: wtf is this
+# TODO: configure for globals
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
