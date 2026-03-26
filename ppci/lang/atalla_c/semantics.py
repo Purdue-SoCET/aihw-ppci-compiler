@@ -763,7 +763,7 @@ class CSemantics:
     def on_float(self, value, location):
         """Process floating point literal."""
         value, type_specifiers = utils.float_num(value)
-        print(type_specifiers)
+        # print(type_specifiers)
         typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 

@@ -96,7 +96,7 @@ class CSynthesizer:
             b = instruction.b
             typ = instruction.typ
             rhs = expressions.BinaryOperator(a, op, b, typ, False, None)
-            print(lhs, rhs)
+            # print(lhs, rhs)
             self.emit_store(lhs, rhs)
         elif isinstance(instruction, ir.AddressOf):
             typ = self.voidptr_type

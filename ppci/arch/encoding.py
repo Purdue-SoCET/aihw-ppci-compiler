@@ -633,7 +633,7 @@ class Relocation:
 
         This is the default implementation which stores the outcome of
         the calculate function into the proper token."""
-        print("Applying some relocation:", self) #hopefully this works
+        # print("Applying some relocation:", self) #hopefully this works
         assert self.token is not None
         token = self.token.from_data(data)
         assert self.field is not None
