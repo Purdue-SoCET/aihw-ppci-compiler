@@ -407,9 +407,6 @@ class CodeGenerator:
             output_stream.emit(Global(value.name))
 
     def _pack_flat_vliw(self, instructions, max_width=4):
-        """Take a flat list of instructions (including prologue/epilogue) and
-        return a NOP-padded flat list where every max_width instructions form
-        a valid VLIW packet free from RAW, WAW, WAR, and structural hazards."""
         import sys, os
         sys.path.insert(0, os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..")
@@ -419,10 +416,10 @@ class CodeGenerator:
         except ImportError:
             latency_map = {}
 
-        from ..arch.generic_instructions import Label
-        from ..arch.atalla.instructions import BranchBase, Bl, Blr
+        from ..arch.generic_instructions import Label, VirtualInstruction
+        from ..arch.atalla.instructions import BranchBase, Jal, Jalr
         from ..arch.atalla.vector_instructions import (
-            AtallaVVInstruction, AtallaVSInstruction,
+        AtallaVVInstruction, AtallaVSInstruction,
             AtallaVIInstruction, AtallaVMemInstruction,
         )
         _VECTOR_BASES = (AtallaVVInstruction, AtallaVSInstruction,
@@ -436,7 +433,7 @@ class CodeGenerator:
             return s.split()[0] if s else ""
 
         def is_branch(ins):
-            return getattr(ins, "is_jump", False) or isinstance(ins, (BranchBase, Bl, Blr))
+            return getattr(ins, "is_jump", False) or isinstance(ins, (BranchBase, Jal, Jalr))
 
         def is_vector(ins):
             return isinstance(ins, _VECTOR_BASES)
@@ -460,8 +457,8 @@ class CodeGenerator:
 
         for block in blocks:
             labels    = [ins for ins in block if isinstance(ins, Label)]
-            real_insts = [ins for ins in block if not isinstance(ins, Label)]
-
+            real_insts = [ins for ins in block if not isinstance(ins, (Label, VirtualInstruction))]
+            # real_insts = [ins for ins in block if not isinstance(ins, Label)]
             result.extend(labels)
 
             if not real_insts:
@@ -470,6 +467,7 @@ class CodeGenerator:
             last_write    = {}  # reg_num -> cycle value is available
             last_mem_cycle = -1
             last_store_at  = {}
+        # poor mans assembly api copied from api.py
             ready_time = [0] * len(real_insts)
 
             for i, ins in enumerate(real_insts):
