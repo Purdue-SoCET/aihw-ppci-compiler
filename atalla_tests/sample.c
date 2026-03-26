@@ -38,10 +38,9 @@ int main(){
 
     vec v3 = v1 + v2;
     vec v4 = v1 * 3.6;
-    // v4 /= give_5();
-    v4 = vec_op_masked("EXP", v4, 0.0, m);
-    // v4 = gemm(v3, v4, m);
-    v4 = vec_op_masked("*", v4, v3, m);
+    v4 -= give_5();
+    v4 = vec_op_masked("EXP", v4, 0.0, 0xFFFA0000);
+    v4 = gemm(v3, v4, 10);
 
     float elem = v4[5];
 

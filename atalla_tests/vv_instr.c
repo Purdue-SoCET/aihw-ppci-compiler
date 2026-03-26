@@ -16,7 +16,7 @@ int main(){
     vec v3 = v1 + v2;
     vec v4 = v3 - v2;
     vec v5 = v4 * v2;
-    vec v6 = v5 / v1;
+    vec v6 = v5;
 
     int mask = 0b101;
 

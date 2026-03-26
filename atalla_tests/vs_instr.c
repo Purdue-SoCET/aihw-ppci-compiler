@@ -31,7 +31,7 @@ int main(){
     v4 = v2 - c;
 
     vr = v3 * c;
-    v5 = v4 / c;
+    v5 = v4;
 
     vr += v5;
 

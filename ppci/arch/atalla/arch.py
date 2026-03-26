@@ -66,7 +66,7 @@ from .instructions import (
 
 from .vector_instructions import (
     # Vector-Vector
-    DivVv,
+    # DivVv,
     MulVv,
     AddVv,
     # AndVv,

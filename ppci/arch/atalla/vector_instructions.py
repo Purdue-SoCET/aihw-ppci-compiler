@@ -130,7 +130,7 @@ def make_mvs(mnemonic: str, opcode: int):
 AddVv   = make_vv("add_vv",   0b0110010)
 SubVv   = make_vv("sub_vv",   0b0110011)
 MulVv   = make_vv("mul_vv",   0b0110100)
-DivVv   = make_vv("div_vv",   0b0110101)
+#DivVv   = make_vv("div_vv",   0b0110101)
 
 # Not in the ISA anymore:
 # AndVv   = make_vv("and_vv",   0b0110110)
@@ -163,7 +163,7 @@ RmaxVi  = make_vi("rmax_vi",  0b1001001)
 AddVs   = make_vs("add_vs",   0b1010000)
 SubVs   = make_vs("sub_vs",   0b1010001)
 MulVs   = make_vs("mul_vs",   0b1010010)
-DivVs   = make_vs("div_vs",   0b1010011)
+# DivVs   = make_vs("div_vs",   0b1010011)
 ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # MVS
@@ -360,11 +360,11 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
     ctx.emit(MulVv(d, v0, v1, mask))
     return d
 
-@isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_div_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(DivVv(d, v0, v1, mask))
-    return d
+# @isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, stm)", size=2)
+# def patt_div_vv(ctx, tree, v0, v1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(DivVv(d, v0, v1, mask))
+#     return d
 
 
 # Not in the ISA anymore:
@@ -479,15 +479,15 @@ def patt_mul_vi_comm(ctx, tree, vsrc, mask = M0):
     ctx.emit(MuliVi(d, vsrc, imm, mask))  # Same imm for commuted form
     return d
 
-# DIVI
-@isa.pattern("vecreg", "DIVVEC(vecreg, CONSTBF16, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_div_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(DiviVi(d, vsrc, imm, mask))
-    return d
+# # DIVI
+# @isa.pattern("vecreg", "DIVVEC(vecreg, CONSTBF16, stm)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_div_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[1].value)
+#     ctx.emit(DiviVi(d, vsrc, imm, mask))
+#     return d
 
 # @isa.pattern("vecreg", "DIVVEC(CONSTBF16, vecreg, maskreg)", size=2,
 #                 condition=lambda t: -4096 <= t.children[0].value <= 4095
@@ -576,11 +576,11 @@ def patt_mul_vs(ctx, tree, vsrc, rs1, mask = M0):
     ctx.emit(MulVs(d, vsrc, rs1, mask))
     return d
 
-@isa.pattern("vecreg", "DIVVEC(vecreg, reg, maskreg)", size=2)
-def patt_div_vs(ctx, tree, vsrc, rs1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(DivVs(d, vsrc, rs1, mask))
-    return d
+# @isa.pattern("vecreg", "DIVVEC(vecreg, reg, stm)", size=2)
+# def patt_div_vs(ctx, tree, vsrc, rs1, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(DivVs(d, vsrc, rs1, mask))
+#     return d
 
 
 class AtallaSDMAInstruction(Instruction):
