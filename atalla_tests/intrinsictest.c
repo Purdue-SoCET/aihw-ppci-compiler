@@ -31,7 +31,7 @@ int main(){
 
     // vec v5 = vec_op_masked("SQRT", v1, 0.0, 10);
 
-    vec v5 = vec_op_masked("RMIN", v4, 5.6, 10);
+    vec v5 = vec_op_masked("RMIN", v4, 0.0, 10);
 
 
     // These correctly error when uncommented.
