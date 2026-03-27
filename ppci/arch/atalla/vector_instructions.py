@@ -16,7 +16,7 @@ from .tokens import (
 )
 from .vector_registers import AtallaVectorRegister
 from .mask_registers import M0, AtallaMaskRegister
-from .registers import AtallaRegister
+from .registers import R0, AtallaRegister
 from .instructions import Lis
 
 class AtallaVVInstruction(Instruction):
@@ -182,19 +182,19 @@ class AtallaMTSInstruction(Instruction):
     isa = isa
 
 def make_stm(mnemonic: str, opcode: int):
-    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rd = Operand("rd", AtallaRegister, read=True)
     vmd = Operand("vmd", AtallaMaskRegister, write=True)
-    syntax = Syntax([mnemonic, " ", vmd, ",", " ", rs1])
-    patterns = {"opcode": opcode, "vmd": vmd, "rs1": rs1}
-    members = {"syntax": syntax, "vmd": vmd, "rs1": rs1, "patterns": patterns, "opcode": opcode}
+    syntax = Syntax([mnemonic, " ", vmd, ",", " ", rd])
+    patterns = {"opcode": opcode, "vmd": vmd, "rd": rd}
+    members = {"syntax": syntax, "vmd": vmd, "rd": rd, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaSTMInstruction,), members)
 
 def make_mts(mnemonic: str, opcode: int):
-    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, write=True)
     vmd = Operand("vmd", AtallaMaskRegister, read=True)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", vmd])
-    patterns = {"opcode": opcode, "rd": rd, "vmd": vmd}
-    members = {"syntax": syntax, "rd": rd, "vmd": vmd, "patterns": patterns, "opcode": opcode}
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", vmd])
+    patterns = {"opcode": opcode, "rs1": rs1, "vmd": vmd}
+    members = {"syntax": syntax, "rs1": rs1, "vmd": vmd, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaMTSInstruction,), members)
 
 MvStm = make_stm("mv_stm", 0b1001100)
@@ -286,14 +286,14 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
 
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
-    Code = VregSt(v1, c0[0], 0, 0, 0, 0, 0)
+    Code = VregSt(v1, c0[0], R0, 0, 0) #TODO: R0 should be replaced with 1 and num_cols and sid should be set properly
     Code.fprel = True
     context.emit(Code)
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
     d = context.new_reg(AtallaVectorRegister)
-    Code = VregLd(d, c0[0], 0, 0, 0, 0, 0)
+    Code = VregLd(d, c0[0], R0, 0, 0) #TODO: R0 should be replaced with 1 and num_cols and sid should be set properly
     Code.fprel = True
     context.emit(Code)
     return d
