@@ -3,8 +3,8 @@ from ..encoding import Instruction, Operand, Syntax
 from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
-    AtallaMVVToken,
-    AtallaMVSToken,
+    AtallaVMVToken,
+    AtallaVMSToken,
     AtallaSDMAToken,
     AtallaSTMToken,
     AtallaMTSToken,
@@ -38,12 +38,12 @@ class AtallaVMemInstruction(Instruction):
     tokens = [AtallaVMemToken]
     isa = isa
 
-class AtallaMVVInstruction(Instruction):
-    tokens = [AtallaMVVToken]
+class AtallaVMVInstruction(Instruction):
+    tokens = [AtallaVMVToken]
     isa = isa
 
-class AtallaMVSInstruction(Instruction):
-    tokens = [AtallaMVSToken]
+class AtallaVMSInstruction(Instruction):
+    tokens = [AtallaVMSToken]
     isa = isa
 
 
@@ -72,41 +72,36 @@ def make_vs(mnemonic: str, opcode: int):
 def make_vi(mnemonic: str, opcode: int):
     vd   = Operand("vd",   AtallaVectorRegister, write=True)
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
-    imm = Operand("imm", int)
+    imm8 = Operand("imm8", int)
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm, ",", " ", mask_reg])
-    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm": imm, "mask_reg": mask_reg}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm": imm, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg}
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", imm8, ",", " ", mask_reg])
+    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "imm8": imm8, "mask_reg": mask_reg}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "imm8": imm8, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg}
     return type(mnemonic.replace(".", "_"), (AtallaVIInstruction,), members)
 
 
 def make_vm(mnemonic: str, opcode: int, load: bool):
     vd  = Operand("vd",  AtallaVectorRegister, write=load, read=(not load))
     rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs2 = Operand("rs2", AtallaRegister, read=True)
     num_cols = Operand("num_cols", int)
-    num_rows = Operand("num_rows", int)
-    rc = Operand("rc", int)
     sid = Operand("sid", int)
-    rc_id = Operand("rc_id", int)
     fprel = False
     syntax   = Syntax([mnemonic, " ", vd, ",", " ", rs1,
+                       ",", " ", rs2,
                        ",", " ", num_cols,
-                       ",", " ", num_rows,
-                       ",", " ", rc,
-                       ",", " ", rc_id,
                        ",", " ", sid])
     patterns = {
         "opcode": opcode,
         "vd": vd, "rs1": rs1,
-        "num_cols": num_cols,
-        "rc": rc, "sid": sid,
-        "num_rows": num_rows, "rc_id": rc_id,
+        "rs2": rs2,
+        "num_cols": num_cols, "sid": sid
     }
-    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "opcode": opcode,
-                "rc": rc, "sid": sid, "num_cols": num_cols, "num_rows": num_rows, "rc_id": rc_id, "fprel": fprel}
+    members  = {"syntax": syntax, "vd": vd, "rs1": rs1, "patterns": patterns, "rs2": rs2,
+                "opcode": opcode, "sid": sid, "num_cols": num_cols, "fprel": fprel}
     return type(mnemonic.replace(".", "_"), (AtallaVMemInstruction,), members)
 
-def make_mvv(mnemonic: str, opcode: int):
+def make_vmv(mnemonic: str, opcode: int):
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister,       read=True)
     vmd = Operand("vmd", AtallaMaskRegister, write=True)
@@ -114,9 +109,9 @@ def make_mvv(mnemonic: str, opcode: int):
     syntax   = Syntax([mnemonic, " ", vmd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask_reg])
     patterns = {"opcode": opcode, "vs1": vs1, "vs2": vs2, "vmd": vmd, "mask_reg": mask_reg}
     members  = {"syntax": syntax, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "vmd": vmd, "mask_reg": mask_reg}
-    return type(mnemonic.replace(".", "_"), (AtallaMVVInstruction,), members)
+    return type(mnemonic.replace(".", "_"), (AtallaVMVInstruction,), members)
 
-def make_mvs(mnemonic: str, opcode: int):
+def make_vms(mnemonic: str, opcode: int):
     vs1  = Operand("vs1",  AtallaVectorRegister, read=True)
     rs1 = Operand("rs1", AtallaRegister,       read=True)
     vmd = Operand("vmd", AtallaMaskRegister, write=True)
@@ -124,7 +119,7 @@ def make_mvs(mnemonic: str, opcode: int):
     syntax   = Syntax([mnemonic, " ", vmd, ",", " ", vs1, ",", " ", rs1, ",", " ", mask_reg])
     patterns = {"opcode": opcode, "vs1": vs1, "rs1": rs1, "vmd": vmd, "mask_reg": mask_reg}
     members  = {"syntax": syntax, "vs1": vs1, "rs1": rs1, "patterns": patterns, "opcode": opcode, "vmd": vmd, "mask_reg": mask_reg}
-    return type(mnemonic.replace(".", "_"), (AtallaMVSInstruction,), members)
+    return type(mnemonic.replace(".", "_"), (AtallaVMSInstruction,), members)
 
 # VV
 AddVv   = make_vv("add_vv",   0b0110010)
@@ -140,10 +135,10 @@ MulVv   = make_vv("mul_vv",   0b0110100)
 GemmVv  = make_vv("gemm_vv",  0b0111001)
 
 # MVV
-MgtMvv = make_mvv("mgt_mvv", 0b0111010)
-MltMvv = make_mvv("mlt_mvv", 0b0111011)
-MeqMvv = make_mvv("meq_mvv", 0b0111100)
-MneqMvv = make_mvv("mneq_mvv", 0b0111101)
+MgtMvv = make_vmv("mgt_mvv", 0b0111010)
+MltMvv = make_vmv("mlt_mvv", 0b0111011)
+MeqMvv = make_vmv("meq_mvv", 0b0111100)
+MneqMvv = make_vmv("mneq_mvv", 0b0111101)
 
 # VI
 # AddiVi  = make_vi("addi_vi",  0b0111110)
@@ -167,10 +162,10 @@ MulVs   = make_vs("mul_vs",   0b1010010)
 # ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # MVS
-MgtMvs = make_mvs("mgt_mvs", 0b1010100)
-MltMvs = make_mvs("mlt_mvs", 0b1010101)
-MeqMvs = make_mvs("meq_mvs", 0b1010110)
-MneqMvs = make_mvs("mneq_mvs", 0b1010111)
+MgtMvs = make_vms("mgt_mvs", 0b1010100)
+MltMvs = make_vms("mlt_mvs", 0b1010101)
+MeqMvs = make_vms("meq_mvs", 0b1010110)
+MneqMvs = make_vms("mneq_mvs", 0b1010111)
 
 # VM
 VregLd = make_vm("vreg_ld", 0b1001101, True)
@@ -196,10 +191,10 @@ def make_stm(mnemonic: str, opcode: int):
 
 def make_mts(mnemonic: str, opcode: int):
     rd = Operand("rd", AtallaRegister, write=True)
-    vms = Operand("vms", AtallaMaskRegister, read=True)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", vms])
-    patterns = {"opcode": opcode, "rd": rd, "vms": vms}
-    members = {"syntax": syntax, "rd": rd, "vms": vms, "patterns": patterns, "opcode": opcode}
+    vmd = Operand("vmd", AtallaMaskRegister, read=True)
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", vmd])
+    patterns = {"opcode": opcode, "rd": rd, "vmd": vmd}
+    members = {"syntax": syntax, "rd": rd, "vmd": vmd, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaMTSInstruction,), members)
 
 MvStm = make_stm("mv_stm", 0b1001100)
@@ -562,24 +557,18 @@ class AtallaSDMAInstruction(Instruction):
 
 def make_sdma(mnemonic: str, opcode: int):
     rs2  = Operand("rs2",  AtallaRegister, read=True)
-    rs1_rd1 = Operand("rs1_rd1", AtallaRegister, read=True)
-    num_cols = Operand("num_cols", int)
-    num_rows = Operand("num_rows", int)
-    sid = Operand("sid", int)
-    syntax   = Syntax([mnemonic, " ", rs2, ",", " ", rs1_rd1,
-                       ",", " ", num_cols,
-                       ",", " ", num_rows,
-                       ",", " ", sid])
+    rs1_rd1 = Operand("rs1_rd1", AtallaRegister, read=True, write=True)
+    rs3 = Operand("rs3", AtallaRegister, read=True)
+    syntax   = Syntax([mnemonic, " ", rs1_rd1, ",", " ", rs2,
+                       ",", " ", rs3])
     fprel = False
     patterns = {
         "opcode": opcode,
         "rs2": rs2, "rs1_rd1": rs1_rd1,
-        "num_cols": num_cols,
-        "sid": sid,
-        "num_rows": num_rows
+        "rs3": rs3
         }
     members  = {"syntax": syntax, "rs2": rs2, "rs1_rd1": rs1_rd1, "patterns": patterns, "opcode": opcode,
-                "sid": sid, "num_cols": num_cols, "num_rows": num_rows, "fprel": fprel}
+                "rs3": rs3, "fprel": fprel}
     return type(mnemonic.replace(".", "_"), (AtallaSDMAInstruction,), members)
 
 ScpadLd = make_sdma("scpad_ld", 0b1011000)

@@ -145,15 +145,15 @@ class BranchBase(AtallaBRInstruction):
         return [AtallaBR_Imm10_Relocation(self.imm10)]
 
 def make_br(mnemonic, opcode):
-    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs1_rd = Operand("rs1_rd", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
     imm10 = Operand("imm10", str)
     incr_imm7 = Operand("incr_imm7", str)
-    # syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10, ",", " ", incr_imm7])
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10])
+    #TODO: incr-imm7 figure it out
+    syntax = Syntax([mnemonic, " ", rs1_rd, ",", " ", rs2, ",", " ", imm10])
     members = {
         "syntax": syntax,
-        "rs1": rs1,
+        "rs1_rd": rs1_rd,
         "rs2": rs2,
         "imm10": imm10,
         "incr_imm7": incr_imm7, #TODO: what is this and how to use
