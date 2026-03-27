@@ -285,6 +285,62 @@ def disassemble_instruction(insn_int, offset):
     mnemonic, fmt = entry
     return decode_one(mnemonic, fmt, insn_int, offset)
 
+
+def get_code_bounds(data):
+    """Infer code bounds from ELF metadata, preferring the .text section."""
+    if len(data) < 52 or data[0:4] != b"\x7fELF":
+        return 0, len(data)
+
+    # ELF32 header fields used by current Atalla output.
+    e_shoff = int.from_bytes(data[32:36], byteorder="little")
+    e_ehsize = int.from_bytes(data[40:42], byteorder="little")
+    e_shentsize = int.from_bytes(data[46:48], byteorder="little")
+    e_shnum = int.from_bytes(data[48:50], byteorder="little")
+    e_shstrndx = int.from_bytes(data[50:52], byteorder="little")
+
+    # Try to locate an executable code section using section headers.
+    if e_shoff and e_shentsize and e_shnum and e_shstrndx < e_shnum:
+        sh_table_end = e_shoff + (e_shentsize * e_shnum)
+        if sh_table_end <= len(data):
+            shstr_hdr = e_shoff + (e_shstrndx * e_shentsize)
+            shstr_off = int.from_bytes(data[shstr_hdr + 16:shstr_hdr + 20], byteorder="little")
+            shstr_size = int.from_bytes(data[shstr_hdr + 20:shstr_hdr + 24], byteorder="little")
+
+            if shstr_off + shstr_size <= len(data):
+                shstr = data[shstr_off:shstr_off + shstr_size]
+
+                for i in range(e_shnum):
+                    sh = e_shoff + (i * e_shentsize)
+                    name_off = int.from_bytes(data[sh:sh + 4], byteorder="little")
+                    sec_type = int.from_bytes(data[sh + 4:sh + 8], byteorder="little")
+                    sec_flags = int.from_bytes(data[sh + 8:sh + 12], byteorder="little")
+                    sec_off = int.from_bytes(data[sh + 16:sh + 20], byteorder="little")
+                    sec_size = int.from_bytes(data[sh + 20:sh + 24], byteorder="little")
+
+                    if name_off >= len(shstr):
+                        continue
+
+                    end = shstr.find(b"\x00", name_off)
+                    if end == -1:
+                        continue
+
+                    sec_name = shstr[name_off:end]
+                    is_named_code = sec_name in (b".text", b"text", b"code")
+                    is_exec_progbits = sec_type == 1 and (sec_flags & 0x4) != 0
+                    if is_named_code or is_exec_progbits:
+                        text_start = sec_off
+                        text_end = sec_off + sec_size
+                        if 0 <= text_start < text_end <= len(data):
+                            return text_start, text_end
+
+    code_start = e_ehsize if 0 < e_ehsize <= len(data) else 0
+    code_end = e_shoff if code_start < e_shoff <= len(data) else len(data)
+
+    if code_start >= code_end:
+        return 0, len(data)
+
+    return code_start, code_end
+
 def disassemble_elf(input_file, output_file):
     """Disassemble Atalla code from ELF file"""
     
@@ -295,9 +351,7 @@ def disassemble_elf(input_file, output_file):
         out.write(f"Atalla Disassembly: {input_file}\n")
         out.write("=" * 100 + "\n\n")
         
-        # Code section starts around 0x30, ends around 0xF0
-        code_start = 0x34  # Adjust if needed
-        code_end = 0xF0
+        code_start, code_end = get_code_bounds(data)
         
         out.write("=== CODE SECTION ===\n\n")
         out.write(f"{'Offset':<10} {'Bytes':<30} {'Instruction'}\n")
