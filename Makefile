@@ -1,3 +1,5 @@
+# WARNING: This file is mostly deprecated. Use atalla_cc script for calling the compiler.
+
 COMPILER=atalla_cc
 ARCH=atalla
 PPCI=python3 -m ppci
@@ -76,5 +78,5 @@ compile:
 # Clean
 # -------------------------
 clean:
-	rm -f *.out *.o *.elf *.s f.txt disassembly.txt output_detailed.txt
+	rm -f *.out *.o *.elf *.s f.txt disassembly.txt output_detailed.txt atalla_tests/*.o atalla_tests/*.s
 

@@ -828,11 +828,11 @@ class CParser(RecursiveDescentParser):
         if self.peek in m:
             statement = m[self.peek]()
         elif self.peek == "ID" and self.look_ahead(1).val == ":":
-            print("Parsing ID")
+            # print("Parsing ID")
             statement = self.parse_label()
         else:
             # Expression statement!
-            print("Parsing expression statement")
+            # print("Parsing expression statement")
             expression = self.parse_expression()
             statement = self.semantics.on_expression_statement(expression)
             self.consume(";")
