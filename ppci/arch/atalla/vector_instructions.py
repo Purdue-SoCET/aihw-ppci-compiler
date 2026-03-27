@@ -146,15 +146,15 @@ MeqMvv = make_mvv("meq_mvv", 0b0111100)
 MneqMvv = make_mvv("mneq_mvv", 0b0111101)
 
 # VI
-AddiVi  = make_vi("addi_vi",  0b0111110)
-SubiVi  = make_vi("subi_vi",  0b0111111)
-MuliVi  = make_vi("muli_vi",  0b1000000)
-DiviVi  = make_vi("divi_vi",  0b1000001)
+# AddiVi  = make_vi("addi_vi",  0b0111110)
+# SubiVi  = make_vi("subi_vi",  0b0111111)
+# MuliVi  = make_vi("muli_vi",  0b1000000)
+# DiviVi  = make_vi("divi_vi",  0b1000001)
 
 ExpiVi  = make_vi("expi_vi",  0b1000010)
-SqrtiVi = make_vi("sqrti_vi", 0b1000011)
-NotVi   = make_vi("not_vi",   0b1000100)
-ShiftVi = make_vi("shift_vi", 0b1000101)
+# SqrtiVi = make_vi("sqrti_vi", 0b1000011)
+# NotVi   = make_vi("not_vi",   0b1000100)
+# ShiftVi = make_vi("shift_vi", 0b1000101)
 LwVi    = make_vi("lw_vi",    0b1000110)
 RsumVi  = make_vi("rsum_vi",  0b1000111)
 RminVi  = make_vi("rmin_vi",  0b1001000)
@@ -164,7 +164,7 @@ AddVs   = make_vs("add_vs",   0b1010000)
 SubVs   = make_vs("sub_vs",   0b1010001)
 MulVs   = make_vs("mul_vs",   0b1010010)
 # DivVs   = make_vs("div_vs",   0b1010011)
-ShiftVs = make_vs("shift_vs", 0b0111000)
+# ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # MVS
 MgtMvs = make_mvs("mgt_mvs", 0b1010100)
@@ -204,8 +204,6 @@ def make_mts(mnemonic: str, opcode: int):
 
 MvStm = make_stm("mv_stm", 0b1001100)
 MvMts = make_mts("mv_mts", 0b1001011)
-
-# TODO: MTS Usecase
 
 @isa.pattern("maskreg", "REGMASK(maskreg)", size=1)
 def pattern_maskreg(context, tree):
@@ -392,64 +390,38 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
     ctx.emit(GemmVv(d, v0, v1, mask))
     return d
 
-# TODO: MVV types
-
-# @isa.pattern("vecreg", "MGTVEC(vecreg, vecreg, stm)", size=2)
-# def patt_mgt_vv(ctx, tree, v0, v1, mask = M0):
-#     d = _new_v(ctx)
-#     ctx.emit(MgtVv(d, v0, v1, mask))
-#     return d
-
-# @isa.pattern("vecreg", "MLTVEC(vecreg, vecreg, stm)", size=2)
-# def patt_mlt_vv(ctx, tree, v0, v1, mask = M0):
-#     d = _new_v(ctx)
-#     ctx.emit(MltVv(d, v0, v1, mask))
-#     return d
-
-# @isa.pattern("vecreg", "MEQVEC(vecreg, vecreg, stm)", size=2)
-# def patt_meq_vv(ctx, tree, v0, v1, mask = M0):
-#     d = _new_v(ctx)
-#     ctx.emit(MeqVv(d, v0, v1, mask))
-#     return d
-
-# @isa.pattern("vecreg", "MNEQVEC(vecreg, vecreg, stm)", size=2)
-# def patt_mneq_vv(ctx, tree, v0, v1, mask = M0):
-#     d = _new_v(ctx)
-#     ctx.emit(MneqVv(d, v0, v1, mask))
-#     return d
-
 # ---------- VI (vector-immediate) ----------
 
 # ADDI
-@isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-# @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16)", size=2,
+# @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16, maskreg)", size=2,
 #              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_add_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)  # returns an int 0–65535
-    ctx.emit(AddiVi(d, vsrc, imm, mask))
-    return d
+# # @isa.pattern("vecreg", "ADDVEC(vecreg, CONSTBF16)", size=2,
+# #              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_add_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[1].value)  # returns an int 0–65535
+#     ctx.emit(AddiVi(d, vsrc, imm, mask))
+#     return d
 
-@isa.pattern("vecreg", "ADDVEC(CONSTBF16, vecreg, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[0].value <= 4095)
-def patt_add_vi_comm(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[0].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[0].value)  # returns an int 0–65535
-    ctx.emit(AddiVi(d, vsrc, imm, mask))
-    return d
+# @isa.pattern("vecreg", "ADDVEC(CONSTBF16, vecreg, maskreg)", size=2,
+#              condition=lambda t: -4096 <= t.children[0].value <= 4095)
+# def patt_add_vi_comm(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[0].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[0].value)  # returns an int 0–65535
+#     ctx.emit(AddiVi(d, vsrc, imm, mask))
+#     return d
 
-# SUBI
-@isa.pattern("vecreg", "SUBVEC(vecreg, CONSTBF16, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_sub_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(SubiVi(d, vsrc, imm, mask))
-    return d
+# # SUBI
+# @isa.pattern("vecreg", "SUBVEC(vecreg, CONSTBF16, maskreg)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_sub_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[1].value)
+#     ctx.emit(SubiVi(d, vsrc, imm, mask))
+#     return d
 
 # @isa.pattern("vecreg", "SUBVEC(CONSTBF16, vecreg, maskreg)", size=2,
 #                 condition=lambda t: -4096 <= t.children[0].value <= 4095
@@ -461,23 +433,23 @@ def patt_sub_vi(ctx, tree, vsrc, mask = M0):
 #     return d
 
 # MULI
-@isa.pattern("vecreg", "MULVEC(vecreg, CONSTBF16, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_mul_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(MuliVi(d, vsrc, imm, mask))
-    return d
+# @isa.pattern("vecreg", "MULVEC(vecreg, CONSTBF16, maskreg)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_mul_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[1].value)
+#     ctx.emit(MuliVi(d, vsrc, imm, mask))
+#     return d
 
-@isa.pattern("vecreg", "MULVEC(CONSTBF16, vecreg, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[0].value <= 4095)
-def patt_mul_vi_comm(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    assert isinstance(tree.children[0].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[0].value)
-    ctx.emit(MuliVi(d, vsrc, imm, mask))  # Same imm for commuted form
-    return d
+# @isa.pattern("vecreg", "MULVEC(CONSTBF16, vecreg, maskreg)", size=2,
+#              condition=lambda t: -4096 <= t.children[0].value <= 4095)
+# def patt_mul_vi_comm(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     assert isinstance(tree.children[0].value, float), "Expected a float immediate"
+#     imm = _f32_to_f16_bits(tree.children[0].value)
+#     ctx.emit(MuliVi(d, vsrc, imm, mask))  # Same imm for commuted form
+#     return d
 
 # # DIVI
 # @isa.pattern("vecreg", "DIVVEC(vecreg, CONSTBF16, stm)", size=2,
@@ -507,19 +479,19 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
     return d
 
 # SQRT (mode/precision as imm if your ISA uses it)
-@isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTBF16, maskreg)", size=2,
-             condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(SqrtiVi(d, vsrc, 0, mask))
-    return d
+# @isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTBF16, maskreg)", size=2,
+#              condition=lambda t: -4096 <= t.children[1].value <= 4095)
+# def patt_sqrt_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(SqrtiVi(d, vsrc, 0, mask))
+#     return d
 
-# NOT (use imm as a control/mask if required by your ISA; 0 is typical)
-@isa.pattern("vecreg", "INVVEC(vecreg, CONSTBF16, maskreg)", size=2)
-def patt_not_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(NotVi(d, vsrc, 0, mask))
-    return d
+# # NOT (use imm as a control/mask if required by your ISA; 0 is typical)
+# @isa.pattern("vecreg", "INVVEC(vecreg, CONSTBF16, maskreg)", size=2)
+# def patt_not_vi(ctx, tree, vsrc, mask = M0):
+#     d = _new_v(ctx)
+#     ctx.emit(NotVi(d, vsrc, 0, mask))
+#     return d
 
 # SHIFT (vector by immediate) 
 # Not used in the ISA
