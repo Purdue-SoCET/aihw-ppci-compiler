@@ -74,8 +74,9 @@ Xors = make_r("xor_s", 0b0001000)
 Slls = make_r("sll_s", 0b0001001)
 Srls = make_r("srl_s", 0b0001010)
 Sras = make_r("sra_s", 0b0001011)
-Slts = make_r("slt_s", 0b0001100)
-Sltus = make_r("sltu_s", 0b0001101)
+
+# Slts = make_r("slt_s", 0b0001100)
+# Sltus = make_r("sltu_s", 0b0001101)
 
 #BF16 R-types:
 
@@ -84,10 +85,9 @@ SubBf = make_r("sub_bf", 0b0001111)
 MulBf = make_r("mul_bf", 0b0010000)
 RcpBf = make_r("rcp_bf", 0b0010001)
 SltBf = make_r("slt_bf", 0b0010010)
-SltuBf = make_r("sltu_bf", 0b0010011)
+SqrtBf = make_r("sqrt_bf", 0b0010011) # TODO: add pattern
 StbfS = make_r("stbf_s", 0b0010100)
 BftsS = make_r("bfts_s", 0b0010101)
-
 class AtallaIInstruction(Instruction):
     tokens = [AtallaIToken]
     isa = isa
@@ -131,8 +131,9 @@ Xoris = make_i("xori_s", 0b0011101)   # WAS: 0b0011001
 Sllis = make_i("slli_s", 0b0011110)   # WAS: 0b0011010
 Srlis = make_i("srli_s", 0b0011111)   # WAS: 0b0011011
 Srais = make_i("srai_s", 0b0100000)   # WAS: 0b0011100
-Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
-Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
+
+# Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
+# Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
 
 class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
@@ -142,20 +143,27 @@ class AtallaBRInstruction(Instruction):
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
         return [AtallaBR_Imm10_Relocation(self.imm10)]
+    
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = self.opcode
+        tokens[0][15:23] = self.rs1_rd.num
+        tokens[0][23:31] = self.rs2.num
+        return tokens[0].encode()
 
 def make_br(mnemonic, opcode):
-    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs1_rd = Operand("rs1_rd", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
     imm10 = Operand("imm10", str)
-    incr_imm7 = Operand("incr_imm7", str)
-    # syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10, ",", " ", incr_imm7])
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10])
+    incr_imm7 = Operand("incr_imm7", int)
+    #TODO: incr-imm7 figure it out
+    syntax = Syntax([mnemonic, " ", rs1_rd, ",", " ", rs2, ",", " ", imm10])
     members = {
         "syntax": syntax,
-        "rs1": rs1,
+        "rs1_rd": rs1_rd,
         "rs2": rs2,
         "imm10": imm10,
-        "incr_imm7": incr_imm7, #TODO: what is this and how to use
+        # "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
@@ -226,6 +234,10 @@ def make_m_store(mnemonic, opcode):
 Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
 Sws = make_m_store("sw_s", 0b0101010)  # WAS: 0b0100000
 
+
+# TODO: add half word ld/st
+
+
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
@@ -251,7 +263,7 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101101)
+Lis = make_mi("li_s", 0b0101101) # TODO: make pseudo
 Luis = make_mi("lui_s", 0b0101110)
 
 class AtallaNOPInstruction(Instruction):
@@ -539,7 +551,6 @@ def pattern_const_f16(context, tree):
 
     return d
 
-# TODO: do branch pseudos
 @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
 @isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
 @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)

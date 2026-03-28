@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
 Atalla ISA Disassembler
-Decodes 48-bit Atalla instructions from ELF binary
+Decodes Atalla instructions from ELF binary
 """
+
+ISA_BYTES = 5
 
 def extract_bits(value, start, end):
     """Extract bits [start:end) from value (LSB = bit 0)"""
     mask = (1 << (end - start)) - 1
     return (value >> start) & mask
 
-def bytes_to_int48(data):
-    """Convert 6 bytes to 48-bit integer (little-endian)"""
+def bytes_to_insn_int(data):
+    """Convert ISA_BYTES bytes to an instruction integer (little-endian)."""
     return int.from_bytes(data, byteorder='little')
 
 def sign_extend(value, bits):
@@ -41,9 +43,9 @@ OPCODES = {
     0b0001110: ("add_bf", "R"),
     0b0001111: ("sub_bf", "R"),
     0b0010000: ("mul_bf", "R"),
-    0b0010001: ("div_bf", "R"),
+    0b0010001: ("rcp_bf", "R"),
     0b0010010: ("slt_bf", "R"),
-    0b0010011: ("sltu_bf", "R"),
+    0b0010011: ("sqrt_bf", "R"),
     0b0010100: ("stbf_s", "R"),
     0b0010101: ("bfts_s", "R"),
     
@@ -79,9 +81,8 @@ OPCODES = {
     0b0101100: ("jalr", "I"),
     0b0101101: ("li_s", "MI"),
     
-    # S-type
-    0b0101111: ("nop", "S"),
-    0b0110000: ("halt", "S"),
+    # MI/S-type
+    0b0101110: ("lui_s", "MI"),
 
     # Vector VV
     0b0110010: ("add_vv", "VV"),
@@ -139,8 +140,8 @@ OPCODES = {
     0b1011001: ("scpad_st", "SDMA"),
 
     # Special canonical encodings used by current backend
-    0b0000000: ("all0s", "S"),
-    0b1111111: ("all1", "S"),
+    0b0000000: ("nop", "S"),
+    0b1111111: ("halt", "S"),
 }
 
 def decode_one(mnemonic, fmt, insn_int, offset):
@@ -172,8 +173,8 @@ def decode_one(mnemonic, fmt, insn_int, offset):
         imm10 = (imm9 << 1) | i1
         imm10_signed = sign_extend(imm10, 10)
 
-        # PC-relative offset in instruction words (6-byte instruction)
-        byte_offset = imm10_signed * 6
+        # PC-relative offset in instruction words (ISA_BYTES-byte instruction)
+        byte_offset = imm10_signed * ISA_BYTES
         target = offset + byte_offset
 
         return f"{mnemonic:10s} x{rs1}, x{rs2}, 0x{target:X}  # offset={imm10_signed}"
@@ -194,7 +195,7 @@ def decode_one(mnemonic, fmt, insn_int, offset):
         if mnemonic == "jal":
             # PC-relative jump
             imm25_signed = sign_extend(imm25, 25)
-            byte_offset = imm25_signed * 6
+            byte_offset = imm25_signed * ISA_BYTES
             target = offset + byte_offset
             return f"{mnemonic:10s} x{rd}, 0x{target:X}  # offset={imm25_signed}"
         else:
@@ -222,45 +223,41 @@ def decode_one(mnemonic, fmt, insn_int, offset):
     elif fmt == "VI":
         vd = extract_bits(insn_int, 7, 15)
         vs1 = extract_bits(insn_int, 15, 23)
-        imm_hi8 = extract_bits(insn_int, 23, 31)
-        imm_lo2 = extract_bits(insn_int, 40, 42)
-        imm10 = (imm_hi8 << 2) | imm_lo2
+        imm8 = extract_bits(insn_int, 23, 31)
         mask_reg = extract_bits(insn_int, 31, 35)
-        return f"{mnemonic:10s} v{vd}, v{vs1}, {imm10}, m{mask_reg}"
+        return f"{mnemonic:10s} v{vd}, v{vs1}, {imm8}, m{mask_reg}"
 
     elif fmt == "VMEM":
         vd = extract_bits(insn_int, 7, 15)
         rs1 = extract_bits(insn_int, 15, 23)
-        num_cols = extract_bits(insn_int, 23, 28)
-        num_rows = extract_bits(insn_int, 28, 33)
-        sid = extract_bits(insn_int, 33, 34)
-        rc = extract_bits(insn_int, 34, 35)
-        rc_id = extract_bits(insn_int, 35, 40)
-        return f"{mnemonic:10s} v{vd}, x{rs1}, {num_cols}, {num_rows}, {rc}, {rc_id}, {sid}"
+        rs2 = extract_bits(insn_int, 23, 31)
+        num_cols = extract_bits(insn_int, 31, 36)
+        sid = extract_bits(insn_int, 36, 38)
+        return f"{mnemonic:10s} v{vd}, x{rs1}, x{rs2}, {num_cols}, {sid}"
 
     elif fmt == "MVV":
-        vmd = extract_bits(insn_int, 7, 15)
+        vmd = extract_bits(insn_int, 7, 11)
         vs1 = extract_bits(insn_int, 15, 23)
         vs2 = extract_bits(insn_int, 23, 31)
         mask_reg = extract_bits(insn_int, 31, 35)
         return f"{mnemonic:10s} m{vmd}, v{vs1}, v{vs2}, m{mask_reg}"
 
     elif fmt == "MVS":
-        vmd = extract_bits(insn_int, 7, 15)
+        vmd = extract_bits(insn_int, 7, 11)
         vs1 = extract_bits(insn_int, 15, 23)
         rs1 = extract_bits(insn_int, 23, 31)
         mask_reg = extract_bits(insn_int, 31, 35)
         return f"{mnemonic:10s} m{vmd}, v{vs1}, x{rs1}, m{mask_reg}"
 
     elif fmt == "STM":
-        vmd = extract_bits(insn_int, 7, 15)
-        rs1 = extract_bits(insn_int, 15, 23)
-        return f"{mnemonic:10s} m{vmd}, x{rs1}"
+        rd = extract_bits(insn_int, 7, 15)
+        vmd = extract_bits(insn_int, 15, 19)
+        return f"{mnemonic:10s} m{vmd}, x{rd}"
 
     elif fmt == "MTS":
-        rd = extract_bits(insn_int, 7, 15)
-        vms = extract_bits(insn_int, 15, 23)
-        return f"{mnemonic:10s} x{rd}, m{vms}"
+        vmd = extract_bits(insn_int, 7, 11)
+        rs1 = extract_bits(insn_int, 15, 23)
+        return f"{mnemonic:10s} x{rs1}, m{vmd}"
 
     elif fmt == "VTS":
         rd = extract_bits(insn_int, 7, 15)
@@ -271,16 +268,14 @@ def decode_one(mnemonic, fmt, insn_int, offset):
     elif fmt == "SDMA":
         rs1_rd1 = extract_bits(insn_int, 7, 15)
         rs2 = extract_bits(insn_int, 15, 23)
-        num_cols = extract_bits(insn_int, 23, 28)
-        num_rows = extract_bits(insn_int, 28, 33)
-        sid = extract_bits(insn_int, 33, 34)
-        return f"{mnemonic:10s} x{rs2}, x{rs1_rd1}, {num_cols}, {num_rows}, {sid}"
+        rs3 = extract_bits(insn_int, 23, 31)
+        return f"{mnemonic:10s} x{rs1_rd1}, x{rs2}, x{rs3}"
     
     return f"UNIMPLEMENTED FORMAT: {fmt}"
 
 
 def disassemble_instruction(insn_int, offset):
-    """Disassemble a 48-bit Atalla instruction."""
+    """Disassemble one Atalla instruction."""
 
     opcode = extract_bits(insn_int, 0, 7)
     entry = OPCODES.get(opcode)
@@ -289,6 +284,62 @@ def disassemble_instruction(insn_int, offset):
 
     mnemonic, fmt = entry
     return decode_one(mnemonic, fmt, insn_int, offset)
+
+
+def get_code_bounds(data):
+    """Infer code bounds from ELF metadata, preferring the .text section."""
+    if len(data) < 52 or data[0:4] != b"\x7fELF":
+        return 0, len(data)
+
+    # ELF32 header fields used by current Atalla output.
+    e_shoff = int.from_bytes(data[32:36], byteorder="little")
+    e_ehsize = int.from_bytes(data[40:42], byteorder="little")
+    e_shentsize = int.from_bytes(data[46:48], byteorder="little")
+    e_shnum = int.from_bytes(data[48:50], byteorder="little")
+    e_shstrndx = int.from_bytes(data[50:52], byteorder="little")
+
+    # Try to locate an executable code section using section headers.
+    if e_shoff and e_shentsize and e_shnum and e_shstrndx < e_shnum:
+        sh_table_end = e_shoff + (e_shentsize * e_shnum)
+        if sh_table_end <= len(data):
+            shstr_hdr = e_shoff + (e_shstrndx * e_shentsize)
+            shstr_off = int.from_bytes(data[shstr_hdr + 16:shstr_hdr + 20], byteorder="little")
+            shstr_size = int.from_bytes(data[shstr_hdr + 20:shstr_hdr + 24], byteorder="little")
+
+            if shstr_off + shstr_size <= len(data):
+                shstr = data[shstr_off:shstr_off + shstr_size]
+
+                for i in range(e_shnum):
+                    sh = e_shoff + (i * e_shentsize)
+                    name_off = int.from_bytes(data[sh:sh + 4], byteorder="little")
+                    sec_type = int.from_bytes(data[sh + 4:sh + 8], byteorder="little")
+                    sec_flags = int.from_bytes(data[sh + 8:sh + 12], byteorder="little")
+                    sec_off = int.from_bytes(data[sh + 16:sh + 20], byteorder="little")
+                    sec_size = int.from_bytes(data[sh + 20:sh + 24], byteorder="little")
+
+                    if name_off >= len(shstr):
+                        continue
+
+                    end = shstr.find(b"\x00", name_off)
+                    if end == -1:
+                        continue
+
+                    sec_name = shstr[name_off:end]
+                    is_named_code = sec_name in (b".text", b"text", b"code")
+                    is_exec_progbits = sec_type == 1 and (sec_flags & 0x4) != 0
+                    if is_named_code or is_exec_progbits:
+                        text_start = sec_off
+                        text_end = sec_off + sec_size
+                        if 0 <= text_start < text_end <= len(data):
+                            return text_start, text_end
+
+    code_start = e_ehsize if 0 < e_ehsize <= len(data) else 0
+    code_end = e_shoff if code_start < e_shoff <= len(data) else len(data)
+
+    if code_start >= code_end:
+        return 0, len(data)
+
+    return code_start, code_end
 
 def disassemble_elf(input_file, output_file):
     """Disassemble Atalla code from ELF file"""
@@ -300,9 +351,7 @@ def disassemble_elf(input_file, output_file):
         out.write(f"Atalla Disassembly: {input_file}\n")
         out.write("=" * 100 + "\n\n")
         
-        # Code section starts around 0x30, ends around 0xF0
-        code_start = 0x34  # Adjust if needed
-        code_end = 0xF0
+        code_start, code_end = get_code_bounds(data)
         
         out.write("=== CODE SECTION ===\n\n")
         out.write(f"{'Offset':<10} {'Bytes':<30} {'Instruction'}\n")
@@ -310,10 +359,10 @@ def disassemble_elf(input_file, output_file):
         
         offset = code_start
         while offset < code_end:
-            if offset + 6 <= len(data):
-                # Read 6 bytes (48 bits)
-                insn_bytes = data[offset:offset+6]
-                insn_int = bytes_to_int48(insn_bytes)
+            if offset + ISA_BYTES <= len(data):
+                # Read one instruction worth of bytes.
+                insn_bytes = data[offset:offset+ISA_BYTES]
+                insn_int = bytes_to_insn_int(insn_bytes)
                 
                 # Format bytes
                 hex_str = ' '.join(f'{b:02X}' for b in insn_bytes)
@@ -323,7 +372,7 @@ def disassemble_elf(input_file, output_file):
                 
                 out.write(f"0x{offset:04X}    {hex_str:<28} {disasm}\n")
                 
-                offset += 6
+                offset += ISA_BYTES
             else:
                 break
         
