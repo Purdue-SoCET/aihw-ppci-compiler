@@ -59,8 +59,7 @@ M15 = AtallaMaskRegister("m15", num=15)
 
 mask_registers = [
     M0, M1, M2, M3, M4, M5, M6, M7,
-    M8, M9, M10, M11, M12, M13, M14, M15,
-    M16
+    M8, M9, M10, M11, M12, M13, M14, M15
 ]
 
 AtallaMaskRegister.registers = mask_registers
@@ -73,7 +72,7 @@ mask_register_class = RegisterClass(
     [ir.mask],
     AtallaMaskRegister,
     [M1, M2, M3, M4, M5, M6, M7, M8, M9,
-     M10, M11, M12, M13, M14, M15, M16]
+     M10, M11, M12, M13, M14, M15]
 )
 
 mask_register_classes = [mask_register_class]
