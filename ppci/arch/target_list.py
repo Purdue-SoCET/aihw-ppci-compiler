@@ -15,8 +15,10 @@ from .riscv import RiscvArch
 from .stm8 import Stm8Arch
 from .x86_64 import X86_64Arch
 from .xtensa import XtensaArch
+from .atalla import AtallaArch
 
 target_classes = [
+    AtallaArch,
     ArmArch,
     AvrArch,
     ExampleArch,
@@ -31,6 +33,8 @@ target_classes = [
     X86_64Arch,
     XtensaArch,
 ]
+
+print(target_classes[0])
 
 
 target_class_map = {t.name: t for t in target_classes}

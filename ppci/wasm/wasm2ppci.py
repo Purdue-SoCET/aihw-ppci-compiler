@@ -555,8 +555,9 @@ class WasmToIrCompiler:
     TYP_MAP = {
         "i32": ir.i32,
         "i64": ir.i64,
-        "f32": ir.f32,
-        "f64": ir.f64,
+        # "f32": ir.f32,
+        # "f64": ir.f64,
+        "bf16": ir.bf16,
         "externref": ir.ptr,
         "funcref": ir.ptr,
     }

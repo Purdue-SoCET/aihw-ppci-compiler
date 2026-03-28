@@ -33,6 +33,7 @@ from .format.ldb import write_ldb
 from .irutils import verify_module
 from .lang.bf import bf_to_ir
 from .lang.c import COptions, c_to_ir, preprocess
+from .lang.atalla_c.api import atalla_c_to_ir
 from .lang.c3 import c3_to_ir
 from .lang.fortran import fortran_to_ir
 from .lang.llvmir import llvm_to_ir
@@ -52,11 +53,15 @@ from .opt.transform import DeleteUnusedInstructionsPass, RemoveAddZeroPass
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .wasm import read_wasm, wasm_to_ir
 
+from vliw_packetizer import vliw_packetizer
+from instruction_latency import latency
+
 __all__ = [
     "asm",
     "archive",
     "c3c",
     "cc",
+    "atalla_cc",
     "link",
     "objcopy",
     "bfcompile",
@@ -261,7 +266,10 @@ def ir_to_stream(
     verify_module(ir_module)
 
     # Code generation:
+    ir_module.display()
     code_generator.generate(ir_module, output_stream, debug=debug)
+    if march == "atalla":
+        output_stream = vliw_packetizer(output_stream, latency)
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):
@@ -363,6 +371,47 @@ def cc(
         coptions = COptions()
 
     ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
+    reporter.message(f"{ir_module} {ir_module.stats()}")
+    reporter.dump_ir(ir_module)
+    optimize(ir_module, level=opt_level, reporter=reporter)
+    return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
+
+def atalla_cc(
+    source: io.TextIOBase,
+    march,
+    coptions=None,
+    opt_level=0,
+    debug=False,
+    reporter=None,
+):
+    """Atalla C compiler. compiles a single source file into an object file.
+
+    Args:
+        source: file like object from which text can be read
+        march: The architecture for which to compile
+        coptions: options for the C frontend
+        debug: Create debug info when set to True
+
+    Returns:
+        an object file
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import cc
+        >>> source_file = io.StringIO("void main() { int a; }")
+        >>> obj = cc(source_file, 'x86_64')
+        >>> print(obj)
+        CodeObject of 20 bytes
+
+    """
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+
+    if not coptions:
+        coptions = COptions()
+
+    ir_module = atalla_c_to_ir(source, march, coptions=coptions, reporter=reporter)
     reporter.message(f"{ir_module} {ir_module.stats()}")
     reporter.dump_ir(ir_module)
     optimize(ir_module, level=opt_level, reporter=reporter)

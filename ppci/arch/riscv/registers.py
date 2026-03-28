@@ -13,6 +13,11 @@ class RiscvRegister(Register):
             return f"{self.name}={self.color}"
         else:
             return self.name
+        
+    def from_num(cls, num):
+        """Retrieve the singleton instance of the given
+        register number."""
+        return num2regmap[num]
 
 
 class RiscvProgramCounterRegister(Register):
@@ -89,7 +94,7 @@ F12 = RiscvFRegister("f12", num=12)
 F13 = RiscvFRegister("f13", num=13)
 F14 = RiscvFRegister("f14", num=14)
 F15 = RiscvFRegister("f15", num=15)
-F16 = RiscvFRegister("f16", num=16)
+bf16 = RiscvFRegister("bf16", num=16)
 F17 = RiscvFRegister("f17", num=17)
 F18 = RiscvFRegister("f18", num=18)
 F19 = RiscvFRegister("f19", num=19)
@@ -167,7 +172,7 @@ fregisters = [
     F13,
     F14,
     F15,
-    F16,
+    bf16,
     F17,
     F18,
     F19,

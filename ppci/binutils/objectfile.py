@@ -119,6 +119,8 @@ class Section:
         self.name = name
         self.address = 0
         self.alignment = 4
+        #Turns out I am not sure if this line did anything
+        # self.alignment = 1 # I am changing this to nuke padding so the elf disassembler works for atalla, this line would need to be changed back for any other compiler to work
         self.data = bytearray()
 
     def add_data(self, data):

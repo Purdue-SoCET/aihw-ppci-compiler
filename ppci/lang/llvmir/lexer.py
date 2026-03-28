@@ -17,7 +17,7 @@ class LlvmIrLexer(BaseLexer):
         "i8",
         "i1",
         "f32",
-        "f16",
+        "bf16",
     ]
 
     keywords = [

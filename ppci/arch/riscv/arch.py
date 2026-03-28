@@ -31,7 +31,7 @@ from .registers import (
     F13,
     F14,
     F15,
-    F16,
+    bf16,
     F17,
     FP,
     LR,
@@ -301,7 +301,7 @@ class RiscvArch(Architecture):
 
         yield self.branch(LR, label)
 
-        if rv:
+        if rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
@@ -331,7 +331,7 @@ class RiscvArch(Architecture):
 
     def gen_function_exit(self, rv):
         live_out = set()
-        if rv:
+        if rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield self.move(retval_loc, rv[1])
             live_out.add(retval_loc)
@@ -346,7 +346,7 @@ class RiscvArch(Architecture):
         """
         locations = []
         regs = [R12, R13, R14, R15, R16, R17]
-        fregs = [F12, F13, F14, F15, F16, F17]
+        fregs = [F12, F13, F14, F15, bf16, F17]
 
         offset = 0
         for a in arg_types:

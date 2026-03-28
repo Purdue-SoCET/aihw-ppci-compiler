@@ -255,6 +255,13 @@ class FpOffsetAddress:
 
     def __repr__(self):
         return f"@(FP + {self.offset})"
+    
+class ScpadOffsetAddress:
+    def __init__(self, offset):
+        self.offset = offset
+
+    def __repr__(self):
+        return f"@(SCPAD + {self.offset})"
 
 
 class UnknownAddress:
@@ -489,7 +496,8 @@ class DictSerializer:
     def write_source_location(self, loc):
         """Serialize a location object"""
         return {
-            "filename": loc.filename,
+            # "filename": loc.filename,
+            "filename": str(loc.filename), #think I need this for -g and debugger to work
             "row": loc.row,
             "column": loc.col,
             "length": loc.length,

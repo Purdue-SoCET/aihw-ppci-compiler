@@ -117,7 +117,8 @@ class ElfMachine(enum.IntEnum):
     TILEGX = 191
     CLOUDSHIELD = 192
     RISCV = 0xF3  # 243
-
+    ATALLA = 0x270F  # 9999 because why not, need to add this because cutom architecture
+    
     @classmethod
     def has_value(cls, value):
         return any(value == i.value for i in cls)

@@ -16,8 +16,8 @@ import logging
 
 from .. import ir
 from ..arch.generic_instructions import Label
-from ..arch.stack import StackLocation
-from ..binutils.debuginfo import FpOffsetAddress
+from ..arch.stack import StackLocation, StackKind
+from ..binutils.debuginfo import FpOffsetAddress, ScpadOffsetAddress
 from .selectiongraph import SelectionGraph, SGNode, SGValue
 
 
@@ -181,6 +181,7 @@ class SelectionGraphBuilder:
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
+            print(ir_block)
             self.block_to_sgraph(ir_block, function_info)
 
         self.sgraph.check()
@@ -202,6 +203,8 @@ class SelectionGraphBuilder:
             "token", kind=SGValue.CONTROL
         )
 
+        # print(self.f_map)
+
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
@@ -217,6 +220,78 @@ class SelectionGraphBuilder:
         # Create end node:
         sgnode = self.new_node("EXIT", None)
         sgnode.add_input(self.current_token)
+
+    def prepare_mask(self, scalar_mask):
+        if scalar_mask.ty != ir.mask:
+            mask_loc = self.new_vreg(ir.mask)
+            stm_mv = self.new_node("MVSTM", ir.mask, scalar_mask, value=mask_loc)
+            mask_output = stm_mv.new_output("mask")
+            mask_output.wants_vreg = False
+        else:
+            mask_output = scalar_mask
+
+        return mask_output
+
+    def do_gemm(self, node):
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_output = self.prepare_mask(scalar_mask)
+        sgnode = self.new_node("GEMM", node.ty, vs1, vs2, mask_output)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_vec_index(self, node):
+        base = self.get_value(node.arg1)
+        index = self.get_value(node.index)
+        sgnode = self.new_node("VECIDX", node.ty, base, index)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_make_mask(self, node):
+        names = {
+            "==": "EQ",
+            "!=": "NEQ",
+            "<": "LT",
+            ">": "GT"
+        }
+        op = names[node.op]
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_output = self.prepare_mask(scalar_mask)
+        sgnode = self.new_node(f"M{op}", node.ty, vs1, vs2, mask_output)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_vec_op_masked(self, node):
+        names = {
+                    "+": "ADD",
+                    "-": "SUB",
+                    "|": "OR",
+                    "<<": "SHL",
+                    "*": "MUL",
+                    "&": "AND",
+                    ">>": "SHR",
+                    "/": "DIV",
+                    "^": "XOR",
+                    "GEMM": "GEMM",
+                    "EXP": "EXP",
+                    "SQRT": "SQRT",
+                    "~": "NOT",
+                    "RSUM": "RSUM",
+                    "RMIN": "RMIN",
+                    "RMAX": "RMAX",
+                }
+
+        op = names[node.op]
+        vs1 = self.get_value(node.arg1)
+        vs2 = self.get_value(node.arg2)
+        scalar_mask = self.get_value(node.mask)
+        mask_output = self.prepare_mask(scalar_mask)
+        sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
 
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
@@ -301,22 +376,28 @@ class SelectionGraphBuilder:
 
     def do_alloc(self, node):
         """Process the alloc instruction"""
-        # TODO: check alignment?
-        # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
-        # fp_output = fp.new_output('fp')
-        # fp_output.wants_vreg = False
-        # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount, node.alignment)
-        # offset_output = offset.new_output('offset')
-        # offset_output.wants_vreg = False
-        sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        frame = self.function_info.frame
+
+        if node.amount == 64:
+            slot = frame.scpad_alloc(node.amount, node.alignment)
+        else:
+            slot = frame.alloc(node.amount, node.alignment)
+
+        if slot.kind == StackKind.NORMAL:
+            sgnode = self.new_node("FPREL", ir.ptr, value=slot)
+        else:
+            sgnode = self.new_node("SCPADREL", ir.ptr, value=slot)
 
         output = sgnode.new_output("alloc")
         output.wants_vreg = False
         self.add_map(node, output)
+
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(slot)
+            if slot.kind == StackKind.NORMAL:
+                dbg_var.address = FpOffsetAddress(slot)
+            else:
+                dbg_var.address = ScpadOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):
@@ -360,13 +441,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        """Create selection graph node for inline asm code.
-
-        This is a little weird, as we really do not need to select
-        any instructions, but this special node will be filtered later
-        on.
-        """
-
+        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -375,20 +450,27 @@ class SelectionGraphBuilder:
             mov_sgnode = self.new_node(
                 "MOV", input_value.ty, arg_val, value=reg_loc
             )
-
             self.chain(mov_sgnode)
             input_registers.append(reg_loc)
 
-        if len(node.output_values) > 0:
-            issue = (
-                "Output registers on asm cannot be greater than "
-                "the number of input"
-            )
-            assert len(node.output_values) <= len(node.input_values), issue
-
         output_registers = []
+        for out_val in node.output_values:
+            # Determine the amount based on the type of out_val
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(out_val, ir.AddressOf):
+                amount = out_val.src.amount
+            elif isinstance(out_val, ir.GlobalValue):
+                amount = out_val.amount
+            # For other types, amount remains None and we use the default type
 
-        sgnode = self.new_node(
+            if amount == 64 and self.arch.name == "atalla":
+                vreg = self.new_vreg(ir.vec)
+            else:
+                vreg = self.new_vreg(out_val.ty)
+            output_registers.append(vreg)
+
+        asm_node = self.new_node(
             "ASM",
             None,
             value=(
@@ -398,21 +480,33 @@ class SelectionGraphBuilder:
                 node.clobbers,
             ),
         )
-        self.chain(sgnode)
-        self.debug_db.map(node, sgnode)
+        self.chain(asm_node)
+        self.debug_db.map(node, asm_node)
 
         for i, (reg, addr) in enumerate(
-            zip(node.clobbers, node.output_values)
+            zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
+            # Determine the amount based on the type of addr
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(addr, ir.AddressOf):
+                amount = addr.src.amount
+            elif isinstance(addr, ir.GlobalValue):
+                amount = addr.amount
+            # For other types, amount remains None and we use the default type
 
-            param_node = self.new_node("REG", address.ty, value=reg)
-            output = param_node.new_output("ret_" + str(i))
+            if amount == 64 and self.arch.name == "atalla":
+                ty = ir.vec
+            else:
+                ty = address.ty
+
+            param_node = self.new_node("REG", ty, value=reg)
+            output = param_node.new_output(f"ret_{i}")
             output.wants_vreg = False
 
-            sgnode = self.new_node("STR", address.ty, address, output)
-
-            self.chain(sgnode)
+            store_node = self.new_node("STR", ty, address, output)
+            self.chain(store_node)
 
     def do_const(self, node):
         """Process constant instruction"""

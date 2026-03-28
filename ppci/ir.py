@@ -97,6 +97,12 @@ class UnsignedIntegerTyp(IntegerTyp):
 class FloatingPointTyp(BasicTyp):
     pass
 
+class VectorTyp(BasicTyp):
+    pass
+
+class MaskTyp(BasicTyp):
+    pass
+
 
 class BlobDataTyp(Typ):
     """The type of a opaque data blob.
@@ -148,7 +154,12 @@ u16 = UnsignedIntegerTyp("u16", 16)  #: Unsigned 16-bit type
 u8 = UnsignedIntegerTyp("u8", 8)  #: Unsigned 8-bit type
 ptr = PointerTyp("ptr")  #: Pointer type
 
-value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
+# Atalla specific types
+bf16 = FloatingPointTyp("bf16", 16)  #: 16-bit floating point type
+vec = VectorTyp("vec", 32*16)  #: Vector type
+mask = MaskTyp("mask", 32)
+
+value_types = [vec, bf16, f32, f64, i64, i32, i16, i8, u64, u32, u16, u8, mask]
 all_types = value_types + [ptr]
 type_name_map = {t.name.lower(): t for t in value_types}
 
@@ -957,12 +968,18 @@ class Binop(LocalValue):
         super().__init__(name, ty)
         if operation not in Binop.ops:
             raise TypeError(f"operation should be one of {Binop.ops}")
+        
+        if isinstance(ty, VectorTyp):
+            if not isinstance(a.ty, VectorTyp) and not isinstance(b.ty, VectorTyp):
+                raise TypeError(f"At least one of the operands must be a vector type for operation {operation}")
+            
+        else:
 
-        if a.ty is not ty:
-            raise TypeError(f"Binop type mismatch {a.ty} != {ty}")
+            if a.ty is not ty:
+                raise TypeError(f"Binop type mismatch {a.ty} != {ty}")
 
-        if b.ty is not ty:
-            raise TypeError(f"Binop type mismatch {b.ty} != {ty}")
+            if b.ty is not ty:
+                raise TypeError(f"Binop type mismatch {b.ty} != {ty}")
 
         self.a = a
         self.b = b
@@ -1374,3 +1391,96 @@ class JumpTable(JumpBase):
 
     def __str__(self):
         return f"jmp_table {self.v.name}"
+
+class Gemm(LocalValue):
+
+    arg1 = value_use("arg1")
+    arg2 = value_use("arg2")
+    mask = value_use("mask")
+
+    def __init__(self, arg1, arg2, mask, name, ty):
+        super().__init__(name, ty)
+
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
+        
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
+        
+
+    def __str__(self):
+        return f"gemm {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+    
+
+class VecOpMasked(LocalValue):
+    """Vector operation with a mask"""
+
+    arg1 = value_use("arg1")
+    arg2 = value_use("arg2")
+    mask = value_use("mask")
+    op = ["+","-", "|","<<","*","&",">>","/","^","GEMM","EXP","SQRT","~","RSUM","RMIN","RMAX",]
+
+    def __init__(self, op, arg1, arg2, mask, name, ty):
+        super().__init__(name, ty)
+        
+        if op not in VecOpMasked.op:
+            raise TypeError(f"operation should be one of {VecOpMasked.op}")
+        
+        if isinstance(ty, VectorTyp):
+            if not isinstance(arg1.ty, VectorTyp) and not isinstance(arg2.ty, VectorTyp):
+                raise TypeError(f"At least one of the operands must be a vector type for operation {op}")
+            
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
+            
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
+        self.op = op
+
+    def __str__(self):
+        return f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+    
+class VecIndex(LocalValue):
+    """Extract an element from a vector"""
+
+    arg1 = value_use("arg1")
+    index = value_use("index")
+
+    def __init__(self, arg1, index, name, ty):
+        super().__init__(name, ty)
+        self.arg1 = arg1
+        self.index = index
+
+    def __str__(self):
+        return f"vec_index {self.arg1.name}, {self.index.name}"
+    
+class MakeMask(LocalValue):
+    """Make a mask from a vector"""
+
+    arg1 = value_use("arg1")
+    arg2 = value_use("arg2")
+    mask = value_use("mask")
+    op = [">", "<", "==", "!="]
+
+    def __init__(self, op, arg1, arg2, mask, name, ty):
+        super().__init__(name, ty)
+        
+        if op not in MakeMask.op:
+            raise TypeError(f"operation should be one of {MakeMask.op}")
+        
+        if isinstance(ty, VectorTyp):
+            if not isinstance(arg1.ty, VectorTyp) and not isinstance(arg2.ty, VectorTyp):
+                raise TypeError(f"At least one of the operands must be a vector type for operation {op}")
+            
+        if not isinstance(mask.ty, (MaskTyp, IntegerTyp)):
+            raise TypeError(f"Mask must be of MaskTyp or IntegerTyp, not {mask.ty}")
+            
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.mask = mask
+        self.op = op
+
+    def __str__(self):
+        return f"make_mask {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"

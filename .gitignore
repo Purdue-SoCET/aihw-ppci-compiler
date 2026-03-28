@@ -4,7 +4,15 @@ vppci.py
 __pycache__/
 *.profile
 .cache
-
+*.s
+*.png
 dist
 build/
 .vscode/
+venv/
+*.out
+*.out
+*.elf
+*.txt
+*.o
+!requirements.txt
