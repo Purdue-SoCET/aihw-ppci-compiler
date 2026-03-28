@@ -47,8 +47,8 @@ We provide the following intrisic functions to be used by the programmer to perf
  * @param mask Mask
  * @return Vector that stores the output of the operation
  */
-vec_op_masked(char* op, vec v1, vec v2, int mask);
-vec_op_masked(char* op, vec v1, float f1, int mask);
+vec vec_op_masked(char* op, vec v1, vec v2, int mask);
+vec vec_op_masked(char* op, vec v1, float f1, int mask);
 
 
 /**
@@ -64,8 +64,8 @@ vec_op_masked(char* op, vec v1, float f1, int mask);
  * @param mask Mask
  * @return Integer that stores the created mask
  */
-make_mask(char* op, vec v1, vec v2, int mask);
-make_mask(char* op, vec v1, float f1, int mask);
+int make_mask(char* op, vec v1, vec v2, int mask);
+int make_mask(char* op, vec v1, float f1, int mask);
 
 /**
  * @brief Perform GEMM on 2 vectors
@@ -77,7 +77,7 @@ make_mask(char* op, vec v1, float f1, int mask);
  * @param mask Mask
  * @return Vector that stores the result of the GEMM
  */
-gemm(vec v1, vec v2, int mask);
+vec gemm(vec v1, vec v2, int mask);
 ```
 
 ## Current limitations
