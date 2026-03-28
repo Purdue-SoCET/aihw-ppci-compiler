@@ -159,6 +159,13 @@ def make_br(mnemonic, opcode):
         "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
     }
+    patterns = {
+        "opcode": opcode,
+        "rs1_rd": rs1_rd,
+        "rs2": rs2,
+        "imm10": imm10,
+        "incr_imm7": incr_imm7, #TODO: what is this and how to use
+    }
     return type(mnemonic + "_ins", (BranchBase,), members)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
