@@ -286,14 +286,20 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
 
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
-    Code = VregSt(v1, c0[0], R0, 0, 0) #TODO: R0 should be replaced with 1 and num_cols and sid should be set properly
+    c = context.new_reg(AtallaRegister)
+    Code = Lis(c, 1)
+    context.emit(Code)
+    Code = VregSt(v1, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
     Code.fprel = True
     context.emit(Code)
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
     d = context.new_reg(AtallaVectorRegister)
-    Code = VregLd(d, c0[0], R0, 0, 0) #TODO: R0 should be replaced with 1 and num_cols and sid should be set properly
+    c = context.new_reg(AtallaRegister)
+    Code = Lis(c, 1)
+    context.emit(Code)
+    Code = VregLd(d, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
     Code.fprel = True
     context.emit(Code)
     return d
