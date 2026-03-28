@@ -1,6 +1,6 @@
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP, Lws, Sws
 
 from .tokens import (
     AtallaMVVToken,
@@ -52,9 +52,10 @@ def make_vv(mnemonic: str, opcode: int):
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister, read=True)
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask_reg])
-    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "vs2": vs2, "mask_reg": mask_reg}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg}
+    sac = Operand("sac", int)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask_reg, ",", " ", sac])
+    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "vs2": vs2, "mask_reg": mask_reg, "sac": sac}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg, "sac": sac}
     return type(mnemonic.replace(".", "_"), (AtallaVVInstruction,), members)
 
 
@@ -211,10 +212,32 @@ MvMts = make_mts("mv_mts", 0b1001011)
 def pattern_maskreg(context, tree):
     return tree.value
 
-# @isa.pattern("stm", "MOVMASK(maskreg)", size=1)
-# def pattern_movmask(context, tree, c0):
-#     context.move(tree.value, c0)
-#     return tree.value
+@isa.pattern("stm", "MOVMASK(maskreg)", size=3)
+def pattern_movmask(context, tree, c0):
+    tmp = context.new_reg(AtallaRegister)
+    context.emit(MvMts(tmp, c0))
+    context.emit(MvStm(tree.value, tmp))
+    return tree.value
+
+@isa.pattern("stm", "STRMASK(mem, maskreg)", size=4)
+def pattern_store_maskreg(context, tree, c0, m1):
+    base_reg, offset = c0
+    tmp = context.new_reg(AtallaRegister)
+    context.emit(MvMts(tmp, m1))
+    code = Sws(tmp, offset, base_reg)
+    code.fprel = True
+    context.emit(code)
+
+@isa.pattern("maskreg", "LDRMASK(mem)", size=4)
+def pattern_load_maskreg(context, tree, c0):
+    base_reg, offset = c0
+    tmp = context.new_reg(AtallaRegister)
+    code = Lws(tmp, offset, base_reg)
+    code.fprel = True
+    context.emit(code)
+    d = context.new_reg(AtallaMaskRegister)
+    context.emit(MvStm(d, tmp))
+    return d
 
 @isa.pattern("reg", "MASKTOI32(maskreg)", size=1)
 def pattern_masktoi32(context, tree, c0):
@@ -345,19 +368,19 @@ def pattern_reg(context, tree):
 @isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_add_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(AddVv(d, v0, v1, mask))
+    ctx.emit(AddVv(d, v0, v1, mask, 0))
     return d
 
 @isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_sub_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(SubVv(d, v0, v1, mask))
+    ctx.emit(SubVv(d, v0, v1, mask, 0))
     return d
 
 @isa.pattern("vecreg", "MULVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MulVv(d, v0, v1, mask))
+    ctx.emit(MulVv(d, v0, v1, mask, 0))
     return d
 
 # @isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, stm)", size=2)
@@ -389,7 +412,7 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
 @isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_gemm_vv(ctx, tree, v0, v1, mask):
     d = _new_v(ctx)
-    ctx.emit(GemmVv(d, v0, v1, mask))
+    ctx.emit(GemmVv(d, v0, v1, mask, 0))
     return d
 
 # TODO: MVV types

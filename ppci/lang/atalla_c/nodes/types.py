@@ -84,6 +84,10 @@ def is_vector(typ):
     """Check if the given type is a vector type."""
     return isinstance(typ, BasicType) and typ.type_id == BasicType.VECTOR
 
+def is_mask(typ):
+    """Check if the given type is a mask type."""
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.MASK
+
 
 # A type system:
 class CType:
@@ -185,6 +189,11 @@ class CType:
     def is_vector(self):
         """Check if this type is a vector type."""
         return is_vector(self)
+
+    @property
+    def is_mask(self):
+        """Check if this type is a mask type."""
+        return is_mask(self)
 
     def pointer_to(self):
         """Create a new pointer type to this type."""
