@@ -77,7 +77,7 @@ make_mask(char* op, vec v1, float f1, int mask);
  * @param mask Mask
  * @return Vector that stores the result of the GEMM
  */
-gemm(vec v1, vec v2, int mask)
+gemm(vec v1, vec v2, int mask);
 ```
 
 ## Current limitations
@@ -86,8 +86,9 @@ Below is a list of what is currently not supported by the compiler, but is plann
 
 * Global variables
 * Function inlining
-* Void return functions broken
+* ~~Void return functions broken~~
 * Passing non-scalar values to functions by value, such as `vec` datatype values
+    * **Workaround**: pass vectors by address, not by value
 * Linking files with multiple functions in 1 file (works with -S flag)
 * Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
