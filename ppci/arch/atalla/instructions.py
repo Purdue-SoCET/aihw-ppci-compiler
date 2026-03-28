@@ -143,12 +143,19 @@ class AtallaBRInstruction(Instruction):
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
         return [AtallaBR_Imm10_Relocation(self.imm10)]
+    
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = self.opcode
+        tokens[0][15:23] = self.rs1_rd.num
+        tokens[0][23:31] = self.rs2.num
+        return tokens[0].encode()
 
 def make_br(mnemonic, opcode):
     rs1_rd = Operand("rs1_rd", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
     imm10 = Operand("imm10", str)
-    incr_imm7 = Operand("incr_imm7", str)
+    incr_imm7 = Operand("incr_imm7", int)
     #TODO: incr-imm7 figure it out
     syntax = Syntax([mnemonic, " ", rs1_rd, ",", " ", rs2, ",", " ", imm10])
     members = {
@@ -156,15 +163,8 @@ def make_br(mnemonic, opcode):
         "rs1_rd": rs1_rd,
         "rs2": rs2,
         "imm10": imm10,
-        "incr_imm7": incr_imm7, #TODO: what is this and how to use
+        # "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
-    }
-    patterns = {
-        "opcode": opcode,
-        "rs1_rd": rs1_rd,
-        "rs2": rs2,
-        "imm10": imm10,
-        "incr_imm7": incr_imm7, #TODO: what is this and how to use
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
 
