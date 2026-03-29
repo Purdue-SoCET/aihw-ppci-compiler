@@ -1,3 +1,6 @@
+# Compiler Issues: Repro Steps and Proposed Fixes
+
+All test files compile from the repo root:
 ```
 ./atalla_cc atalla_tests/<file>.c -S -o atalla_tests/<file>.s
 ```
@@ -98,27 +101,7 @@ def pattern_load_vecreg(context, tree, c0):
 
 ---
 
-## 2. `gemm_vv` Operand Count (sac field)
-
-**File:** `atalla_tests/gemm_test.c`
-
-Wanted to check whether the compiler emits the 5th operand (sac) that the functional sim expects.
-
-**Run:**
-```
-./atalla_cc atalla_tests/gemm_test.c -S -o atalla_tests/gemm_test.s
-```
-
-**Output (`gemm_test.s` line 29):**
-```asm
-       gemm_vv v1, v2, v1, m1, 0       ; 5 operands, sac=0 is present
-```
-
-This is fine. The compiler does emit all 5 operands. The pattern in `vector_instructions.py` line 415 hardcodes `sac=0` which is correct for standard GEMM. If we ever need non-zero sac the pattern would need to be parameterized, but this is not blocking anything right now.
-
----
-
-## 3. `mv_stm`: Mask Register Allocation from C
+## 2. `mv_stm`: Mask Register Allocation from C
 
 **File:** `atalla_tests/mask_test.c`
 
@@ -153,7 +136,7 @@ There's no constraint letter (like `"=k"` or `"=M"`) for mask registers. The com
 
 ---
 
-## 4. `rs1_rd1` Read-Write Hazard on `scpad_ld`/`scpad_st`
+## 3. `rs1_rd1` Read-Write Hazard on `scpad_ld`/`scpad_st`
 
 **File:** `atalla_tests/hazard_test.c`
 
