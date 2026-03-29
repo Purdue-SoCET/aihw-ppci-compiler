@@ -649,7 +649,7 @@ class CSemantics:
     ):
         output_operands2 = []
         for constraint, asm_output_expr in output_operands:
-            if constraint not in ("=r", "=v", "=m"):
+            if constraint not in ("=r", "=v"):
                 raise NotImplementedError(
                     f"Inline asm constraint not implemented: {constraint}"
                 )
@@ -663,12 +663,6 @@ class CSemantics:
             if constraint == "=r" and asm_output_expr.typ.is_vector:
                 self.error(
                     "Use '=v' constraint for vector outputs",
-                    asm_output_expr.location,
-                )
-
-            if constraint == "=m" and not asm_output_expr.typ.is_mask:
-                self.error(
-                    "Expected mask output for '=m' constraint",
                     asm_output_expr.location,
                 )
 
@@ -694,12 +688,6 @@ class CSemantics:
                 if not asm_input_expr.typ.is_vector:
                     self.error(
                         "Expected vector input for 'v' constraint",
-                        asm_input_expr.location,
-                    )
-            elif constraint == "m":
-                if not asm_input_expr.typ.is_mask:
-                    self.error(
-                        "Expected mask input for 'm' constraint",
                         asm_input_expr.location,
                     )
             else:

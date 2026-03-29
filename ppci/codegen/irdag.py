@@ -440,43 +440,34 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
-    def _constraint_to_ir_type(self, constraint):
-        """Map inline asm constraint letter to IR type for Atalla."""
-        c = constraint.lstrip("=")
-        if c == "v":
-            return ir.vec
-        elif c == "m":
-            return ir.mask
-        return None
-
     def do_inline_asm(self, node):
+        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
-        for idx, input_value in enumerate(node.input_values):
-            constraint = node.input_constraints[idx] if idx < len(node.input_constraints) else "r"
-            forced_ty = self._constraint_to_ir_type(constraint) if self.arch.name == "atalla" else None
-            ty = forced_ty if forced_ty else input_value.ty
+        for input_value in node.input_values:
             arg_val = self.get_value(input_value)
-            reg_loc = self.new_vreg(ty)
-            mov_sgnode = self.new_node("MOV", ty, arg_val, value=reg_loc)
+            reg_loc = self.new_vreg(input_value.ty)
+
+            mov_sgnode = self.new_node(
+                "MOV", input_value.ty, arg_val, value=reg_loc
+            )
             self.chain(mov_sgnode)
             input_registers.append(reg_loc)
 
         output_registers = []
-        for idx, out_val in enumerate(node.output_values):
-            constraint = node.output_constraints[idx] if idx < len(node.output_constraints) else "=r"
-            forced_ty = self._constraint_to_ir_type(constraint) if self.arch.name == "atalla" else None
-            if forced_ty:
-                vreg = self.new_vreg(forced_ty)
+        for out_val in node.output_values:
+            # Determine the amount based on the type of out_val
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(out_val, ir.AddressOf):
+                amount = out_val.src.amount
+            elif isinstance(out_val, ir.GlobalValue):
+                amount = out_val.amount
+            # For other types, amount remains None and we use the default type
+
+            if amount == 64 and self.arch.name == "atalla":
+                vreg = self.new_vreg(ir.vec)
             else:
-                amount = None
-                if isinstance(out_val, ir.AddressOf):
-                    amount = out_val.src.amount
-                elif isinstance(out_val, ir.GlobalValue):
-                    amount = out_val.amount
-                if amount == 64 and self.arch.name == "atalla":
-                    vreg = self.new_vreg(ir.vec)
-                else:
-                    vreg = self.new_vreg(out_val.ty)
+                vreg = self.new_vreg(out_val.ty)
             output_registers.append(vreg)
 
         asm_node = self.new_node(
@@ -496,20 +487,19 @@ class SelectionGraphBuilder:
             zip(output_registers, node.output_values)
         ):
             address = self.get_address(addr)
-            constraint = node.output_constraints[i] if i < len(node.output_constraints) else "=r"
-            forced_ty = self._constraint_to_ir_type(constraint) if self.arch.name == "atalla" else None
-            if forced_ty:
-                ty = forced_ty
+            # Determine the amount based on the type of addr
+            # AddressOf has .src.amount, while GlobalValue has .amount directly
+            amount = None
+            if isinstance(addr, ir.AddressOf):
+                amount = addr.src.amount
+            elif isinstance(addr, ir.GlobalValue):
+                amount = addr.amount
+            # For other types, amount remains None and we use the default type
+
+            if amount == 64 and self.arch.name == "atalla":
+                ty = ir.vec
             else:
-                amount = None
-                if isinstance(addr, ir.AddressOf):
-                    amount = addr.src.amount
-                elif isinstance(addr, ir.GlobalValue):
-                    amount = addr.amount
-                if amount == 64 and self.arch.name == "atalla":
-                    ty = ir.vec
-                else:
-                    ty = address.ty
+                ty = address.ty
 
             param_node = self.new_node("REG", ty, value=reg)
             output = param_node.new_output(f"ret_{i}")

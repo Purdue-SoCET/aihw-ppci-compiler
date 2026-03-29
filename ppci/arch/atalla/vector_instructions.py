@@ -1,6 +1,6 @@
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP, Lws, Sws
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
     AtallaMVVToken,
@@ -212,32 +212,10 @@ MvMts = make_mts("mv_mts", 0b1001011)
 def pattern_maskreg(context, tree):
     return tree.value
 
-@isa.pattern("stm", "MOVMASK(maskreg)", size=3)
-def pattern_movmask(context, tree, c0):
-    tmp = context.new_reg(AtallaRegister)
-    context.emit(MvMts(tmp, c0))
-    context.emit(MvStm(tree.value, tmp))
-    return tree.value
-
-@isa.pattern("stm", "STRMASK(mem, maskreg)", size=4)
-def pattern_store_maskreg(context, tree, c0, m1):
-    base_reg, offset = c0
-    tmp = context.new_reg(AtallaRegister)
-    context.emit(MvMts(tmp, m1))
-    code = Sws(tmp, offset, base_reg)
-    code.fprel = True
-    context.emit(code)
-
-@isa.pattern("maskreg", "LDRMASK(mem)", size=4)
-def pattern_load_maskreg(context, tree, c0):
-    base_reg, offset = c0
-    tmp = context.new_reg(AtallaRegister)
-    code = Lws(tmp, offset, base_reg)
-    code.fprel = True
-    context.emit(code)
-    d = context.new_reg(AtallaMaskRegister)
-    context.emit(MvStm(d, tmp))
-    return d
+# @isa.pattern("stm", "MOVMASK(maskreg)", size=1)
+# def pattern_movmask(context, tree, c0):
+#     context.move(tree.value, c0)
+#     return tree.value
 
 @isa.pattern("reg", "MASKTOI32(maskreg)", size=1)
 def pattern_masktoi32(context, tree, c0):

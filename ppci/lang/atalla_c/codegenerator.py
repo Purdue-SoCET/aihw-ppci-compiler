@@ -807,14 +807,16 @@ class CCodeGenerator:
         """Generate code for inline assembly."""
         inline_asm = ir.InlineAsm(stmt.template, stmt.clobbers)
 
-        for constraint, asm_input_expr in stmt.input_operands:
+        # First load, all asm operands:
+        for _, asm_input_expr in stmt.input_operands:
             asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
-            inline_asm.add_input_variable(asm_input_ir, constraint)
+            inline_asm.add_input_variable(asm_input_ir)
 
-        for constraint, asm_output_expr in stmt.output_operands:
+        for _, asm_output_expr in stmt.output_operands:
             asm_output_ir = self.gen_expr(asm_output_expr)
-            inline_asm.add_output_variable(asm_output_ir, constraint)
+            inline_asm.add_output_variable(asm_output_ir)
 
+        # Emit inline assembly:
         self.emit(inline_asm)
 
     def gen_condition(self, condition, yes_block, no_block):

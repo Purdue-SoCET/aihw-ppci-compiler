@@ -1211,18 +1211,14 @@ class InlineAsm(Instruction):
         self.clobbers = clobbers
         self.input_values = []
         self.output_values = []
-        self.input_constraints = []
-        self.output_constraints = []
 
-    def add_input_variable(self, value, constraint="r"):
+    def add_input_variable(self, value):
         """Add an value as input to this assembly stuff."""
         self.input_values.append(value)
-        self.input_constraints.append(constraint)
         self.add_use(value)
 
-    def add_output_variable(self, value, constraint="=r"):
+    def add_output_variable(self, value):
         self.output_values.append(value)
-        self.output_constraints.append(constraint)
         self.add_use(value)
 
     def replace_use(self, old, new):

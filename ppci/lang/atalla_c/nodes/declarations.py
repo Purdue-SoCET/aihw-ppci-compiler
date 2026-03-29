@@ -50,7 +50,6 @@ class VariableDeclaration(CDeclaration):
     def __init__(self, storage_class, typ, name, initial_value, location):
         super().__init__(storage_class, typ, name, location)
         self.initial_value = initial_value
-        self.asm_register = None
 
     def is_definition(self):
         return self.initial_value is not None

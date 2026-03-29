@@ -55,7 +55,6 @@ class CContext:
             BasicType.LONGLONG: (longlong_size, longlong_alignment),
             BasicType.ULONGLONG: (longlong_size, longlong_alignment),
             BasicType.VECTOR: (vec_size, vec_alignment),
-            BasicType.MASK: (4, 4),
             BasicType.FLOAT: (2, 2),
             # BasicType.DOUBLE: (double_size, double_alignment),
             # BasicType.LONGDOUBLE: (10, 10),

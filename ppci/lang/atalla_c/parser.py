@@ -71,7 +71,6 @@ class CParser(RecursiveDescentParser):
             "signed",
             "unsigned",
             "vec",
-            "mask",
             "__builtin_va_list",
         }
 
@@ -485,13 +484,6 @@ class CParser(RecursiveDescentParser):
             declarator.type_modifiers,
             declarator.location,
         )
-
-        if self.peek == "asm":
-            self.consume("asm")
-            self.consume("(")
-            reg_name = self.parse_string()
-            self.consume(")")
-            variable.asm_register = reg_name
 
         if self.has_consumed("="):
             initializer = self.parse_initializer(variable.typ)
