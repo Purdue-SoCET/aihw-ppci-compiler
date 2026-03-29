@@ -316,14 +316,14 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
 
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
-    Code = VregSt(v1, c0[0], 0, 0, 0, 0, 0)
+    Code = VregSt(v1, c0[0], 31, 0, 0, 0, 0)
     Code.fprel = True
     context.emit(Code)
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
     d = context.new_reg(AtallaVectorRegister)
-    Code = VregLd(d, c0[0], 0, 0, 0, 0, 0)
+    Code = VregLd(d, c0[0], 31, 0, 0, 0, 0)
     Code.fprel = True
     context.emit(Code)
     return d
@@ -613,7 +613,7 @@ class AtallaSDMAInstruction(Instruction):
 
 def make_sdma(mnemonic: str, opcode: int):
     rs2  = Operand("rs2",  AtallaRegister, read=True)
-    rs1_rd1 = Operand("rs1_rd1", AtallaRegister, read=True)
+    rs1_rd1 = Operand("rs1_rd1", AtallaRegister, read=True, write=True)
     num_cols = Operand("num_cols", int)
     num_rows = Operand("num_rows", int)
     sid = Operand("sid", int)
