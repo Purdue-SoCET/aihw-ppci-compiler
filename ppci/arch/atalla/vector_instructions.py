@@ -52,9 +52,10 @@ def make_vv(mnemonic: str, opcode: int):
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister, read=True)
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
-    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask_reg])
-    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "vs2": vs2, "mask_reg": mask_reg}
-    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg}
+    sac = Operand("sac", int)
+    syntax   = Syntax([mnemonic, " ", vd, ",", " ", vs1, ",", " ", vs2, ",", " ", mask_reg, ",", " ", sac])
+    patterns = {"opcode": opcode, "vd": vd, "vs1": vs1, "vs2": vs2, "mask_reg": mask_reg, "sac": sac}
+    members  = {"syntax": syntax, "vd": vd, "vs1": vs1, "vs2": vs2, "patterns": patterns, "opcode": opcode, "mask_reg": mask_reg, "sac": sac}
     return type(mnemonic.replace(".", "_"), (AtallaVVInstruction,), members)
 
 
@@ -344,19 +345,19 @@ def pattern_reg(context, tree):
 @isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_add_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(AddVv(d, v0, v1, mask))
+    ctx.emit(AddVv(d, v0, v1, mask, 0))
     return d
 
 @isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_sub_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(SubVv(d, v0, v1, mask))
+    ctx.emit(SubVv(d, v0, v1, mask, 0))
     return d
 
 @isa.pattern("vecreg", "MULVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
-    ctx.emit(MulVv(d, v0, v1, mask))
+    ctx.emit(MulVv(d, v0, v1, mask, 0))
     return d
 
 # @isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, stm)", size=2)
@@ -388,7 +389,7 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
 @isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_gemm_vv(ctx, tree, v0, v1, mask):
     d = _new_v(ctx)
-    ctx.emit(GemmVv(d, v0, v1, mask))
+    ctx.emit(GemmVv(d, v0, v1, mask, 0))
     return d
 
 # ---------- VI (vector-immediate) ----------

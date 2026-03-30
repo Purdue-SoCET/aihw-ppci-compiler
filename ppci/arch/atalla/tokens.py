@@ -54,6 +54,7 @@ class AtallaVVToken(Token):
     vs1    = bit_range(15, 23)
     vs2    = bit_range(23, 31)
     mask_reg   = bit_range(31, 35)
+    sac    = bit_range(35, 40)
 
 class AtallaVSToken(Token):
     class Info:
