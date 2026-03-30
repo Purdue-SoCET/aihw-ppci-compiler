@@ -92,6 +92,7 @@ class CParser(RecursiveDescentParser):
             "sizeof",
             "gemm",
             "vec_op_masked",
+            "make_mask",
             "struct",
             "union",
             "enum",
@@ -827,11 +828,11 @@ class CParser(RecursiveDescentParser):
         if self.peek in m:
             statement = m[self.peek]()
         elif self.peek == "ID" and self.look_ahead(1).val == ":":
-            print("Parsing ID")
+            # print("Parsing ID")
             statement = self.parse_label()
         else:
             # Expression statement!
-            print("Parsing expression statement")
+            # print("Parsing expression statement")
             expression = self.parse_expression()
             statement = self.semantics.on_expression_statement(expression)
             self.consume(";")
@@ -1203,6 +1204,23 @@ class CParser(RecursiveDescentParser):
                 self.error(f"vec_op_masked(...) expects 4 arguments, got {len(args)}")
             expr = self.semantics.on_vec_op_masked(args[0], args[1], args[2], args[3], location)
             self.consume(")")
+        elif self.peek == "make_mask":
+            location = self.consume("make_mask").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                if self.peek == "STRING":
+                    txt = self.next_token().val
+                    args.append(txt)
+                else:
+                    args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 4:
+                self.error(f"make_mask(...) expects 4 arguments, got {len(args)}")
+            expr = self.semantics.on_make_mask(args[0], args[1], args[2], args[3], location)
+            self.consume(")")
+
         elif self.peek == "(":
             loc = self.consume("(").loc
             # Is this a type cast?

@@ -117,7 +117,7 @@ class CContext:
                 array_size = self.eval_expr(typ.size)
             size = element_size * array_size
         elif isinstance(typ, types.BasicType):
-            print(self.type_size_map)
+            # print(self.type_size_map)
             size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.is_complete:

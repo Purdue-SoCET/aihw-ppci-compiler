@@ -74,20 +74,20 @@ Xors = make_r("xor_s", 0b0001000)
 Slls = make_r("sll_s", 0b0001001)
 Srls = make_r("srl_s", 0b0001010)
 Sras = make_r("sra_s", 0b0001011)
-Slts = make_r("slt_s", 0b0001100)
-Sltus = make_r("sltu_s", 0b0001101)
+
+# Slts = make_r("slt_s", 0b0001100)
+# Sltus = make_r("sltu_s", 0b0001101)
 
 #BF16 R-types:
 
 AddBf = make_r("add_bf", 0b0001110)
 SubBf = make_r("sub_bf", 0b0001111)
 MulBf = make_r("mul_bf", 0b0010000)
-DivBf = make_r("div_bf", 0b0010001)
+RcpBf = make_r("rcp_bf", 0b0010001)
 SltBf = make_r("slt_bf", 0b0010010)
-SltuBf = make_r("sltu_bf", 0b0010011)
+SqrtBf = make_r("sqrt_bf", 0b0010011) # TODO: add pattern
 StbfS = make_r("stbf_s", 0b0010100)
 BftsS = make_r("bfts_s", 0b0010101)
-
 class AtallaIInstruction(Instruction):
     tokens = [AtallaIToken]
     isa = isa
@@ -131,8 +131,9 @@ Xoris = make_i("xori_s", 0b0011101)   # WAS: 0b0011001
 Sllis = make_i("slli_s", 0b0011110)   # WAS: 0b0011010
 Srlis = make_i("srli_s", 0b0011111)   # WAS: 0b0011011
 Srais = make_i("srai_s", 0b0100000)   # WAS: 0b0011100
-Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
-Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
+
+# Sltis = make_i("slti_s", 0b0100001)   # WAS: 0b0011101
+# Sltuis = make_i("sltui_s", 0b0100010) # WAS: 0b0011110
 
 class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
@@ -141,21 +142,28 @@ class AtallaBRInstruction(Instruction):
 
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
-        return [AtallaBR_Imm10_Relocation(self.imm12)]
+        return [AtallaBR_Imm10_Relocation(self.imm10)]
+    
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = self.opcode
+        tokens[0][15:23] = self.rs1_rd.num
+        tokens[0][23:31] = self.rs2.num
+        return tokens[0].encode()
 
 def make_br(mnemonic, opcode):
-    rs1 = Operand("rs1", AtallaRegister, read=True)
+    rs1_rd = Operand("rs1_rd", AtallaRegister, read=True)
     rs2 = Operand("rs2", AtallaRegister, read=True)
     imm10 = Operand("imm10", str)
-    incr_imm7 = Operand("incr_imm7", str)
-    # syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10, ",", " ", incr_imm7])
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", imm10])
+    incr_imm7 = Operand("incr_imm7", int)
+    #TODO: incr-imm7 figure it out
+    syntax = Syntax([mnemonic, " ", rs1_rd, ",", " ", rs2, ",", " ", imm10])
     members = {
         "syntax": syntax,
-        "rs1": rs1,
+        "rs1_rd": rs1_rd,
         "rs2": rs2,
         "imm10": imm10,
-        "incr_imm7": incr_imm7, #TODO: what is this and how to use
+        # "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
@@ -226,6 +234,10 @@ def make_m_store(mnemonic, opcode):
 Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
 Sws = make_m_store("sw_s", 0b0101010)  # WAS: 0b0100000
 
+
+# TODO: add half word ld/st
+
+
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
@@ -251,7 +263,8 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101101)
+Lis = make_mi("li_s", 0b0101101) # TODO: make pseudo
+Luis = make_mi("lui_s", 0b0101110)
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -489,8 +502,16 @@ def pattern_32_to_8_16(context, tree, c0):
     return c0
 
 
-@isa.pattern("reg", "CONSTI32", size=4)
-@isa.pattern("reg", "CONSTU32", size=4)
+@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value >= 2**25)
+def pattern_const_i32_large(context, tree):
+    d = context.new_reg(AtallaRegister)
+    c0 = tree.value
+    context.emit(Luis(d, c0 >> 7))
+    context.emit(Addis(d, d, c0 & 0x7F))
+    return d
+
+@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)
+@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value < 2**25)
 @isa.pattern("reg", "CONSTI16", size=4)
 @isa.pattern("reg", "CONSTU16", size=4)
 @isa.pattern(
@@ -530,7 +551,6 @@ def pattern_const_f16(context, tree):
 
     return d
 
-# TODO: do branch pseudos
 @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
 @isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
 @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
@@ -590,13 +610,13 @@ def pattern_add8(context, tree, c0, c1):
     "reg",
     "ADDI32(reg, CONSTI32)",
     size=2,
-    condition=lambda t: t[1].value < 2048,
+    condition=lambda t: t[1].value < 4096,
 )
 @isa.pattern(
     "reg",
     "ADDU32(reg, CONSTU32)",
     size=2,
-    condition=lambda t: t[1].value < 2048,
+    condition=lambda t: t[1].value < 4096,
 )
 def pattern_add_i32_reg_const(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -609,13 +629,13 @@ def pattern_add_i32_reg_const(context, tree, c0):
     "reg",
     "ADDI32(CONSTI32, reg)",
     size=2,
-    condition=lambda t: t.children[0].value < 2048,
+    condition=lambda t: t.children[0].value < 4096,
 )
 @isa.pattern(
     "reg",
     "ADDU32(CONSTU32, reg)",
     size=2,
-    condition=lambda t: t.children[0].value < 2048,
+    condition=lambda t: t.children[0].value < 4096,
 )
 def pattern_add_i32_const_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -635,8 +655,27 @@ def pattern_sub_i32(context, tree, c0, c1):
     context.emit(Subs(d, c0, c1))
     return d
 
+
+@isa.pattern(
+    "reg",
+    "SUBI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "SUBU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 4096,
+)
+def pattern_sub_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Subis(d, c0, c1))
+    return d
+
 '''
-# TODO: wtf is this
+# TODO: configure for globals
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
@@ -865,7 +904,13 @@ def pattern_and_i(context, tree, c0, c1):
     "reg",
     "ANDI32(reg, CONSTI32)",
     size=2,
-    condition=lambda t: t.children[1].value < 2048,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "ANDU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 4096,
 )
 def pattern_and_i32(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -893,6 +938,25 @@ def pattern_and8_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "ANDI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "ANDU32(CONSTU32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 4096,
+)
+def pattern_and_i32_const_reg(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[0].value
+    context.emit(Andis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "ORU32(reg, reg)", size=2)
 @isa.pattern("reg", "ORI32(reg, reg)", size=2)
 @isa.pattern("reg", "ORU16(reg, reg)", size=2)
@@ -909,7 +973,13 @@ def pattern_or_i32(context, tree, c0, c1):
     "reg",
     "ORI32(reg, CONSTI32)",
     size=2,
-    condition=lambda t: t.children[1].value < 2048,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "ORU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 4096,
 )
 def pattern_or_i32_reg_const(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -922,7 +992,13 @@ def pattern_or_i32_reg_const(context, tree, c0):
     "reg",
     "ORI32(CONSTI32, reg)",
     size=2,
-    condition=lambda t: t.children[0].value < 2048,
+    condition=lambda t: t.children[0].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "ORU32(CONSTU32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 4096,
 )
 def pattern_or_i32_const_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -978,6 +1054,25 @@ def pattern_shr_i32_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "SHRU32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "SHRU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_shr_u32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Srlis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "SHLU8(reg, reg)", size=2)
 @isa.pattern("reg", "SHLI8(reg, reg)", size=2)
 @isa.pattern("reg", "SHLU16(reg, reg)", size=2)
@@ -993,6 +1088,12 @@ def pattern_shl_i32(context, tree, c0, c1):
 @isa.pattern(
     "reg",
     "SHLI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "SHLU32(reg, CONSTU32)",
     size=2,
     condition=lambda t: t.children[1].value < 32,
 )
@@ -1014,6 +1115,44 @@ def pattern_mul_i32(context, tree, c0, c1):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "MULI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "MULU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+def pattern_mul_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Mulis(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "MULI32(CONSTI32, reg)",
+    size=10,
+    condition=lambda t: t.children[0].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "MULU32(CONSTU32, reg)",
+    size=10,
+    condition=lambda t: t.children[0].value < 4096,
+)
+def pattern_mul_i32_const_reg(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[0].value
+    context.emit(Mulis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "LDRI32(ADDI32(reg, CONSTI32))", size=2)
 def pattern_ldr_i32_add(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -1030,6 +1169,25 @@ def pattern_div_i32(context, tree, c0, c1):
     return d
 
 
+@isa.pattern(
+    "reg",
+    "DIVI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "DIVU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+def pattern_div_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Divis(d, c0, c1))
+    return d
+
+
 @isa.pattern("reg", "DIVU16(reg, reg)", size=10)
 @isa.pattern("reg", "DIVU32(reg, reg)", size=10)
 def pattern_div_u32(context, tree, c0, c1):
@@ -1043,6 +1201,25 @@ def pattern_div_u32(context, tree, c0, c1):
 def pattern_rem_i32(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
     context.emit(Mods(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "REMI32(reg, CONSTI32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "REMU32(reg, CONSTU32)",
+    size=10,
+    condition=lambda t: t.children[1].value < 4096,
+)
+def pattern_rem_i32_reg_const(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    c1 = tree.children[1].value
+    context.emit(Modis(d, c0, c1))
     return d
 
 
@@ -1071,7 +1248,13 @@ def pattern_xor_i32(context, tree, c0, c1):
     "reg",
     "XORI32(reg, CONSTI32)",
     size=2,
-    condition=lambda t: t.children[1].value < 2048,
+    condition=lambda t: t.children[1].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "XORU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 4096,
 )
 def pattern_xor_i32_reg_const(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -1084,7 +1267,13 @@ def pattern_xor_i32_reg_const(context, tree, c0):
     "reg",
     "XORI32(CONSTI32, reg)",
     size=2,
-    condition=lambda t: t.children[0].value < 2048,
+    condition=lambda t: t.children[0].value < 4096,
+)
+@isa.pattern(
+    "reg",
+    "XORU32(CONSTU32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 4096,
 )
 def pattern_xor_i32_const_reg(context, tree, c0):
     d = context.new_reg(AtallaRegister)
@@ -1212,10 +1401,12 @@ def pattern_mul_f16(context, tree, c0, c1):
     return d
 
 
-@isa.pattern("reg", "DIVBF16(reg, reg)", size=20)
+@isa.pattern("reg", "DIVBF16(reg, reg)", size=40)
 def pattern_div_f16(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
-    context.emit(DivBf(d, c0, c1))
+    # Implement c0 / c1 as rcp(c1) * c0
+    context.emit(RcpBf(d, c1, R0))
+    context.emit(MulBf(d, d, c0))
     return d
 
 

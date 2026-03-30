@@ -41,6 +41,7 @@ class CSemantics:
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
         self.vec_type = self.get_type(["vec"])
+        self.mask_type = self.get_type(["mask"])
         self.long_type = self.get_type(["long"])
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
@@ -762,7 +763,7 @@ class CSemantics:
     def on_float(self, value, location):
         """Process floating point literal."""
         value, type_specifiers = utils.float_num(value)
-        print(type_specifiers)
+        # print(type_specifiers)
         typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 
@@ -994,6 +995,10 @@ class CSemantics:
     
     def on_vec_op_masked(self, op, a, b, mask, location):
         expr = expressions.VecOpMasked(op, a, b, mask, self.vec_type, False, location)
+        return expr
+
+    def on_make_mask(self, op, a, b, mask, location):
+        expr = expressions.MakeMask(op, a, b, mask, self.mask_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):

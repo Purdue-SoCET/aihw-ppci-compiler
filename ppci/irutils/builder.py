@@ -163,6 +163,10 @@ class Builder:
     def emit_vec_op_masked(self, op, a, b, mask, ty):
         """Emit a vector operation with mask instruction."""
         return self.emit(ir.VecOpMasked(op, a, b, mask, "tmp_vec_op_masked", ty))
+    
+    def emit_make_mask(self, op, a, b, mask, ty):
+        """Emit a make mask instruction."""
+        return self.emit(ir.MakeMask(op, a, b, mask, "tmp_make_mask", ty))
 
     def emit_add(self, a, b, ty):
         """Emit addition operation."""

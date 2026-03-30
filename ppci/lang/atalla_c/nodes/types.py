@@ -399,6 +399,7 @@ class BasicType(CType):
     # LONGDOUBLE = "long double"
     VA_LIST = "__builtin_va_list"
     VECTOR = "vec"
+    MASK = "mask"
 
     SIGNED_INTEGER_TYPES = {CHAR, SHORT, INT, LONG, LONGLONG}
 

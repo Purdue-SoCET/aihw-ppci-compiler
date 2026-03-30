@@ -16,16 +16,12 @@ int main(){
     vec v3 = v1 + v2;
     vec v4 = v3 - v2;
     vec v5 = v4 * v2;
-    vec v6 = v5 / v1;
-
-    vec v7 = v6 & v5;
-    vec v8 = v7 | v1;
-    vec v9 = v8 ^ v2;
+    vec v6 = v5;
 
     int mask = 0b101;
 
 
-    vec v10 = gemm(v9, v8, mask);
+    vec v10 = gemm(v5, v6, mask);
 
     int store_addr = 0xAAAA;
 

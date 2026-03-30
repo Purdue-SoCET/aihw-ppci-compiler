@@ -156,7 +156,10 @@ class Visitor:
             self.visit(node.arg2)
             self.visit(node.mask)
         elif isinstance(node, expressions.VecOpMasked):
-            self.visit(node.op)
+            self.visit(node.arg1)
+            self.visit(node.arg2)
+            self.visit(node.mask)
+        elif isinstance(node, expressions.MakeMask):
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)

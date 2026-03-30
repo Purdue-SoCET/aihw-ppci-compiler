@@ -1,3 +1,5 @@
+// Most VI instructions are deprecated
+
 inline int mult_int(int a, int b){
     return a * b;
 }
@@ -29,7 +31,7 @@ int main(){
 
     vr = c * vr;
 
-    vr = vr / 6.0;
+    // vr = vr / 6.0;
 
     // exp, sqrt, rsum, rmin, rmax probably all need intrinsics
 
