@@ -93,6 +93,7 @@ class CParser(RecursiveDescentParser):
             "gemm",
             "vec_op_masked",
             "make_mask",
+            "load_weights",
             "struct",
             "union",
             "enum",
@@ -1219,6 +1220,21 @@ class CParser(RecursiveDescentParser):
             if len(args) != 4:
                 self.error(f"make_mask(...) expects 4 arguments, got {len(args)}")
             expr = self.semantics.on_make_mask(args[0], args[1], args[2], args[3], location)
+            self.consume(")")
+        elif self.peek == "load_weights":
+            location = self.consume("load_weights").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 1:
+                self.error(
+                    "load_weights(...) expects 1 argument, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_load_weights(args[0], location)
             self.consume(")")
 
         elif self.peek == "(":

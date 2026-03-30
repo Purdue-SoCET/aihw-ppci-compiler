@@ -1039,6 +1039,8 @@ class CCodeGenerator:
                 value = self.gen_vec_index(expr)
             elif isinstance(expr, expressions.MakeMask):
                 value = self.gen_make_mask(expr)
+            elif isinstance(expr, expressions.LoadWeights):
+                value = self.gen_load_weights(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1590,6 +1592,11 @@ class CCodeGenerator:
         ir_typ = self.get_ir_type(expr.typ)
         value = self.builder.emit_make_mask(op, arg1, arg2, mask, ir_typ)
         return value
+
+    def gen_load_weights(self, expr: expressions.LoadWeights):
+        arg = self.gen_expr(expr.arg, rvalue=True)
+        self.builder.emit_load_weights(arg)
+        return None
 
 
     def gen_builtin(self, expr: expressions.BuiltIn):

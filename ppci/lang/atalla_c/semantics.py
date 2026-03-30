@@ -1001,6 +1001,17 @@ class CSemantics:
         expr = expressions.MakeMask(op, a, b, mask, self.mask_type, False, location)
         return expr
 
+    def on_load_weights(self, vec_arg, location):
+        if not types.is_vector(vec_arg.typ):
+            self.error(
+                f"load_weights expects vec argument, got {type_to_str(vec_arg.typ)}",
+                vec_arg.location,
+            )
+        expr = expressions.LoadWeights(
+            vec_arg, self.get_type(["void"]), False, location
+        )
+        return expr
+
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""
         return expressions.Cast(casted_expr, to_typ, False, location)

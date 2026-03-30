@@ -152,6 +152,7 @@ from .registers import (
     #register_classes_hwfp,
     register_classes_swfp,
 )
+from ppci.arch.atalla import vector_instructions
 
 # I am only adding in scalar operation so anything that requires
 # memory such as the functions in the normal riscv arch file will
@@ -430,6 +431,13 @@ class AtallaArch(Architecture):
                 rd_real = ins.rd.get_real() if ins.rd.is_colored else ins.rd
                 rs1_real = ins.rs1.get_real() if ins.rs1.is_colored else ins.rs1
                 if rd_real is rs1_real or rd_real == rs1_real:
+                    removed.add(ins)
+                    continue  # identity move, drop instruction
+            elif isinstance(ins, vector_instructions.AddVv):
+                vd_real = ins.vd.get_real() if ins.vd.is_colored else ins.vd
+                vs1_real = ins.vs1.get_real() if ins.vs1.is_colored else ins.vs1
+                vs2_real = ins.vs2.get_real() if ins.vs2.is_colored else ins.vs2
+                if vd_real is vs1_real and vs2_real is V0:
                     removed.add(ins)
                     continue  # identity move, drop instruction
             newinstructions.append(ins)

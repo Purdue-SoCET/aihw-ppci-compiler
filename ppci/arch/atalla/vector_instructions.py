@@ -14,7 +14,7 @@ from .tokens import (
     AtallaVIToken,
     AtallaVMemToken,
 )
-from .vector_registers import AtallaVectorRegister
+from .vector_registers import AtallaVectorRegister, V0
 from .mask_registers import M0, AtallaMaskRegister
 from .registers import R0, AtallaRegister
 from .instructions import Lis
@@ -600,3 +600,7 @@ def pattern_vecidx(context, tree, vsrc):
     d = context.new_reg(AtallaRegister)
     context.emit(VecIdx(d, vsrc, tree.children[1].value))
     return d
+
+@isa.pattern("stm", "LOADWEIGHTS(vecreg)")
+def pattern_loadweights(context, tree, vsrc):
+    context.emit(LwVi(V0, vsrc, 0, M0))

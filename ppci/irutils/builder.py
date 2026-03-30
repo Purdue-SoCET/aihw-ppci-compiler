@@ -168,6 +168,10 @@ class Builder:
         """Emit a make mask instruction."""
         return self.emit(ir.MakeMask(op, a, b, mask, "tmp_make_mask", ty))
 
+    def emit_load_weights(self, v):
+        """Emit a load-weights side-effect instruction."""
+        return self.emit(ir.LoadWeights(v))
+
     def emit_add(self, a, b, ty):
         """Emit addition operation."""
         return self.emit_binop(a, "+", b, ty)

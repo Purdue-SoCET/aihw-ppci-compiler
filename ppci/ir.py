@@ -1484,3 +1484,18 @@ class MakeMask(LocalValue):
 
     def __str__(self):
         return f"make_mask {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+
+
+class LoadWeights(Instruction):
+    """Load model weights into a vector register."""
+
+    arg = value_use("arg")
+
+    def __init__(self, arg):
+        super().__init__()
+        if not isinstance(arg.ty, VectorTyp):
+            raise TypeError(f"load_weights expects a vector argument, not {arg.ty}")
+        self.arg = arg
+
+    def __str__(self):
+        return f"load_weights {self.arg.name}"

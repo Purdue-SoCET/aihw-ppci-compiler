@@ -204,6 +204,15 @@ class MakeMask(CExpression):
         self.mask = mask
     def __repr__(self):
         return f"MakeMask({self.op}, {self.arg1}, {self.arg2}, {self.mask})"
+
+
+class LoadWeights(CExpression):
+    def __init__(self, arg, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.arg = arg
+
+    def __repr__(self):
+        return f"LoadWeights({self.arg})"
     
 class VecIndex(CExpression):
     def __init__(self, base, index, typ, lvalue, location):

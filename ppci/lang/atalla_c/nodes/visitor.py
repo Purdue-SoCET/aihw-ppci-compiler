@@ -163,6 +163,8 @@ class Visitor:
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)
+        elif isinstance(node, expressions.LoadWeights):
+            self.visit(node.arg)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 
