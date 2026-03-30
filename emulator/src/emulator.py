@@ -282,6 +282,12 @@ def run(mem: Memory, sregs: ScalarRegisterFile, mregs: ScalarRegisterFile, vregs
                 if(m == "mul.bf"):
                     WBdata = fp32_to_hex(WBdata)
                 sregs.write(inst['rd'], int(WBdata))
+            elif m == "rcp.bf":
+                src1 = sregs.read(inst['rs1'])
+                src1 = hex_to_fp32(src1)
+                WBdata = 1.0 / src1 if src1 != 0.0 else float('inf')
+                WBdata = fp32_to_hex(WBdata)
+                sregs.write(inst['rd'], int(WBdata))
             elif m in ("div.s", "divi.s", "div.bf"):
                 if(m == "div.s" or m == "div.bf"):
                     src1 = sregs.read(inst['rs1'])

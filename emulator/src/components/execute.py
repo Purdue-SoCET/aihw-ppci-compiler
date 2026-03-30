@@ -47,6 +47,7 @@ MNEMONIC_SCALAR = {
     "sub.bf": "subbf",
     "mul.bf": "mulbf",
     "div.bf": "divbf",
+    "rcp.bf": "rcpbf",
     "slt.bf": "sltbf",
     "sltu.bf": "sltubf",
     "addi.s": "add",
