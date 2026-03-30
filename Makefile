@@ -6,7 +6,7 @@ PPCI=python3 -m ppci
 INPUT=examples/c/sample2.c
 
 SRC1=instructtest2.c
-SRC2=helper.c
+SRC2=atalla_tests/helper.c
 
 OBJ1=instructtest2.o
 OBJ2=helper.o
