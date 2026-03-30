@@ -312,8 +312,8 @@ class Jalr(AtallaIInstruction):
         tokens[0][15:23] = self.rs1.num
         return tokens[0].encode()
 
-Halt = make_nop("halt", 0b1111111)
-Nop = make_nop("nop", 0x00000000)
+Halt = make_nop("halt", 0b0110000)
+Nop = make_nop("nop", 0b0101111)
 
 # Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
