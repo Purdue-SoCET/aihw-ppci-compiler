@@ -12,6 +12,7 @@ from instruction_latency import latency
 
 IMM_RE = re.compile(r"^[+-]?(?:0x[0-9a-fA-F]+|0b[01]+|\d+)$")
 REG_RE = re.compile(r"^\$?[xv](\d+)$", re.IGNORECASE)
+NORM_REG_RE = re.compile(r"^\$(\d+)$")
 MASK_RE = re.compile(r"^\$?m(\d+)$", re.IGNORECASE)
 MEM_RE = re.compile(
     r"^([+-]?(?:0x[0-9a-fA-F]+|0b[01]+|\d+))\(\s*(\$?[xv]\d+)\s*\)$",
@@ -377,12 +378,19 @@ def _build_sched_info(inst: AsmInstr, idx: int) -> SchedInfo:
     elif instr_type == "VM":
         vd = _parse_reg(inst.ops[0])
         rs1 = _parse_reg(inst.ops[1])
-        num_cols = _parse_imm(inst.ops[2])
-        num_rows = _parse_imm(inst.ops[3])
-        sid = _parse_imm(inst.ops[4])
-        rc = _parse_imm(inst.ops[5])
-        rc_id = _parse_imm(inst.ops[6])
-        mem_key = ("vreg_mem", sid, rs1, num_cols, num_rows, rc, rc_id)
+        if len(inst.ops) >= 5 and NORM_REG_RE.match(inst.ops[2]):
+            rs2 = _parse_reg(inst.ops[2])
+            num_cols = _parse_imm(inst.ops[3])
+            sid = _parse_imm(inst.ops[4])
+            mem_key = ("vreg_mem", sid, rs1, rs2, num_cols)
+            _add_reg(reads, _reg_scalar(rs2))
+        else:
+            num_cols = _parse_imm(inst.ops[2])
+            num_rows = _parse_imm(inst.ops[3])
+            sid = _parse_imm(inst.ops[4])
+            rc = _parse_imm(inst.ops[5]) if len(inst.ops) > 5 else 0
+            rc_id = _parse_imm(inst.ops[6]) if len(inst.ops) > 6 else 0
+            mem_key = ("vreg_mem", sid, rs1, num_cols, num_rows, rc, rc_id)
         _add_reg(reads, _reg_scalar(rs1))
         if mnemonic == "vreg.st":
             _add_reg(reads, _reg_vector(vd))
@@ -392,12 +400,18 @@ def _build_sched_info(inst: AsmInstr, idx: int) -> SchedInfo:
     elif instr_type == "SDMA":
         rs1_rd1 = _parse_reg(inst.ops[0])
         rs2 = _parse_reg(inst.ops[1])
-        num_cols = _parse_imm(inst.ops[2])
-        num_rows = _parse_imm(inst.ops[3])
-        sid = _parse_imm(inst.ops[4])
+        if len(inst.ops) == 3 and NORM_REG_RE.match(inst.ops[2]):
+            rs3 = _parse_reg(inst.ops[2])
+            _add_reg(reads, _reg_scalar(rs3))
+            mem_key = ("scpad_mem", rs1_rd1, rs2, rs3)
+        else:
+            num_cols = _parse_imm(inst.ops[2])
+            num_rows = _parse_imm(inst.ops[3])
+            sid = _parse_imm(inst.ops[4])
+            mem_key = ("scpad_mem", sid, rs1_rd1, rs2, num_cols, num_rows)
         _add_reg(reads, _reg_scalar(rs1_rd1))
+        _add_reg(writes, _reg_scalar(rs1_rd1))
         _add_reg(reads, _reg_scalar(rs2))
-        mem_key = ("scpad_mem", sid, rs1_rd1, rs2, num_cols, num_rows)
 
     elif instr_type == "MTS":
         _add_reg(writes, _reg_scalar(_parse_reg(inst.ops[0])))

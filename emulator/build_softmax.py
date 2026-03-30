@@ -148,36 +148,50 @@ def encode_instruction(instr_dict):
         instruction |= (imm8_2 & 0xFF) << 35
         
     elif instr_type == "VM":
-        # VM-Type: vd 7-14, rs1 15-22, num_cols 23-27, num_rows 28-32, sid 33, rc 34, rc_id 35-39
+        # VM-Type (new): vd 7-14, rs1 15-22, rs2 23-30, num_cols 31-35, sid 36-37
+        # VM-Type (old): vd 7-14, rs1 15-22, num_cols 23-27, num_rows 28-32, sid 33, rc 34, rc_id 35-39
         vd = instr_dict.get('vd', 0)
         rs1 = instr_dict.get('rs1', 0)
-        num_cols = instr_dict.get('num_cols', 0)
-        num_rows = instr_dict.get('num_rows', 0)
-        sid = instr_dict.get('sid', 0)
-        rc = instr_dict.get('rc', 0)
-        rc_id = instr_dict.get('rc_id', 0)
-        
-        instruction |= (vd & 0xFF) << 7
-        instruction |= (rs1 & 0xFF) << 15
-        instruction |= (num_cols & 0x1F) << 23
-        instruction |= (num_rows & 0x1F) << 28
-        instruction |= (sid & 0x1) << 33
-        instruction |= (rc & 0x1) << 34
-        instruction |= (rc_id & 0x1F) << 35
+        if 'rs2' in instr_dict:
+            rs2 = instr_dict.get('rs2', 0)
+            num_cols = instr_dict.get('num_cols', 0)
+            sid = instr_dict.get('sid', 0)
+            instruction |= (vd & 0xFF) << 7
+            instruction |= (rs1 & 0xFF) << 15
+            instruction |= (rs2 & 0xFF) << 23
+            instruction |= (num_cols & 0x1F) << 31
+            instruction |= (sid & 0x3) << 36
+        else:
+            num_cols = instr_dict.get('num_cols', 0)
+            num_rows = instr_dict.get('num_rows', 0)
+            sid = instr_dict.get('sid', 0)
+            rc = instr_dict.get('rc', 0)
+            rc_id = instr_dict.get('rc_id', 0)
+            instruction |= (vd & 0xFF) << 7
+            instruction |= (rs1 & 0xFF) << 15
+            instruction |= (num_cols & 0x1F) << 23
+            instruction |= (num_rows & 0x1F) << 28
+            instruction |= (sid & 0x1) << 33
+            instruction |= (rc & 0x1) << 34
+            instruction |= (rc_id & 0x1F) << 35
         
     elif instr_type == "SDMA":
-        # SDMA: rs1/rd1 7-14, rs2 15-22, num_cols 23-27, num_rows 28-32, sid 33
+        # SDMA (new): rs1_rd1 7-14, rs2 15-22, rs3 23-30
+        # SDMA (old): rs1/rd1 7-14, rs2 15-22, num_cols 23-27, num_rows 28-32, sid 33
         rs1_rd1 = instr_dict.get('rs1', instr_dict.get('rd1', 0))
         rs2 = instr_dict.get('rs2', 0)
-        num_cols = instr_dict.get('num_cols', 0)
-        num_rows = instr_dict.get('num_rows', 0)
-        sid = instr_dict.get('sid', 0)
-        
         instruction |= (rs1_rd1 & 0xFF) << 7
         instruction |= (rs2 & 0xFF) << 15
-        instruction |= (num_cols & 0x1F) << 23
-        instruction |= (num_rows & 0x1F) << 28
-        instruction |= (sid & 0x1) << 33
+        if 'rs3' in instr_dict:
+            rs3 = instr_dict.get('rs3', 0)
+            instruction |= (rs3 & 0xFF) << 23
+        else:
+            num_cols = instr_dict.get('num_cols', 0)
+            num_rows = instr_dict.get('num_rows', 0)
+            sid = instr_dict.get('sid', 0)
+            instruction |= (num_cols & 0x1F) << 23
+            instruction |= (num_rows & 0x1F) << 28
+            instruction |= (sid & 0x1) << 33
         
     elif instr_type == "MTS":
         # MTS: rd 7-14, vms 15-22
@@ -481,23 +495,33 @@ def asm_to_instr_dict(
         return d
 
     if instr_type == "VM":
-        # vreg.ld vd, rs1, num_cols, num_rows, sid, rc, rc_id
+        # new format: vreg.ld vd, rs1, rs2, num_cols, sid
+        # old format: vreg.ld vd, rs1, num_cols, num_rows, sid, rc, rc_id
         d["vd"] = parse_reg(ops[0])
         d["rs1"] = parse_reg(ops[1])
-        d["num_cols"] = parse_int(ops[2])
-        d["num_rows"] = parse_int(ops[3])
-        d["sid"] = parse_int(ops[4])
-        d["rc"] = parse_int(ops[5])
-        d["rc_id"] = parse_int(ops[6])
+        if len(ops) == 5 and REG_RE.match(ops[2]):
+            d["rs2"] = parse_reg(ops[2])
+            d["num_cols"] = parse_int(ops[3])
+            d["sid"] = parse_int(ops[4])
+        else:
+            d["num_cols"] = parse_int(ops[2])
+            d["num_rows"] = parse_int(ops[3])
+            d["sid"] = parse_int(ops[4])
+            d["rc"] = parse_int(ops[5]) if len(ops) > 5 else 0
+            d["rc_id"] = parse_int(ops[6]) if len(ops) > 6 else 0
         return d
 
     if instr_type == "SDMA":
-        # scpad.ld rs1, rs2, num_cols, num_rows, sid
+        # new format: scpad.ld rs1_rd1, rs2, rs3  (3 regs)
+        # old format: scpad.ld rs1, rs2, num_cols, num_rows, sid
         d["rs1"] = parse_reg(ops[0])
         d["rs2"] = parse_reg(ops[1])
-        d["num_cols"] = parse_int(ops[2])
-        d["num_rows"] = parse_int(ops[3])
-        d["sid"] = parse_int(ops[4])
+        if len(ops) == 3 and REG_RE.match(ops[2]):
+            d["rs3"] = parse_reg(ops[2])
+        else:
+            d["num_cols"] = parse_int(ops[2])
+            d["num_rows"] = parse_int(ops[3])
+            d["sid"] = parse_int(ops[4])
         return d
 
     if instr_type == "MTS":
