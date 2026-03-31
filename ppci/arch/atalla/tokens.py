@@ -94,16 +94,16 @@ class AtallaMTSToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    vmd    = bit_range(7, 11)
-    rs1     = bit_range(15, 23)
+    rd     = bit_range(7, 15)
+    vms    = bit_range(15, 19)
 
 
 class AtallaSTMToken(Token):
     class Info:
         size = 40
     opcode = bit_range(0, 7)
-    rd    = bit_range(7, 15)
-    vmd    = bit_range(15, 19)
+    vmd    = bit_range(7, 11)
+    rs1    = bit_range(15, 23)
 
 class AtallaVTSToken(Token):
     class Info:
