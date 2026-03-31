@@ -1401,6 +1401,13 @@ def pattern_mul_f16(context, tree, c0, c1):
     return d
 
 
+@isa.pattern("reg", "SQRTBF16(reg)", size=20)
+def pattern_sqrt_f16(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    context.emit(SqrtBf(d, c0, R0))
+    return d
+
+
 @isa.pattern("reg", "DIVBF16(reg, reg)", size=40)
 def pattern_div_f16(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)

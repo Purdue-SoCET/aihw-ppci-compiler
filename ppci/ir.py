@@ -1484,3 +1484,145 @@ class MakeMask(LocalValue):
 
     def __str__(self):
         return f"make_mask {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+
+
+class LoadWeights(Instruction):
+    """Load model weights into a vector register."""
+
+    arg = value_use("arg")
+
+    def __init__(self, arg):
+        super().__init__()
+        if not isinstance(arg.ty, VectorTyp):
+            raise TypeError(f"load_weights expects a vector argument, not {arg.ty}")
+        self.arg = arg
+
+    def __str__(self):
+        return f"load_weights {self.arg.name}"
+
+
+class ScpadLoad(Instruction):
+    """Trigger a scratchpad load operation."""
+
+    x = value_use("x")
+    y = value_use("y")
+    z = value_use("z")
+
+    def __init__(self, x, y, z):
+        super().__init__()
+        if not isinstance(x.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer x operand, not {x.ty}")
+        if not isinstance(y.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer y operand, not {y.ty}")
+        if not isinstance(z.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer z operand, not {z.ty}")
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __str__(self):
+        return f"scpad_load {self.x.name}, {self.y.name}, {self.z.name}"
+
+
+class ScpadStore(Instruction):
+    """Trigger a scratchpad store operation."""
+
+    x = value_use("x")
+    y = value_use("y")
+    z = value_use("z")
+
+    def __init__(self, x, y, z):
+        super().__init__()
+        if not isinstance(x.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer x operand, not {x.ty}")
+        if not isinstance(y.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer y operand, not {y.ty}")
+        if not isinstance(z.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer z operand, not {z.ty}")
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __str__(self):
+        return f"scpad_store {self.x.name}, {self.y.name}, {self.z.name}"
+
+
+class VectorLoad(LocalValue):
+    """Load a vector value from memory subsystem parameters."""
+
+    addr = value_use("addr")
+    arg2 = value_use("arg2")
+    arg3 = value_use("arg3")
+    arg4 = value_use("arg4")
+
+    def __init__(self, addr, arg2, arg3, arg4, name, ty):
+        super().__init__(name, ty)
+        if not isinstance(addr.ty, IntegerTyp):
+            raise TypeError(f"vector_load expects integer addr operand, not {addr.ty}")
+        if not isinstance(arg2.ty, IntegerTyp):
+            raise TypeError(f"vector_load expects integer arg2 operand, not {arg2.ty}")
+        if not isinstance(arg3.ty, IntegerTyp):
+            raise TypeError(f"vector_load expects integer arg3 operand, not {arg3.ty}")
+        if not isinstance(arg4.ty, IntegerTyp):
+            raise TypeError(f"vector_load expects integer arg4 operand, not {arg4.ty}")
+        self.addr = addr
+        self.arg2 = arg2
+        self.arg3 = arg3
+        self.arg4 = arg4
+
+    def __str__(self):
+        return (
+            f"vector_load {self.addr.name}, {self.arg2.name}, "
+            f"{self.arg3.name}, {self.arg4.name}"
+        )
+
+
+class VectorStore(Instruction):
+    """Store a vector value using memory subsystem parameters."""
+
+    vec = value_use("vec")
+    addr = value_use("addr")
+    arg2 = value_use("arg2")
+    arg3 = value_use("arg3")
+    arg4 = value_use("arg4")
+
+    def __init__(self, vec, addr, arg2, arg3, arg4):
+        super().__init__()
+        if not isinstance(vec.ty, VectorTyp):
+            raise TypeError(f"vector_store expects vector first operand, not {vec.ty}")
+        if not isinstance(addr.ty, IntegerTyp):
+            raise TypeError(f"vector_store expects integer addr operand, not {addr.ty}")
+        if not isinstance(arg2.ty, IntegerTyp):
+            raise TypeError(f"vector_store expects integer arg2 operand, not {arg2.ty}")
+        if not isinstance(arg3.ty, IntegerTyp):
+            raise TypeError(f"vector_store expects integer arg3 operand, not {arg3.ty}")
+        if not isinstance(arg4.ty, IntegerTyp):
+            raise TypeError(f"vector_store expects integer arg4 operand, not {arg4.ty}")
+        self.vec = vec
+        self.addr = addr
+        self.arg2 = arg2
+        self.arg3 = arg3
+        self.arg4 = arg4
+
+    def __str__(self):
+        return (
+            f"vector_store {self.vec.name}, {self.addr.name}, {self.arg2.name}, "
+            f"{self.arg3.name}, {self.arg4.name}"
+        )
+
+
+class SqrtBf(LocalValue):
+    """Scalar bf16 sqrt operation."""
+
+    a = value_use("a")
+
+    def __init__(self, a, name, ty):
+        super().__init__(name, ty)
+        if not isinstance(a.ty, FloatingPointTyp):
+            raise TypeError(f"sqrt_bf expects floating-point argument, not {a.ty}")
+        if a.ty is not ty:
+            raise TypeError(f"sqrt_bf type mismatch {a.ty} != {ty}")
+        self.a = a
+
+    def __str__(self):
+        return f"sqrt_bf {self.a.name}"

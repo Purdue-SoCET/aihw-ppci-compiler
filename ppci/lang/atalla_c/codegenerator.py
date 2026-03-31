@@ -1039,6 +1039,18 @@ class CCodeGenerator:
                 value = self.gen_vec_index(expr)
             elif isinstance(expr, expressions.MakeMask):
                 value = self.gen_make_mask(expr)
+            elif isinstance(expr, expressions.LoadWeights):
+                value = self.gen_load_weights(expr)
+            elif isinstance(expr, expressions.ScpadLoad):
+                value = self.gen_scpad_load(expr)
+            elif isinstance(expr, expressions.ScpadStore):
+                value = self.gen_scpad_store(expr)
+            elif isinstance(expr, expressions.VectorLoad):
+                value = self.gen_vector_load(expr)
+            elif isinstance(expr, expressions.VectorStore):
+                value = self.gen_vector_store(expr)
+            elif isinstance(expr, expressions.Sqrt):
+                value = self.gen_sqrt(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1590,6 +1602,47 @@ class CCodeGenerator:
         ir_typ = self.get_ir_type(expr.typ)
         value = self.builder.emit_make_mask(op, arg1, arg2, mask, ir_typ)
         return value
+
+    def gen_load_weights(self, expr: expressions.LoadWeights):
+        arg = self.gen_expr(expr.arg, rvalue=True)
+        self.builder.emit_load_weights(arg)
+        return None
+
+    def gen_scpad_load(self, expr: expressions.ScpadLoad):
+        x = self.gen_expr(expr.x, rvalue=True)
+        y = self.gen_expr(expr.y, rvalue=True)
+        z = self.gen_expr(expr.z, rvalue=True)
+        self.builder.emit_scpad_load(x, y, z)
+        return None
+
+    def gen_scpad_store(self, expr: expressions.ScpadStore):
+        x = self.gen_expr(expr.x, rvalue=True)
+        y = self.gen_expr(expr.y, rvalue=True)
+        z = self.gen_expr(expr.z, rvalue=True)
+        self.builder.emit_scpad_store(x, y, z)
+        return None
+
+    def gen_vector_load(self, expr: expressions.VectorLoad):
+        addr = self.gen_expr(expr.addr, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        arg3 = self.gen_expr(expr.arg3, rvalue=True)
+        arg4 = self.gen_expr(expr.arg4, rvalue=True)
+        return self.builder.emit_vector_load(
+            addr, arg2, arg3, arg4, self.get_ir_type(expr.typ)
+        )
+
+    def gen_vector_store(self, expr: expressions.VectorStore):
+        vec = self.gen_expr(expr.vec, rvalue=True)
+        addr = self.gen_expr(expr.addr, rvalue=True)
+        arg2 = self.gen_expr(expr.arg2, rvalue=True)
+        arg3 = self.gen_expr(expr.arg3, rvalue=True)
+        arg4 = self.gen_expr(expr.arg4, rvalue=True)
+        self.builder.emit_vector_store(vec, addr, arg2, arg3, arg4)
+        return None
+
+    def gen_sqrt(self, expr: expressions.Sqrt):
+        arg = self.gen_expr(expr.arg, rvalue=True)
+        return self.builder.emit_sqrt_bf(arg, self.get_ir_type(expr.typ))
 
 
     def gen_builtin(self, expr: expressions.BuiltIn):

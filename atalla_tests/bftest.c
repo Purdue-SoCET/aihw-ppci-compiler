@@ -9,7 +9,9 @@ int main(){
 
     float c = a / b;
 
-    inc_float(&c);
+    float d = sqrt(c);
 
-    return c;
+    inc_float(&d);
+
+    return d;
 }
