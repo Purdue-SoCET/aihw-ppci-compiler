@@ -8,6 +8,10 @@ int give_5(){
     return 5;
 }
 
+void add_vec(vec* vr, vec* v1, vec* v2){
+    *vr = *v1 + *v2;
+}
+
 int main(){
     vec v1;
     int vec_addr1 = 0xABCD;
@@ -36,7 +40,11 @@ int main(){
     int m = make_mask("<", v1, v2, 0);
     // int m = 0xFAF;
 
-    vec v3 = v1 + v2;
+    vec v_add;
+
+    add_vec(&v_add, &v1, &v2);
+
+    vec v3 = v1 + v2 + v_add;
     vec v4 = v1 * 3.6;
     v4 -= give_5();
     v4 = vec_op_masked("EXP", v4, 0.0, 0xFFFA0001);
