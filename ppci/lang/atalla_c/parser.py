@@ -94,6 +94,8 @@ class CParser(RecursiveDescentParser):
             "vec_op_masked",
             "make_mask",
             "load_weights",
+            "scpad_load",
+            "scpad_store",
             "struct",
             "union",
             "enum",
@@ -1235,6 +1237,40 @@ class CParser(RecursiveDescentParser):
                     location,
                 )
             expr = self.semantics.on_load_weights(args[0], location)
+            self.consume(")")
+        elif self.peek == "scpad_load":
+            location = self.consume("scpad_load").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 3:
+                self.error(
+                    "scpad_load(...) expects 3 arguments, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_scpad_load(
+                args[0], args[1], args[2], location
+            )
+            self.consume(")")
+        elif self.peek == "scpad_store":
+            location = self.consume("scpad_store").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 3:
+                self.error(
+                    "scpad_store(...) expects 3 arguments, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_scpad_store(
+                args[0], args[1], args[2], location
+            )
             self.consume(")")
 
         elif self.peek == "(":

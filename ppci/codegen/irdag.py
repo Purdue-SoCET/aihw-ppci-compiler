@@ -299,6 +299,22 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
 
+    def do_scpad_load(self, node):
+        x = self.get_value(node.x)
+        y = self.get_value(node.y)
+        z = self.get_value(node.z)
+        sgnode = self.new_node("SCPADLD", None, x, y, z)
+        self.debug_db.map(node, sgnode)
+        self.chain(sgnode)
+
+    def do_scpad_store(self, node):
+        x = self.get_value(node.x)
+        y = self.get_value(node.y)
+        z = self.get_value(node.z)
+        sgnode = self.new_node("SCPADST", None, x, y, z)
+        self.debug_db.map(node, sgnode)
+        self.chain(sgnode)
+
     def do_jump(self, node):
         sgnode = self.new_node("JMP", None)
         sgnode.value = self.function_info.label_map[node.target]

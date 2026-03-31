@@ -1041,6 +1041,10 @@ class CCodeGenerator:
                 value = self.gen_make_mask(expr)
             elif isinstance(expr, expressions.LoadWeights):
                 value = self.gen_load_weights(expr)
+            elif isinstance(expr, expressions.ScpadLoad):
+                value = self.gen_scpad_load(expr)
+            elif isinstance(expr, expressions.ScpadStore):
+                value = self.gen_scpad_store(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
 
@@ -1596,6 +1600,20 @@ class CCodeGenerator:
     def gen_load_weights(self, expr: expressions.LoadWeights):
         arg = self.gen_expr(expr.arg, rvalue=True)
         self.builder.emit_load_weights(arg)
+        return None
+
+    def gen_scpad_load(self, expr: expressions.ScpadLoad):
+        x = self.gen_expr(expr.x, rvalue=True)
+        y = self.gen_expr(expr.y, rvalue=True)
+        z = self.gen_expr(expr.z, rvalue=True)
+        self.builder.emit_scpad_load(x, y, z)
+        return None
+
+    def gen_scpad_store(self, expr: expressions.ScpadStore):
+        x = self.gen_expr(expr.x, rvalue=True)
+        y = self.gen_expr(expr.y, rvalue=True)
+        z = self.gen_expr(expr.z, rvalue=True)
+        self.builder.emit_scpad_store(x, y, z)
         return None
 
 

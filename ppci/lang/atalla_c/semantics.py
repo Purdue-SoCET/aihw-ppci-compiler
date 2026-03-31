@@ -1012,6 +1012,24 @@ class CSemantics:
         )
         return expr
 
+    def on_scpad_load(self, x, y, z, location):
+        self.ensure_integer(x)
+        self.ensure_integer(y)
+        self.ensure_integer(z)
+        expr = expressions.ScpadLoad(
+            x, y, z, self.get_type(["void"]), False, location
+        )
+        return expr
+
+    def on_scpad_store(self, x, y, z, location):
+        self.ensure_integer(x)
+        self.ensure_integer(y)
+        self.ensure_integer(z)
+        expr = expressions.ScpadStore(
+            x, y, z, self.get_type(["void"]), False, location
+        )
+        return expr
+
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""
         return expressions.Cast(casted_expr, to_typ, False, location)

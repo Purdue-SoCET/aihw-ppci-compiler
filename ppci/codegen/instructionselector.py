@@ -128,6 +128,8 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "LABEL",
     "MOVB",  # Attempts at blob data copies
     "LOADWEIGHTS",
+    "SCPADLD",
+    "SCPADST",
     "JMP",
     "EXIT",
     "ENTRY",

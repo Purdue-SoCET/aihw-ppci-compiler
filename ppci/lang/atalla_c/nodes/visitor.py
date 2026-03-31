@@ -165,6 +165,14 @@ class Visitor:
             self.visit(node.mask)
         elif isinstance(node, expressions.LoadWeights):
             self.visit(node.arg)
+        elif isinstance(node, expressions.ScpadLoad):
+            self.visit(node.x)
+            self.visit(node.y)
+            self.visit(node.z)
+        elif isinstance(node, expressions.ScpadStore):
+            self.visit(node.x)
+            self.visit(node.y)
+            self.visit(node.z)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 

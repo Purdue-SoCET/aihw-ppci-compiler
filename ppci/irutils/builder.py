@@ -172,6 +172,14 @@ class Builder:
         """Emit a load-weights side-effect instruction."""
         return self.emit(ir.LoadWeights(v))
 
+    def emit_scpad_load(self, x, y, z):
+        """Emit an scpad load side-effect instruction."""
+        return self.emit(ir.ScpadLoad(x, y, z))
+
+    def emit_scpad_store(self, x, y, z):
+        """Emit an scpad store side-effect instruction."""
+        return self.emit(ir.ScpadStore(x, y, z))
+
     def emit_add(self, a, b, ty):
         """Emit addition operation."""
         return self.emit_binop(a, "+", b, ty)

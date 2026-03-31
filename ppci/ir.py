@@ -1499,3 +1499,49 @@ class LoadWeights(Instruction):
 
     def __str__(self):
         return f"load_weights {self.arg.name}"
+
+
+class ScpadLoad(Instruction):
+    """Trigger a scratchpad load operation."""
+
+    x = value_use("x")
+    y = value_use("y")
+    z = value_use("z")
+
+    def __init__(self, x, y, z):
+        super().__init__()
+        if not isinstance(x.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer x operand, not {x.ty}")
+        if not isinstance(y.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer y operand, not {y.ty}")
+        if not isinstance(z.ty, IntegerTyp):
+            raise TypeError(f"scpad_load expects integer z operand, not {z.ty}")
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __str__(self):
+        return f"scpad_load {self.x.name}, {self.y.name}, {self.z.name}"
+
+
+class ScpadStore(Instruction):
+    """Trigger a scratchpad store operation."""
+
+    x = value_use("x")
+    y = value_use("y")
+    z = value_use("z")
+
+    def __init__(self, x, y, z):
+        super().__init__()
+        if not isinstance(x.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer x operand, not {x.ty}")
+        if not isinstance(y.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer y operand, not {y.ty}")
+        if not isinstance(z.ty, IntegerTyp):
+            raise TypeError(f"scpad_store expects integer z operand, not {z.ty}")
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __str__(self):
+        return f"scpad_store {self.x.name}, {self.y.name}, {self.z.name}"

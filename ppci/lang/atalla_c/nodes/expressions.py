@@ -213,6 +213,28 @@ class LoadWeights(CExpression):
 
     def __repr__(self):
         return f"LoadWeights({self.arg})"
+
+
+class ScpadLoad(CExpression):
+    def __init__(self, x, y, z, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self):
+        return f"ScpadLoad({self.x}, {self.y}, {self.z})"
+
+
+class ScpadStore(CExpression):
+    def __init__(self, x, y, z, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self):
+        return f"ScpadStore({self.x}, {self.y}, {self.z})"
     
 class VecIndex(CExpression):
     def __init__(self, base, index, typ, lvalue, location):

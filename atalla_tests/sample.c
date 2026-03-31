@@ -15,13 +15,9 @@ int main(){
     int a = 0xAAAA;
     int b = 0xBBBB;
 
-    asm("scpad_ld %0, %1, %2"
-    : 
-    : "r"(a), "r"(b), "r"(0b00101010101010));
+    scpad_load(a, b, 0b0101010101010);
 
-    asm("scpad_st %0, %1, %2"
-    : 
-    : "r"(a), "r"(b), "r"(0b00101010101010));
+    scpad_store(a, b, 0b10101010101010);
 
     asm("vreg_ld %0, %1, %2, 31, 1"
     : "=v"(v1)

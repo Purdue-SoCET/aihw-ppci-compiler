@@ -604,3 +604,13 @@ def pattern_vecidx(context, tree, vsrc):
 @isa.pattern("stm", "LOADWEIGHTS(vecreg)")
 def pattern_loadweights(context, tree, vsrc):
     context.emit(LwVi(V0, vsrc, 0, M0))
+
+
+@isa.pattern("stm", "SCPADLD(reg, reg, reg)", size=1)
+def pattern_scpadld(context, tree, rx, ry, rz):
+    context.emit(ScpadLd(rx, ry, rz))
+
+
+@isa.pattern("stm", "SCPADST(reg, reg, reg)", size=1)
+def pattern_scpadst(context, tree, rx, ry, rz):
+    context.emit(ScpadSt(rx, ry, rz))
