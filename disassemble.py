@@ -140,8 +140,8 @@ OPCODES = {
     0b1011001: ("scpad_st", "SDMA"),
 
     # Special canonical encodings used by current backend
-    0b0000000: ("nop", "S"),
-    0b1111111: ("halt", "S"),
+    0b0101111: ("nop", "S"),
+    0b0110000: ("halt", "S"),
 }
 
 def decode_one(mnemonic, fmt, insn_int, offset):
@@ -250,14 +250,14 @@ def decode_one(mnemonic, fmt, insn_int, offset):
         return f"{mnemonic:10s} m{vmd}, v{vs1}, x{rs1}, m{mask_reg}"
 
     elif fmt == "STM":
-        rd = extract_bits(insn_int, 7, 15)
-        vmd = extract_bits(insn_int, 15, 19)
-        return f"{mnemonic:10s} m{vmd}, x{rd}"
-
-    elif fmt == "MTS":
         vmd = extract_bits(insn_int, 7, 11)
         rs1 = extract_bits(insn_int, 15, 23)
-        return f"{mnemonic:10s} x{rs1}, m{vmd}"
+        return f"{mnemonic:10s} m{vmd}, x{rs1}"
+
+    elif fmt == "MTS":
+        rd = extract_bits(insn_int, 7, 15)
+        vms = extract_bits(insn_int, 15, 19)
+        return f"{mnemonic:10s} x{rd}, m{vms}"
 
     elif fmt == "VTS":
         rd = extract_bits(insn_int, 7, 15)
