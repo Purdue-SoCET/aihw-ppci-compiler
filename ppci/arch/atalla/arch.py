@@ -437,7 +437,13 @@ class AtallaArch(Architecture):
                 vd_real = ins.vd.get_real() if ins.vd.is_colored else ins.vd
                 vs1_real = ins.vs1.get_real() if ins.vs1.is_colored else ins.vs1
                 vs2_real = ins.vs2.get_real() if ins.vs2.is_colored else ins.vs2
-                if vd_real is vs1_real and vs2_real is V0:
+                mask_reg = getattr(ins, "mask_reg", None)
+                mask_real = (
+                    mask_reg.get_real()
+                    if mask_reg is not None and getattr(mask_reg, "is_colored", False)
+                    else mask_reg
+                )
+                if mask_real is M0 and vd_real is vs1_real and vs2_real is V0:
                     removed.add(ins)
                     continue  # identity move, drop instruction
             newinstructions.append(ins)
