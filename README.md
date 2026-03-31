@@ -166,7 +166,7 @@ Below is a list of what is currently not supported by the compiler, but is plann
 * Void return functions broken
 * Passing non-scalar values to functions by value, such as `vec` datatype values
 * Linking files with multiple functions in 1 file (works with -S flag)
-* Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.
+* ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: [ADD VERSION]
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
 
 ## Contributing
