@@ -614,3 +614,19 @@ def pattern_scpadld(context, tree, rx, ry, rz):
 @isa.pattern("stm", "SCPADST(reg, reg, reg)", size=1)
 def pattern_scpadst(context, tree, rx, ry, rz):
     context.emit(ScpadSt(rx, ry, rz))
+
+
+@isa.pattern("vecreg", "VLOADVEC(reg, reg, CONSTI32, CONSTI32)", size=2)
+def pattern_vload(context, tree, addr, rs2):
+    d = context.new_reg(AtallaVectorRegister)
+    num_cols = tree.children[2].value
+    sid = tree.children[3].value
+    context.emit(VregLd(d, addr, rs2, num_cols, sid))
+    return d
+
+
+@isa.pattern("stm", "VSTORE(vecreg, reg, reg, CONSTI32, CONSTI32)", size=2)
+def pattern_vstore(context, tree, vec, addr, rs2):
+    num_cols = tree.children[3].value
+    sid = tree.children[4].value
+    context.emit(VregSt(vec, addr, rs2, num_cols, sid))

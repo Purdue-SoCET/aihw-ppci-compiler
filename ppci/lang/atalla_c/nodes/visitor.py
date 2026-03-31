@@ -173,6 +173,19 @@ class Visitor:
             self.visit(node.x)
             self.visit(node.y)
             self.visit(node.z)
+        elif isinstance(node, expressions.VectorLoad):
+            self.visit(node.addr)
+            self.visit(node.arg2)
+            self.visit(node.arg3)
+            self.visit(node.arg4)
+        elif isinstance(node, expressions.VectorStore):
+            self.visit(node.vec)
+            self.visit(node.addr)
+            self.visit(node.arg2)
+            self.visit(node.arg3)
+            self.visit(node.arg4)
+        elif isinstance(node, expressions.Sqrt):
+            self.visit(node.arg)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 

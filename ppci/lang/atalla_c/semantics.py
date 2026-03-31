@@ -1030,6 +1030,53 @@ class CSemantics:
         )
         return expr
 
+    def on_vector_load(self, addr, arg2, arg3, arg4, location):
+        self.ensure_integer(addr)
+        self.ensure_integer(arg2)
+        self.ensure_integer(arg3)
+        self.ensure_integer(arg4)
+        expr = expressions.VectorLoad(
+            addr,
+            arg2,
+            arg3,
+            arg4,
+            self.vec_type,
+            False,
+            location,
+        )
+        return expr
+
+    def on_vector_store(self, vec, addr, arg2, arg3, arg4, location):
+        if not types.is_vector(vec.typ):
+            self.error(
+                f"vector_store expects vec first argument, got {type_to_str(vec.typ)}",
+                vec.location,
+            )
+        self.ensure_integer(addr)
+        self.ensure_integer(arg2)
+        self.ensure_integer(arg3)
+        self.ensure_integer(arg4)
+        expr = expressions.VectorStore(
+            vec,
+            addr,
+            arg2,
+            arg3,
+            arg4,
+            self.get_type(["void"]),
+            False,
+            location,
+        )
+        return expr
+
+    def on_sqrt(self, arg, location):
+        if not arg.typ.is_float:
+            self.error(
+                f"sqrt expects float argument, got {type_to_str(arg.typ)}",
+                arg.location,
+            )
+        expr = expressions.Sqrt(arg, self.float_type, False, location)
+        return expr
+
     def on_cast(self, to_typ, casted_expr, location):
         """Check explicit casting"""
         return expressions.Cast(casted_expr, to_typ, False, location)

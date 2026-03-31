@@ -96,6 +96,9 @@ class CParser(RecursiveDescentParser):
             "load_weights",
             "scpad_load",
             "scpad_store",
+            "vector_load",
+            "vector_store",
+            "sqrt",
             "struct",
             "union",
             "enum",
@@ -1271,6 +1274,55 @@ class CParser(RecursiveDescentParser):
             expr = self.semantics.on_scpad_store(
                 args[0], args[1], args[2], location
             )
+            self.consume(")")
+        elif self.peek == "vector_load":
+            location = self.consume("vector_load").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 4:
+                self.error(
+                    "vector_load(...) expects 4 arguments, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_vector_load(
+                args[0], args[1], args[2], args[3], location
+            )
+            self.consume(")")
+        elif self.peek == "vector_store":
+            location = self.consume("vector_store").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 5:
+                self.error(
+                    "vector_store(...) expects 5 arguments, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_vector_store(
+                args[0], args[1], args[2], args[3], args[4], location
+            )
+            self.consume(")")
+        elif self.peek == "sqrt":
+            location = self.consume("sqrt").loc
+            self.consume("(")
+            args = []
+            while self.peek != ")":
+                args.append(self.parse_assignment_expression())
+                if self.peek != ")":
+                    self.consume(",")
+            if len(args) != 1:
+                self.error(
+                    "sqrt(...) expects 1 argument, got %d" % len(args),
+                    location,
+                )
+            expr = self.semantics.on_sqrt(args[0], location)
             self.consume(")")
 
         elif self.peek == "(":

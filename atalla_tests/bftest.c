@@ -5,5 +5,7 @@ int main(){
 
     float c = a / b;
 
-    return c;
+    float d = sqrt(c);
+
+    return d;
 }

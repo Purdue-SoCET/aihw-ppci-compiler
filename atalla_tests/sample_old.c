@@ -19,18 +19,15 @@ int main(){
 
     scpad_store(a, b, 0b10101010101010);
 
-    // asm("vreg_ld %0, %1, %2, 31, 1"
-    // : "=v"(v1)
-    // : "r"(vec_addr1), "r"(1));
-    v1 = vector_load(vec_addr1, 1, 31, 1);
-
+    asm("vreg_ld %0, %1, %2, 31, 1"
+    : "=v"(v1)
+    : "r"(vec_addr1), "r"(1));
 
     vec v2;
     int vec_addr2 = 0xDEAD;
-    // asm("vreg_ld %0, %1, %2, 31, 1"
-    // : "=v"(v2)
-    // : "r"(vec_addr2), "r"(1));
-    v2 = vector_load(vec_addr2, 1, 31, 1);
+    asm("vreg_ld %0, %1, %2, 31, 1"
+    : "=v"(v2)
+    : "r"(vec_addr2), "r"(1));
 
     int m = make_mask("<", v1, v2, 0);
     // int m = 0xFAF;
@@ -45,11 +42,9 @@ int main(){
 
     // str_vec(v4, 0xABCD);
 
-    // asm("vreg_st %0, %1, %2, 31, 1"
-    // : 
-    // : "v"(v4), "r"(vec_addr1), "r"(1));
-    vector_store(v4, vec_addr1, 1, 31, 1);
-
+    asm("vreg_st %0, %1, %2, 31, 1"
+    : 
+    : "v"(v4), "r"(vec_addr1), "r"(1));
 
     return (int)elem;
 
