@@ -182,19 +182,19 @@ class AtallaMTSInstruction(Instruction):
     isa = isa
 
 def make_stm(mnemonic: str, opcode: int):
-    rd = Operand("rd", AtallaRegister, read=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
     vmd = Operand("vmd", AtallaMaskRegister, write=True)
-    syntax = Syntax([mnemonic, " ", vmd, ",", " ", rd])
-    patterns = {"opcode": opcode, "vmd": vmd, "rd": rd}
-    members = {"syntax": syntax, "vmd": vmd, "rd": rd, "patterns": patterns, "opcode": opcode}
+    syntax = Syntax([mnemonic, " ", vmd, ",", " ", rs1])
+    patterns = {"opcode": opcode, "vmd": vmd, "rs1": rs1}
+    members = {"syntax": syntax, "vmd": vmd, "rs1": rs1, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaSTMInstruction,), members)
 
 def make_mts(mnemonic: str, opcode: int):
-    rs1 = Operand("rs1", AtallaRegister, write=True)
-    vmd = Operand("vmd", AtallaMaskRegister, read=True)
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", vmd])
-    patterns = {"opcode": opcode, "rs1": rs1, "vmd": vmd}
-    members = {"syntax": syntax, "rs1": rs1, "vmd": vmd, "patterns": patterns, "opcode": opcode}
+    rd = Operand("rd", AtallaRegister, write=True)
+    vms = Operand("vms", AtallaMaskRegister, read=True)
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", vms])
+    patterns = {"opcode": opcode, "rd": rd, "vms": vms}
+    members = {"syntax": syntax, "rd": rd, "vms": vms, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaMTSInstruction,), members)
 
 MvStm = make_stm("mv_stm", 0b1001100)
