@@ -358,7 +358,7 @@ class Section(PseudoAtallaInstruction):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
 
-class Adrl(AtallaIInstruction):
+class Adrl(AtallaIInstruction): #This is wrong due to the 64 bit encoding but was fine because it was not used
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     imm12 = Operand("imm12", str)
@@ -382,6 +382,8 @@ class Labelrel(PseudoAtallaInstruction):
 
     def render(self):
         raise NotImplementedError("label bs")
+        # Should it be like auipc and lw here like risc-v?  We also don't have an auipc so cooked
+        # Okay, it should be the lui then addi here because we only have absolute addressing only difference is no lw at the end
         yield Adrurel(self.rd, self.label)
         yield Loadlrel(self.rd, self.label, self.rd)
 
@@ -682,20 +684,24 @@ def pattern_sub_i32_reg_const(context, tree, c0):
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(Ands(d, ln))
-    context.emit(Adrl(d, d, ln))
+    # The goal here is to do a lui + addi and each of those needs its own relocation class, I think I might not have one for addi
+    context.emit(Lis(d, ln)) #changed to Lis
+    # context.emit(Adrl(d, d, ln)) #Adrl is not right btw
+    # since we don't have a lui_s only a load immediate, I would be good right?  Or do we need a lui?  Because we don't have one now
+    # context.emit(Addis(d, d, ln))
     context.emit(Lws(d, 0, d))
-    return d
+    return d #For getting global variables value in reg d
 
-
+# In this one in risc-v it does an auipc then a lw, so this is for pc relative addressing?
+# I think we only have absolute addressing, unless like jal or jalr but those don't work like that
 @isa.pattern("reg", "LABEL", size=4)
 def pattern_label2(context, tree):
     d = context.new_reg(AtallaRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Labelrel(d, ln))
-    return d
-'''
+    return d # I think supposed to contain address of the global, not the value like above, weird that risc-v does a lw still though for this one
 
+'''
 @isa.pattern(
     "reg",
     "FPRELU32",
