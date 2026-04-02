@@ -1035,6 +1035,8 @@ class CSemantics:
         self.ensure_integer(arg2)
         self.ensure_integer(arg3)
         self.ensure_integer(arg4)
+        self.ensure_constant(arg3, "num_cols")
+        self.ensure_constant(arg4, "sid")
         expr = expressions.VectorLoad(
             addr,
             arg2,
@@ -1056,6 +1058,8 @@ class CSemantics:
         self.ensure_integer(arg2)
         self.ensure_integer(arg3)
         self.ensure_integer(arg4)
+        self.ensure_constant(arg3, "num_cols")
+        self.ensure_constant(arg4, "sid")
         expr = expressions.VectorStore(
             vec,
             addr,

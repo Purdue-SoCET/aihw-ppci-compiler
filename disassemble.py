@@ -40,14 +40,14 @@ OPCODES = {
     0b0001101: ("sltu_s", "R"),
     
     # BF16 R-type
-    0b0001110: ("add_bf", "R"),
-    0b0001111: ("sub_bf", "R"),
-    0b0010000: ("mul_bf", "R"),
-    0b0010001: ("rcp_bf", "R"),
-    0b0010010: ("slt_bf", "R"),
-    0b0010011: ("sqrt_bf", "R"),
-    0b0010100: ("stbf_s", "R"),
-    0b0010101: ("bfts_s", "R"),
+    0b0001110: ("bfts_s", "R"),
+    0b0001111: ("add_bf", "R"),
+    0b0010000: ("sub_bf", "R"),
+    0b0010001: ("mul_bf", "R"),
+    0b0010010: ("rcp_bf", "R"),
+    0b0010011: ("slt_bf", "R"),
+    0b0010100: ("sqrt_bf", "R"),
+    0b0010101: ("stbf_s", "R"),
     
     # I-type
     0b0010110: ("addi_s", "I"),
@@ -77,71 +77,62 @@ OPCODES = {
     0b0101010: ("sw_s", "M"),
     
     # MI-type
-    0b0101011: ("jal", "MI"),
-    0b0101100: ("jalr", "I"),
-    0b0101101: ("li_s", "MI"),
+    0b0101101: ("jal", "MI"),
+    0b0101110: ("jalr", "I"),
+    0b0101111: ("li_s", "MI"),
     
     # MI/S-type
-    0b0101110: ("lui_s", "MI"),
+    0b0110000: ("lui_s", "MI"),
 
     # Vector VV
-    0b0110010: ("add_vv", "VV"),
-    0b0110011: ("sub_vv", "VV"),
-    0b0110100: ("mul_vv", "VV"),
-    0b0110101: ("div_vv", "VV"),
+    0b0110011: ("add_vv", "VV"),
+    0b0110100: ("sub_vv", "VV"),
+    0b0110101: ("mul_vv", "VV"),
+    # 0b0110101: ("div_vv", "VV"),
     # 0b0110110: ("and_vv", "VV"),
     # 0b0110111: ("or_vv", "VV"),
-    0b0111000: ("shift_vs", "VS"),
-    0b0111001: ("gemm_vv", "VV"),
+    0b0110110: ("gemm_vv", "VV"),
 
     # Mask MVV
-    0b0111010: ("mgt_mvv", "MVV"),
-    0b0111011: ("mlt_mvv", "MVV"),
-    0b0111100: ("meq_mvv", "MVV"),
-    0b0111101: ("mneq_mvv", "MVV"),
+    0b0111100: ("mgt_mvv", "MVV"),
+    0b0111101: ("mlt_mvv", "MVV"),
+    0b0111110: ("meq_mvv", "MVV"),
+    0b0111111: ("mneq_mvv", "MVV"),
 
     # Vector VI
-    0b0111110: ("addi_vi", "VI"),
-    0b0111111: ("subi_vi", "VI"),
-    0b1000000: ("muli_vi", "VI"),
-    0b1000001: ("divi_vi", "VI"),
-    0b1000010: ("expi_vi", "VI"),
-    0b1000011: ("sqrti_vi", "VI"),
-    0b1000100: ("not_vi", "VI"),
-    0b1000101: ("shift_vi", "VI"),
-    0b1000110: ("lw_vi", "VI"),
-    0b1000111: ("rsum_vi", "VI"),
-    0b1001000: ("rmin_vi", "VI"),
-    0b1001001: ("rmax_vi", "VI"),
+    0b0110111: ("expi_vi", "VI"),
+    0b0111000: ("lw_vi", "VI"),
+    0b0111001: ("rsum_vi", "VI"),
+    0b0111010: ("rmin_vi", "VI"),
+    0b0111011: ("rmax_vi", "VI"),
 
     # Mask transfer
-    0b1001011: ("mv_mts", "MTS"),
-    0b1001100: ("mv_stm", "STM"),
+    0b1001001: ("mv_mts", "MTS"),
+    0b1001010: ("mv_stm", "STM"),
 
     # Vector memory / vector-to-scalar
-    0b1001101: ("vreg_ld", "VMEM"),
-    0b1001110: ("vreg_st", "VMEM"),
-    0b1001111: ("vmov_vts", "VTS"),
+    0b1000100: ("vreg_ld", "VMEM"),
+    0b1000101: ("vreg_st", "VMEM"),
+    0b1001000: ("vmov_vts", "VTS"),
 
     # Vector VS
-    0b1010000: ("add_vs", "VS"),
-    0b1010001: ("sub_vs", "VS"),
-    0b1010010: ("mul_vs", "VS"),
-    0b1010011: ("div_vs", "VS"),
+    0b1001011: ("add_vs", "VS"),
+    0b1001100: ("sub_vs", "VS"),
+    0b1001101: ("mul_vs", "VS"),
 
     # Mask MVS
-    0b1010100: ("mgt_mvs", "MVS"),
-    0b1010101: ("mlt_mvs", "MVS"),
-    0b1010110: ("meq_mvs", "MVS"),
-    0b1010111: ("mneq_mvs", "MVS"),
+    0b1000000: ("mgt_mvs", "MVS"),
+    0b1000001: ("mlt_mvs", "MVS"),
+    0b1000010: ("meq_mvs", "MVS"),
+    0b1000011: ("mneq_mvs", "MVS"),
 
     # SDMA
-    0b1011000: ("scpad_ld", "SDMA"),
-    0b1011001: ("scpad_st", "SDMA"),
+    0b1000110: ("scpad_ld", "SDMA"),
+    0b1000111: ("scpad_st", "SDMA"),
 
-    # Special canonical encodings used by current backend
-    0b0101111: ("nop", "S"),
-    0b0110000: ("halt", "S"),
+    # Special instructions
+    0b0110001: ("nop", "S"),
+    0b0110010: ("halt", "S"),
 }
 
 def decode_one(mnemonic, fmt, insn_int, offset):

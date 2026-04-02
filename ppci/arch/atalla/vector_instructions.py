@@ -122,9 +122,9 @@ def make_vms(mnemonic: str, opcode: int):
     return type(mnemonic.replace(".", "_"), (AtallaVMSInstruction,), members)
 
 # VV
-AddVv   = make_vv("add_vv",   0b0110010)
-SubVv   = make_vv("sub_vv",   0b0110011)
-MulVv   = make_vv("mul_vv",   0b0110100)
+AddVv   = make_vv("add_vv",   0b0110011)
+SubVv   = make_vv("sub_vv",   0b0110100)
+MulVv   = make_vv("mul_vv",   0b0110101)
 #DivVv   = make_vv("div_vv",   0b0110101)
 
 # Not in the ISA anymore:
@@ -132,13 +132,13 @@ MulVv   = make_vv("mul_vv",   0b0110100)
 # OrVv    = make_vv("or_vv",    0b0110111)
 # XorVv   = make_vv("xor_vv",   0b0111000)
 
-GemmVv  = make_vv("gemm_vv",  0b0111001)
+GemmVv  = make_vv("gemm_vv",  0b0110110)
 
 # MVV
-MgtMvv = make_vmv("mgt_mvv", 0b0111010)
-MltMvv = make_vmv("mlt_mvv", 0b0111011)
-MeqMvv = make_vmv("meq_mvv", 0b0111100)
-MneqMvv = make_vmv("mneq_mvv", 0b0111101)
+MgtMvv = make_vmv("mgt_mvv", 0b0111100)
+MltMvv = make_vmv("mlt_mvv", 0b0111101)
+MeqMvv = make_vmv("meq_mvv", 0b0111110)
+MneqMvv = make_vmv("mneq_mvv", 0b0111111)
 
 # VI
 # AddiVi  = make_vi("addi_vi",  0b0111110)
@@ -146,30 +146,30 @@ MneqMvv = make_vmv("mneq_mvv", 0b0111101)
 # MuliVi  = make_vi("muli_vi",  0b1000000)
 # DiviVi  = make_vi("divi_vi",  0b1000001)
 
-ExpiVi  = make_vi("expi_vi",  0b1000010)
+ExpiVi  = make_vi("expi_vi",  0b0110111)
 # SqrtiVi = make_vi("sqrti_vi", 0b1000011)
 # NotVi   = make_vi("not_vi",   0b1000100)
 # ShiftVi = make_vi("shift_vi", 0b1000101)
-LwVi    = make_vi("lw_vi",    0b1000110)
-RsumVi  = make_vi("rsum_vi",  0b1000111)
-RminVi  = make_vi("rmin_vi",  0b1001000)
-RmaxVi  = make_vi("rmax_vi",  0b1001001)
+LwVi    = make_vi("lw_vi",    0b0111000)
+RsumVi  = make_vi("rsum_vi",  0b0111001)
+RminVi  = make_vi("rmin_vi",  0b0111010)
+RmaxVi  = make_vi("rmax_vi",  0b0111011)
 
-AddVs   = make_vs("add_vs",   0b1010000)
-SubVs   = make_vs("sub_vs",   0b1010001)
-MulVs   = make_vs("mul_vs",   0b1010010)
+AddVs   = make_vs("add_vs",   0b1001011)
+SubVs   = make_vs("sub_vs",   0b1001100)
+MulVs   = make_vs("mul_vs",   0b1001101)
 # DivVs   = make_vs("div_vs",   0b1010011)
 # ShiftVs = make_vs("shift_vs", 0b0111000)
 
 # MVS
-MgtMvs = make_vms("mgt_mvs", 0b1010100)
-MltMvs = make_vms("mlt_mvs", 0b1010101)
-MeqMvs = make_vms("meq_mvs", 0b1010110)
-MneqMvs = make_vms("mneq_mvs", 0b1010111)
+MgtMvs = make_vms("mgt_mvs", 0b1000000)
+MltMvs = make_vms("mlt_mvs", 0b1000001)
+MeqMvs = make_vms("meq_mvs", 0b1000010)
+MneqMvs = make_vms("mneq_mvs", 0b1000011)
 
 # VM
-VregLd = make_vm("vreg_ld", 0b1001101, True)
-VregSt = make_vm("vreg_st", 0b1001110, False)
+VregLd = make_vm("vreg_ld", 0b1000100, True)
+VregSt = make_vm("vreg_st", 0b1000101, False)
 
 # ========== Mask Instructions ==========
 
@@ -197,8 +197,8 @@ def make_mts(mnemonic: str, opcode: int):
     members = {"syntax": syntax, "rd": rd, "vms": vms, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaMTSInstruction,), members)
 
-MvStm = make_stm("mv_stm", 0b1001100)
-MvMts = make_mts("mv_mts", 0b1001011)
+MvStm = make_stm("mv_stm", 0b1001010)
+MvMts = make_mts("mv_mts", 0b1001001)
 
 @isa.pattern("maskreg", "REGMASK(maskreg)", size=1)
 def pattern_maskreg(context, tree):
@@ -577,8 +577,8 @@ def make_sdma(mnemonic: str, opcode: int):
                 "rs3": rs3, "fprel": fprel}
     return type(mnemonic.replace(".", "_"), (AtallaSDMAInstruction,), members)
 
-ScpadLd = make_sdma("scpad_ld", 0b1011000)
-ScpadSt = make_sdma("scpad_st", 0b1011001)
+ScpadLd = make_sdma("scpad_ld", 0b1000110)
+ScpadSt = make_sdma("scpad_st", 0b1000111)
 
 class AtallaVTSInstruction(Instruction):
     tokens = [AtallaVTSToken]
@@ -593,7 +593,7 @@ def make_vts(mnemonic: str, opcode: int):
     members  = {"syntax": syntax, "rd": rd, "vs1": vs1, "imm8": imm8, "patterns": patterns, "opcode": opcode}
     return type(mnemonic.replace(".", "_"), (AtallaVTSInstruction,), members)
 
-VecIdx = make_vts("vmov_vts", 0b1001111)
+VecIdx = make_vts("vmov_vts", 0b1001000)
 
 @isa.pattern("reg", "VECIDXBF16(vecreg, CONSTI32)", size=2)
 def pattern_vecidx(context, tree, vsrc):
@@ -616,7 +616,8 @@ def pattern_scpadst(context, tree, rx, ry, rz):
     context.emit(ScpadSt(rx, ry, rz))
 
 
-@isa.pattern("vecreg", "VLOADVEC(reg, reg, CONSTI32, CONSTI32)", size=2)
+@isa.pattern("vecreg", "VLOADVEC(reg, reg, CONSTI32, CONSTI32)", size=2,
+             condition=lambda t: t.children[2].value in range(0, 32) and t.children[3].value in range(0, 4))
 def pattern_vload(context, tree, addr, rs2):
     d = context.new_reg(AtallaVectorRegister)
     num_cols = tree.children[2].value
@@ -625,7 +626,8 @@ def pattern_vload(context, tree, addr, rs2):
     return d
 
 
-@isa.pattern("stm", "VSTORE(vecreg, reg, reg, CONSTI32, CONSTI32)", size=2)
+@isa.pattern("stm", "VSTORE(vecreg, reg, reg, CONSTI32, CONSTI32)", size=2,
+             condition=lambda t: t.children[3].value in range(0, 32) and t.children[4].value in range(0, 4))
 def pattern_vstore(context, tree, vec, addr, rs2):
     num_cols = tree.children[3].value
     sid = tree.children[4].value
