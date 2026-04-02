@@ -1033,6 +1033,8 @@ class CSemantics:
     def on_vector_load(self, addr, arg2, arg3, arg4, location):
         self.ensure_integer(addr)
         self.ensure_integer(arg2)
+        self.ensure_integer(arg3)
+        self.ensure_integer(arg4)
         self.ensure_constant(arg3, "num_cols")
         self.ensure_constant(arg4, "sid")
         expr = expressions.VectorLoad(
@@ -1054,6 +1056,8 @@ class CSemantics:
             )
         self.ensure_integer(addr)
         self.ensure_integer(arg2)
+        self.ensure_integer(arg3)
+        self.ensure_integer(arg4)
         self.ensure_constant(arg3, "num_cols")
         self.ensure_constant(arg4, "sid")
         expr = expressions.VectorStore(

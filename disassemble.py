@@ -88,7 +88,6 @@ OPCODES = {
     0b0110011: ("add_vv", "VV"),
     0b0110100: ("sub_vv", "VV"),
     0b0110101: ("mul_vv", "VV"),
-    # 0b0110010 is unused in current ISA CSV
     # 0b0110101: ("div_vv", "VV"),
     # 0b0110110: ("and_vv", "VV"),
     # 0b0110111: ("or_vv", "VV"),
