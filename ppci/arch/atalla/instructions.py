@@ -21,6 +21,7 @@ from .relocations import (
     AtallaMI_JAL_Imm25_Relocation,
     AtallaMI_Abs_Imm25_Relocation,
     AtallaI_JALR_Imm12_Relocation,
+    AtallaI_Abs_Imm7_Relocation,
 )
 import struct
 
@@ -30,6 +31,7 @@ isa.register_relocation(AtallaBR_Imm10_Relocation)
 isa.register_relocation(AtallaMI_JAL_Imm25_Relocation)
 isa.register_relocation(AtallaMI_Abs_Imm25_Relocation)
 isa.register_relocation(AtallaI_JALR_Imm12_Relocation)
+isa.register_relocation(AtallaI_Abs_Imm7_Relocation)
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -164,8 +166,6 @@ def make_br(mnemonic, opcode):
         "imm10": imm10,
         # "incr_imm7": incr_imm7, #TODO: what is this and how to use
         "opcode": opcode,
-        "patterns": patterns,
-        "tokens" : tokens
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
     # return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
@@ -387,6 +387,46 @@ class Labelrel(PseudoAtallaInstruction):
         yield Adrurel(self.rd, self.label)
         yield Loadlrel(self.rd, self.label, self.rd)
 
+# This class is for LUI but for Labels
+class Luil(AtallaMIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    label = Operand("label", str)
+    syntax = Syntax(["lui_s", " ", rd, ",", " ", label])
+
+    def encode(self):
+        print("entered Lui encode")
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101110 # lui_s opcode
+        tokens[0][7:15] = self.rd.num
+        # imm25 will be filled in by relocation
+        # print(type(self.label))
+        # print(repr(self.label))
+        # print(hasattr(self.label, "name"))
+        return tokens[0].encode()
+
+    def relocations(self):
+        print("entered the luil relocation")
+        return [AtallaMI_Abs_Imm25_Relocation(self.label)]
+
+# This class is for ADDI but for labels in conjunction with Luil
+class Addil(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    label = Operand("label", str)
+    syntax = Syntax(["addi_s", " ", rd, ",", " ", rs1, ",", " ", label])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010110  # addi_s opcode
+        tokens[0][7:15] = self.rd.num
+        tokens[0][15:23] = self.rs1.num
+        # imm7 will be filled in by relocation
+        return tokens[0].encode()
+
+    def relocations(self):
+        print("entered the addil relocation")
+        return [AtallaI_Abs_Imm7_Relocation(self.label)]
+
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
 @isa.pattern("stm", "MOVI32(reg)", size=2)
@@ -537,7 +577,7 @@ def pattern_const_i32_large(context, tree):
 def pattern_const_i32(context, tree):
     d = context.new_reg(AtallaRegister)
     c0 = tree.value
-    context.emit(Lis(d, c0))
+    context.emit(Lis(d, c0)) #This might be out of date since Lis is a pseudoinstruction, should it be a lui and then addi?
     return d
 
 
@@ -551,7 +591,7 @@ def pattern_const_f16(context, tree):
     d = context.new_reg(AtallaRegister)
 
     # Emit the *16-bit* immediate, not a 32-bit float
-    context.emit(Lis(d, bits16))
+    context.emit(Lis(d, bits16)) # Should this be a pseudoinstruction?
 
     return d
 
@@ -678,30 +718,22 @@ def pattern_sub_i32_reg_const(context, tree, c0):
     context.emit(Subis(d, c0, c1))
     return d
 
-'''
-# TODO: configure for globals
+
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
     ln = context.frame.add_constant(tree.value)
-    # The goal here is to do a lui + addi and each of those needs its own relocation class, I think I might not have one for addi
-    context.emit(Lis(d, ln)) #changed to Lis
-    # context.emit(Adrl(d, d, ln)) #Adrl is not right btw
-    # since we don't have a lui_s only a load immediate, I would be good right?  Or do we need a lui?  Because we don't have one now
-    # context.emit(Addis(d, d, ln))
+    print("Doing Label relocations")
+    context.emit(Luil(d, ln)) # Modified Luis class for relocation
+    # Luil(d, ln)
+    # print("Finished LUI")
+    context.emit(Addil(d, d, ln)) # Modified Addis class for relocation
+    # Addil(d, d, ln)
+    # print("Finished ADDI")
     context.emit(Lws(d, 0, d))
-    return d #For getting global variables value in reg d
+    # Lws(d, 0, d)
+    return d
 
-# In this one in risc-v it does an auipc then a lw, so this is for pc relative addressing?
-# I think we only have absolute addressing, unless like jal or jalr but those don't work like that
-@isa.pattern("reg", "LABEL", size=4)
-def pattern_label2(context, tree):
-    d = context.new_reg(AtallaRegister)
-    ln = context.frame.add_constant(tree.value)
-    context.emit(Labelrel(d, ln))
-    return d # I think supposed to contain address of the global, not the value like above, weird that risc-v does a lw still though for this one
-
-'''
 @isa.pattern(
     "reg",
     "FPRELU32",
