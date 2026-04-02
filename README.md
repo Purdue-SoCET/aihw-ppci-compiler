@@ -47,8 +47,8 @@ We provide the following intrisic functions to be used by the programmer to perf
  * @param mask Mask
  * @return Vector that stores the output of the operation
  */
-vec_op_masked(char* op, vec v1, vec v2, int mask);
-vec_op_masked(char* op, vec v1, float f1, int mask);
+vec vec_op_masked(char* op, vec v1, vec v2, int mask);
+vec vec_op_masked(char* op, vec v1, float f1, int mask);
 
 
 /**
@@ -64,8 +64,49 @@ vec_op_masked(char* op, vec v1, float f1, int mask);
  * @param mask Mask
  * @return Integer that stores the created mask
  */
-make_mask(char* op, vec v1, vec v2, int mask);
-make_mask(char* op, vec v1, float f1, int mask);
+int make_mask(char* op, vec v1, vec v2, int mask);
+int make_mask(char* op, vec v1, float f1, int mask);
+
+/**
+ * @brief Load model weights
+ *
+ * This function emits the lw_vi instruction.
+ *
+ * @param v Vector operand containing load configuration
+ * @return No return value
+ */
+void load_weights(vec v);
+
+/**
+ * @brief Trigger scratchpad load operation
+ *
+ * This function emits the scpad_ld operation.
+ *
+ * @param rs1_rd1 Scratchpad Address
+ * @param rs2 DRAM Address
+ * @param rs3 Metadata to be packed: 31:30 - Scratchpad ID, 
+                                     29:25 - num rows, 
+                                     24:20 - num cols, 
+                                     19:0 - num cols in full matrix.
+ * @return No return value
+ */
+void scpad_load(int x, int y, int z);
+
+
+/**
+ * @brief Trigger scratchpad store operation
+ *
+ * This function emits the scpad_st operation.
+ *
+ * @param rs1_rd1 Scratchpad Address
+ * @param rs2 DRAM Address
+ * @param rs3 Metadata to be packed: 31:30 - Scratchpad ID, 
+                                     29:25 - num rows, 
+                                     24:20 - num cols, 
+                                     19:0 - num cols in full matrix.
+ * @return No return value
+ */
+void scpad_store(int x, int y, int z);
 
 /**
  * @brief Perform GEMM on 2 vectors
@@ -77,7 +118,43 @@ make_mask(char* op, vec v1, float f1, int mask);
  * @param mask Mask
  * @return Vector that stores the result of the GEMM
  */
-gemm(vec v1, vec v2, int mask)
+vec gemm(vec v1, vec v2, int mask);
+
+/**
+ * @brief Load a vector from scratchpad
+ *
+ * This function emits a vector load instruction and returns the loaded vector.
+ *
+ * @param addr Base address register value
+ * @param num_rows Number of rows field
+ * @param num_cols Number of columns field
+ * @param sid Scratchpad ID
+ * @return Loaded vector value
+ */
+vec vector_load(int addr, int num_rows, int num_cols, int sid);
+
+/**
+ * @brief Store a vector to scratchpad
+ *
+ * This function emits a vector store instruction.
+ *
+ * @param v Vector to store
+ * @param addr Base address register value
+ * @param num_rows Number of rows field
+ * @param num_cols Number of columns field
+ * @param sid Scratchpad ID
+ */
+void vector_store(vec v, int addr, int num_rows, int num_cols, int sid);
+
+/**
+ * @brief Compute scalar square root on bf16 float
+ *
+ * This function emits the scalar sqrt_bf instruction.
+ *
+ * @param x Float input value
+ * @return Float square root result
+ */
+float sqrt(float x);
 ```
 
 ## Current limitations
@@ -86,10 +163,11 @@ Below is a list of what is currently not supported by the compiler, but is plann
 
 * Global variables
 * Function inlining
-* Void return functions broken
+* ~~Void return functions broken~~ FIXED in release: v0.9.1
 * Passing non-scalar values to functions by value, such as `vec` datatype values
+    * **Workaround**: pass vectors by address, not by value
 * Linking files with multiple functions in 1 file (works with -S flag)
-* Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.
+* ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: v0.9.1
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
 
 ## Contributing

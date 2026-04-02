@@ -168,6 +168,30 @@ class Builder:
         """Emit a make mask instruction."""
         return self.emit(ir.MakeMask(op, a, b, mask, "tmp_make_mask", ty))
 
+    def emit_load_weights(self, v):
+        """Emit a load-weights side-effect instruction."""
+        return self.emit(ir.LoadWeights(v))
+
+    def emit_scpad_load(self, x, y, z):
+        """Emit an scpad load side-effect instruction."""
+        return self.emit(ir.ScpadLoad(x, y, z))
+
+    def emit_scpad_store(self, x, y, z):
+        """Emit an scpad store side-effect instruction."""
+        return self.emit(ir.ScpadStore(x, y, z))
+
+    def emit_vector_load(self, addr, arg2, arg3, arg4, ty):
+        """Emit a vector load instruction."""
+        return self.emit(ir.VectorLoad(addr, arg2, arg3, arg4, "tmp_vload", ty))
+
+    def emit_vector_store(self, vec, addr, arg2, arg3, arg4):
+        """Emit a vector store side-effect instruction."""
+        return self.emit(ir.VectorStore(vec, addr, arg2, arg3, arg4))
+
+    def emit_sqrt_bf(self, a, ty):
+        """Emit a scalar bf16 sqrt instruction."""
+        return self.emit(ir.SqrtBf(a, "tmp_sqrt_bf", ty))
+
     def emit_add(self, a, b, ty):
         """Emit addition operation."""
         return self.emit_binop(a, "+", b, ty)

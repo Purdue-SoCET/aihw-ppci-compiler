@@ -204,6 +204,77 @@ class MakeMask(CExpression):
         self.mask = mask
     def __repr__(self):
         return f"MakeMask({self.op}, {self.arg1}, {self.arg2}, {self.mask})"
+
+
+class LoadWeights(CExpression):
+    def __init__(self, arg, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.arg = arg
+
+    def __repr__(self):
+        return f"LoadWeights({self.arg})"
+
+
+class ScpadLoad(CExpression):
+    def __init__(self, x, y, z, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self):
+        return f"ScpadLoad({self.x}, {self.y}, {self.z})"
+
+
+class ScpadStore(CExpression):
+    def __init__(self, x, y, z, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self):
+        return f"ScpadStore({self.x}, {self.y}, {self.z})"
+
+
+class VectorLoad(CExpression):
+    def __init__(self, addr, arg2, arg3, arg4, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.addr = addr
+        self.arg2 = arg2
+        self.arg3 = arg3
+        self.arg4 = arg4
+
+    def __repr__(self):
+        return (
+            f"VectorLoad({self.addr}, {self.arg2}, "
+            f"{self.arg3}, {self.arg4})"
+        )
+
+
+class VectorStore(CExpression):
+    def __init__(self, vec, addr, arg2, arg3, arg4, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.vec = vec
+        self.addr = addr
+        self.arg2 = arg2
+        self.arg3 = arg3
+        self.arg4 = arg4
+
+    def __repr__(self):
+        return (
+            f"VectorStore({self.vec}, {self.addr}, {self.arg2}, "
+            f"{self.arg3}, {self.arg4})"
+        )
+
+
+class Sqrt(CExpression):
+    def __init__(self, arg, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.arg = arg
+
+    def __repr__(self):
+        return f"Sqrt({self.arg})"
     
 class VecIndex(CExpression):
     def __init__(self, base, index, typ, lvalue, location):

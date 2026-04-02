@@ -80,14 +80,14 @@ Sras = make_r("sra_s", 0b0001011)
 
 #BF16 R-types:
 
-AddBf = make_r("add_bf", 0b0001110)
-SubBf = make_r("sub_bf", 0b0001111)
-MulBf = make_r("mul_bf", 0b0010000)
-RcpBf = make_r("rcp_bf", 0b0010001)
-SltBf = make_r("slt_bf", 0b0010010)
-SqrtBf = make_r("sqrt_bf", 0b0010011) # TODO: add pattern
-StbfS = make_r("stbf_s", 0b0010100)
-BftsS = make_r("bfts_s", 0b0010101)
+AddBf = make_r("add_bf", 0b0001111)
+SubBf = make_r("sub_bf", 0b0010000)
+MulBf = make_r("mul_bf", 0b0010001)
+RcpBf = make_r("rcp_bf", 0b0010010)
+SltBf = make_r("slt_bf", 0b0010011)
+SqrtBf = make_r("sqrt_bf", 0b0010100) # TODO: add pattern
+StbfS = make_r("stbf_s", 0b0010101)
+BftsS = make_r("bfts_s", 0b0001110)
 class AtallaIInstruction(Instruction):
     tokens = [AtallaIToken]
     isa = isa
@@ -263,8 +263,8 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101101) # TODO: make pseudo
-Luis = make_mi("lui_s", 0b0101110)
+Lis = make_mi("li_s", 0b0101111) # TODO: make pseudo
+Luis = make_mi("lui_s", 0b0110000)
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -292,7 +292,7 @@ class Jal(AtallaMIInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101011 #changed this to the jal opcode
+        tokens[0][0:7] = 0b0101101 #changed this to the jal opcode
         tokens[0][7:15] = self.rd.num
         return tokens[0].encode()
 
@@ -307,13 +307,13 @@ class Jalr(AtallaIInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101100 #changed this to the jalr opcode
+        tokens[0][0:7] = 0b0101110 #changed this to the jalr opcode
         tokens[0][7:15] = self.rd.num
         tokens[0][15:23] = self.rs1.num
         return tokens[0].encode()
 
-Halt = make_nop("halt", 0b1111111)
-Nop = make_nop("nop", 0x00000000)
+Halt = make_nop("halt", 0b0110010)
+Nop = make_nop("nop", 0b0110001)
 
 # Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
@@ -1398,6 +1398,13 @@ def pattern_sub_f16(context, tree, c0, c1):
 def pattern_mul_f16(context, tree, c0, c1):
     d = context.new_reg(AtallaRegister)
     context.emit(MulBf(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "SQRTBF16(reg)", size=20)
+def pattern_sqrt_f16(context, tree, c0):
+    d = context.new_reg(AtallaRegister)
+    context.emit(SqrtBf(d, c0, R0))
     return d
 
 

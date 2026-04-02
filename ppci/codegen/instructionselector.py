@@ -119,6 +119,7 @@ ops = [
     "RSUM",
     "VECIDX",
     "MASKTO",
+    "VLOAD",
 ]
 
 # Add all possible terminals:
@@ -127,6 +128,10 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "CALL",
     "LABEL",
     "MOVB",  # Attempts at blob data copies
+    "LOADWEIGHTS",
+    "SCPADLD",
+    "SCPADST",
+    "VSTORE",
     "JMP",
     "EXIT",
     "ENTRY",

@@ -152,6 +152,7 @@ from .registers import (
     #register_classes_hwfp,
     register_classes_swfp,
 )
+from ppci.arch.atalla import vector_instructions
 
 # I am only adding in scalar operation so anything that requires
 # memory such as the functions in the normal riscv arch file will
@@ -432,6 +433,19 @@ class AtallaArch(Architecture):
                 if rd_real is rs1_real or rd_real == rs1_real:
                     removed.add(ins)
                     continue  # identity move, drop instruction
+            elif isinstance(ins, vector_instructions.AddVv):
+                vd_real = ins.vd.get_real() if ins.vd.is_colored else ins.vd
+                vs1_real = ins.vs1.get_real() if ins.vs1.is_colored else ins.vs1
+                vs2_real = ins.vs2.get_real() if ins.vs2.is_colored else ins.vs2
+                mask_reg = getattr(ins, "mask_reg", None)
+                mask_real = (
+                    mask_reg.get_real()
+                    if mask_reg is not None and getattr(mask_reg, "is_colored", False)
+                    else mask_reg
+                )
+                if mask_real is M0 and vd_real is vs1_real and vs2_real is V0:
+                    removed.add(ins)
+                    continue  # identity move, drop instruction
             newinstructions.append(ins)
         # Atalla emits from frame.buckets_by_block, so drop removed instructions there too
         if removed and getattr(frame, "buckets_by_block", None):
@@ -515,7 +529,7 @@ class AtallaArch(Architecture):
 
     def gen_function_exit(self, rv):
         live_out = set()
-        if rv[1]:
+        if rv and rv[1]:
             retval_loc = self.determine_rv_location(rv[0])
             yield self.move(retval_loc, rv[1])
             live_out.add(retval_loc)
