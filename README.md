@@ -94,9 +94,9 @@ void scpad_load(int x, int y, int z);
 
 
 /**
- * @brief Trigger scratchpad load operation
+ * @brief Trigger scratchpad store operation
  *
- * This function emits the scpad_ld operation.
+ * This function emits the scpad_st operation.
  *
  * @param rs1_rd1 Scratchpad Address
  * @param rs2 DRAM Address
@@ -144,7 +144,7 @@ vec vector_load(int addr, int num_rows, int num_cols, int sid);
  * @param num_cols Number of columns field
  * @param sid Scratchpad ID
  */
-void vector_store(vec v, int addr, int arg2, int num_cols, int sid);
+void vector_store(vec v, int addr, int num_rows, int num_cols, int sid);
 
 /**
  * @brief Compute scalar square root on bf16 float
@@ -163,11 +163,11 @@ Below is a list of what is currently not supported by the compiler, but is plann
 
 * Global variables
 * Function inlining
-* ~~Void return functions broken~~
+* ~~Void return functions broken~~ FIXED in release: v0.9.1
 * Passing non-scalar values to functions by value, such as `vec` datatype values
     * **Workaround**: pass vectors by address, not by value
 * Linking files with multiple functions in 1 file (works with -S flag)
-* ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: [ADD VERSION]
+* ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: v0.9.1
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
 
 ## Contributing

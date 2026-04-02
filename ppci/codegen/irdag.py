@@ -323,6 +323,7 @@ class SelectionGraphBuilder:
         sgnode = self.new_node("VLOAD", node.ty, addr, arg2, arg3, arg4)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
+        self.chain(sgnode)
 
     def do_vector_store(self, node):
         vec = self.get_value(node.vec)
