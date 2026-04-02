@@ -255,6 +255,7 @@ class TreeSelector:
         rule_f = self.sys.get_rule(rule).template
         context.tree = tree
         res = rule_f(context, tree, *results)
+        # print(context.frame.instructions)
         context.tree = None
         return res
 

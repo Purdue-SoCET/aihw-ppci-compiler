@@ -7,3 +7,11 @@ int instruct_tests(int a, int b) {
 
     return h + 3;
 }
+
+int main() {
+    int a = 2;
+    int b = 3;
+    int c = 0;
+    c = instruct_tests(a, b);
+    return 0;
+}
