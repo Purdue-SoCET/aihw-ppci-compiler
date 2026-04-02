@@ -1,5 +1,5 @@
 extern int helper(int);
-
+int hi;
 int instruct_tests(int a, int b) {
     int r = a + b;
 
@@ -9,6 +9,8 @@ int instruct_tests(int a, int b) {
 }
 
 int main() {
+    hi = 2;
+    hi--;
     int a = 2;
     int b = 3;
     int c = 0;
