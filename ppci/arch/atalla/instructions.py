@@ -394,18 +394,13 @@ class Luil(AtallaMIInstruction):
     syntax = Syntax(["lui_s", " ", rd, ",", " ", label])
 
     def encode(self):
-        print("entered Lui encode")
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101110 # lui_s opcode
         tokens[0][7:15] = self.rd.num
         # imm25 will be filled in by relocation
-        # print(type(self.label))
-        # print(repr(self.label))
-        # print(hasattr(self.label, "name"))
         return tokens[0].encode()
 
     def relocations(self):
-        print("entered the luil relocation")
         return [AtallaMI_Abs_Imm25_Relocation(self.label)]
 
 # This class is for ADDI but for labels in conjunction with Luil
@@ -722,16 +717,10 @@ def pattern_sub_i32_reg_const(context, tree, c0):
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
-    ln = context.frame.add_constant(tree.value)
-    print("Doing Label relocations")
+    ln = tree.value
     context.emit(Luil(d, ln)) # Modified Luis class for relocation
-    # Luil(d, ln)
-    # print("Finished LUI")
     context.emit(Addil(d, d, ln)) # Modified Addis class for relocation
-    # Addil(d, d, ln)
-    # print("Finished ADDI")
     context.emit(Lws(d, 0, d))
-    # Lws(d, 0, d)
     return d
 
 @isa.pattern(
