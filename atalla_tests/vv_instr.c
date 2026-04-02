@@ -2,16 +2,12 @@ int main(){
     vec v1;
     int vec_addr1 = 0xABCD;
 
-    asm("vreg_ld %0, %1, 0, 0, 0, 0, 0"
-    : "=v"(v1)
-    : "r"(vec_addr1));
+    v1 = vector_load(vec_addr1, 1, 31, 1);
 
     vec v2;
     int vec_addr2 = 0xDEAD;
 
-    asm("vreg_ld %0, %1, 0, 0, 0, 0, 0"
-    : "=v"(v2)
-    : "r"(vec_addr2));
+    v2 = vector_load(vec_addr2, 1, 31, 1);
 
     vec v3 = v1 + v2;
     vec v4 = v3 - v2;
@@ -25,9 +21,7 @@ int main(){
 
     int store_addr = 0xAAAA;
 
-    asm("vreg_st %0, %1, 0, 0, 0, 0, 0"
-    : 
-    : "v"(v10), "r"(store_addr));
+    vector_store(v10, store_addr, 1, 31, 1);
 
     return 0;
 }
