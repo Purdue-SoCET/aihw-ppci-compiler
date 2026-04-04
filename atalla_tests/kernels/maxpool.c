@@ -7,6 +7,8 @@
 #define POOL      2
 #define IN_CH_BYTES   (8 * 8 * 2)
 #define OUT_CH_BYTES  (4 * 8 * 2)
+/* 8 active columns: use 0xFF not -1 so lanes 8..31 stay out of compare/add. */
+#define LANE_MASK  255
 
 int main() {
     int cfg = CFG_BASE;
@@ -16,8 +18,7 @@ int main() {
     asm("lw_s %0, 4(%1)" : "=r"(OUT_BASE) : "r"(cfg));
 
     int sp = 0;
-    int all_mask = -1;
-    int ncols = 1;
+    int lane_mask = LANE_MASK;
 
     int sdma_in;
     asm("li_s %0, 242221063" : "=r"(sdma_in));
@@ -25,8 +26,8 @@ int main() {
     int sdma_out;
     asm("li_s %0, 108003335" : "=r"(sdma_out));
 
-    vec zero_vec = vector_load(0, ncols, 7, 0);
-    zero_vec = vec_op_masked("*", zero_vec, 0.0, all_mask);
+    vec zero_vec = vector_load(0, 0, WIDTH_M1, 0);
+    zero_vec = vec_op_masked("*", zero_vec, 0.0, lane_mask);
 
     int ch = 0;
     while (ch < CHANNELS) {
@@ -39,14 +40,15 @@ int main() {
         while (oh < H_OUT) {
             int in_row = oh * STRIDE;
 
-            vec best = vector_load(in_row, ncols, 7, 0);
+            vec best = vector_load(0, in_row, WIDTH_M1, 0);
 
             int r1 = in_row + 1;
-            vec v1 = vector_load(r1, ncols, 7, 0);
-            int gt1 = make_mask(">", v1, best, all_mask);
+            vec v1 = vector_load(0, r1, WIDTH_M1, 0);
+            /* True max needs vd=best on masked add; if cos vs NumPy drops, fix codegen or use rmax path. */
+            int gt1 = make_mask(">", v1, best, lane_mask);
             best = vec_op_masked("+", v1, zero_vec, gt1);
 
-            vector_store(best, oh, ncols, 7, 0);
+            vector_store(best, 0, oh, WIDTH_M1, 0);
             oh = oh + 1;
         }
 

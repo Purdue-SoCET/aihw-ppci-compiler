@@ -13,23 +13,23 @@ int main() {
 
     int sp = 0;
     int all_mask = ALL_MASK;
-    int ncols = 1;
     int sdma_ctl;
     asm("li_s %0, 133169183" : "=r"(sdma_ctl));
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
-    vec zero_vec = vector_load(0, ncols, 31, 0);
+    /* vector_load(scpad_base, row, num_cols_m1, sid) */
+    vec zero_vec = vector_load(0, 0, WIDTH_M1, 0);
     zero_vec = vec_op_masked("*", zero_vec, 0.0, all_mask);
 
     int row = 0;
     while (row < ROWS) {
-        vec v = vector_load(row, ncols, 31, 0);
+        vec v = vector_load(0, row, WIDTH_M1, 0);
 
         int m_neg = make_mask("<", v, zero_vec, all_mask);
         vec result = vec_op_masked("*", v, 0.0, m_neg);
 
-        vector_store(result, row, ncols, 31, 0);
+        vector_store(result, 0, row, WIDTH_M1, 0);
         row = row + 1;
     }
 

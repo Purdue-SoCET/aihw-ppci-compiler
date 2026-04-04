@@ -20,17 +20,16 @@ int main() {
 
     int sp = 0;
     int mask_val = MASK_ALL;
-    int ncols = 1;
     int sdma_ctl;
     asm("li_s %0, 133169183" : "=r"(sdma_ctl));
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
     int row0 = 0; int row1 = 1; int row2 = 2; int row3 = 3;
-    vec r0 = vector_load(row0, ncols, 31, 0);
-    vec r1 = vector_load(row1, ncols, 31, 0);
-    vec r2 = vector_load(row2, ncols, 31, 0);
-    vec r3 = vector_load(row3, ncols, 31, 0);
+    vec r0 = vector_load(0, row0, 31, 0);
+    vec r1 = vector_load(0, row1, 31, 0);
+    vec r2 = vector_load(0, row2, 31, 0);
+    vec r3 = vector_load(0, row3, 31, 0);
 
     vec acc = vec_op_masked("RSUM", r0, 0.0, mask_val);
     vec tmp = vec_op_masked("RSUM", r1, 0.0, mask_val);
@@ -66,13 +65,13 @@ int main() {
     float inv_denom = one / denom_f;
 
     vec out = vec_op_masked("*", c0, inv_denom, mask_val);
-    vector_store(out, row0, ncols, 31, 0);
+    vector_store(out, 0, row0, 31, 0);
     out = vec_op_masked("*", c1, inv_denom, mask_val);
-    vector_store(out, row1, ncols, 31, 0);
+    vector_store(out, 0, row1, 31, 0);
     out = vec_op_masked("*", c2, inv_denom, mask_val);
-    vector_store(out, row2, ncols, 31, 0);
+    vector_store(out, 0, row2, 31, 0);
     out = vec_op_masked("*", c3, inv_denom, mask_val);
-    vector_store(out, row3, ncols, 31, 0);
+    vector_store(out, 0, row3, 31, 0);
 
     scpad_store(sp, IN_GMEM, sdma_ctl);
 

@@ -13,7 +13,6 @@ int main() {
 
     int sp = 0;
     int all_mask = ALL_MASK;
-    int ncols = 1;
 
     int sdma_ctl_sp0;
     asm("li_s %0, 133169183" : "=r"(sdma_ctl_sp0));
@@ -25,10 +24,10 @@ int main() {
 
     int row = 0;
     while (row < ROWS) {
-        vec a = vector_load(row, ncols, 31, 0);
-        vec b = vector_load(row, ncols, 31, 1);
+        vec a = vector_load(0, row, 31, 0);
+        vec b = vector_load(0, row, 31, 1);
         vec c = vec_op_masked("+", a, b, all_mask);
-        vector_store(c, row, ncols, 31, 0);
+        vector_store(c, 0, row, 31, 0);
         row = row + 1;
     }
 

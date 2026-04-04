@@ -510,7 +510,8 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
 def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    # imm8 bit6=1 broadcasts reduction to all lanes (functional_sim apply_imm_vector_op)
+    imm = 64
     ctx.emit(RsumVi(d, vsrc, imm, mask))
     return d
 
@@ -518,7 +519,7 @@ def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
 def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    imm = 64
     ctx.emit(RminVi(d, vsrc, imm, mask))
     return d
 
@@ -526,7 +527,7 @@ def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
 def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    imm = 64
     ctx.emit(RmaxVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------

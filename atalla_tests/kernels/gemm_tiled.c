@@ -21,7 +21,6 @@ int main() {
 
     int all_mask = -1;
     int sp_base = 0;
-    int ncols = 1;
     int sdma_ctl_sp0;
     asm("li_s %0, 103809027" : "=r"(sdma_ctl_sp0));
     int sdma_ctl_sp1;
@@ -51,7 +50,7 @@ int main() {
 
                 int wi = 0;
                 while (wi < TILE) {
-                    vec wvec = vector_load(wi, ncols, 3, 0);
+                    vec wvec = vector_load(0, wi, TILE_M1, 0);
                     load_weights(wvec);
                     wi = wi + 1;
                 }
@@ -60,12 +59,12 @@ int main() {
 
                 int ri = 0;
                 while (ri < TILE) {
-                    vec a_row = vector_load(ri, ncols, 3, 0);
-                    vec c_row = vector_load(ri, ncols, 3, 1);
+                    vec a_row = vector_load(0, ri, TILE_M1, 0);
+                    vec c_row = vector_load(0, ri, TILE_M1, 1);
 
                     vec result = gemm(a_row, c_row, all_mask);
 
-                    vector_store(result, ri, ncols, 3, 1);
+                    vector_store(result, 0, ri, TILE_M1, 1);
                     ri = ri + 1;
                 }
 

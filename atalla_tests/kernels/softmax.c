@@ -13,7 +13,6 @@ int main() {
 
     int sp = 0;
     int mask_val = MASK_VAL;
-    int ncols = 1;
     int sdma_ctl;
     asm("li_s %0, 32505887" : "=r"(sdma_ctl));
 
@@ -21,7 +20,7 @@ int main() {
 
     int row = 0;
     while (row < ROWS) {
-        vec v = vector_load(row, ncols, 31, 0);
+        vec v = vector_load(0, row, WIDTH_M1, 0);
 
         vec vmax = vec_op_masked("RMAX", v, 0.0, mask_val);
         vec shifted = vec_op_masked("-", v, vmax, mask_val);
@@ -35,7 +34,7 @@ int main() {
 
         vec result = vec_op_masked("*", exp_v, inv_sum, mask_val);
 
-        vector_store(result, row, ncols, 31, 0);
+        vector_store(result, 0, row, WIDTH_M1, 0);
         row = row + 1;
     }
 
