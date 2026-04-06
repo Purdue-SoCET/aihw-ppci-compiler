@@ -38,10 +38,11 @@ class CodeGenerator:
 
     logger = logging.getLogger("codegen")
 
-    def __init__(self, arch, reporter, optimize_for="size"):
+    def __init__(self, arch, reporter, optimize_for="size", packetize=False):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.reporter = reporter
+        self.packetize = packetize
         self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch)
         weights_map = {
@@ -195,7 +196,7 @@ class CodeGenerator:
         )
         peep_hole_stream = PeepHoleStream(output_stream)
 
-        if self.arch.name == "atalla":
+        if self.arch.name == "atalla" and self.packetize:
             # Collect ALL instructions (prologue + body + epilogue + exit) into
             # a staging list so the packetizer sees the full hazard picture.
             staging = []
