@@ -1,0 +1,81 @@
+       .section data
+       .section data
+       .section code
+       global add
+       type add func
+ add:
+       addi_s x2, x2, -32
+       addi_s x10, x12, 0
+       addi_s x9, x13, 0
+       nop
+       sw_s x1, 4(x2)
+       addi_s x8, x2, 8
+       nop
+       nop
+       sw_s x8, 0(x2)
+       nop
+       nop
+       nop
+       addi_s x2, x2, -16
+       nop
+       nop
+       nop
+ add_block0:
+       jal x0, add_block1
+       nop
+       nop
+       nop
+ add_block1:
+       sw_s x10, 20(x8)
+       nop
+       nop
+       nop
+       sw_s x9, 16(x8)
+       nop
+       nop
+       nop
+       lw_s x9, 20(x8)
+       nop
+       nop
+       nop
+       addi_s x10, x9, 0
+       nop
+       nop
+       nop
+       lw_s x9, 16(x8)
+       nop
+       nop
+       nop
+       add_s x9, x10, x9
+       nop
+       nop
+       nop
+       jal x0, add_epilog
+       nop
+       nop
+       nop
+ add_epilog:
+       addi_s x10, x9, 0
+       addi_s x2, x2, 16
+       nop
+       nop
+       lw_s x1, 4(x2)
+       nop
+       nop
+       nop
+       lw_s x8, 0(x2)
+       nop
+       nop
+       nop
+       addi_s x2, x2, 32
+       nop
+       nop
+       nop
+       jalr x0,x1, 0
+       nop
+       nop
+       nop
+       .section data
+       .section code
+       .align 4
+       nop
