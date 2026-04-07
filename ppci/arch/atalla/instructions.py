@@ -24,6 +24,12 @@ from .relocations import (
 )
 import struct
 
+
+def isinsrange(bits, val) -> bool:
+    msb = 1 << (bits - 1)
+    ll = -msb
+    return bool(val <= (msb - 1) and (val >= ll)) #exists elsewhere(arch.py) but likes to cause issues so including it here to be safe
+
 isa = Isa()
 
 isa.register_relocation(AtallaBR_Imm10_Relocation)
@@ -226,9 +232,13 @@ def make_m_store(mnemonic, opcode):
 Lws = make_m_load("lw_s", 0b0101001)   # WAS: 0b0011111
 Sws = make_m_store("sw_s", 0b0101010)  # WAS: 0b0100000
 
+class PseudoAtallaInstruction(ArtificialInstruction):
+    isa = isa
+    pass
 class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
+
 
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -252,6 +262,19 @@ def make_mi(mnemonic, opcode):
 
 
 Lis = make_mi("li_s", 0b0101101)
+
+class Li(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["li", " ", rd, ",", " ", imm])
+
+    def render(self):
+        if isinsrange(25, self.imm):
+            yield Lis(self.rd, self.imm)
+        else:
+            yield Lis(self.rd, self.imm >> 7)
+            lower_bits = self.imm & 0x7F
+            yield Addis(self.rd, self.rd, lower_bits)
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -324,9 +347,7 @@ def dcd(v):
 #     def relocations(self):
 #         return [AbsAddr32Relocation(self.v)]
 
-class PseudoAtallaInstruction(ArtificialInstruction):
-    isa = isa
-    pass
+
 class Align(PseudoAtallaInstruction):
     imm = Operand("imm", int)
     syntax = Syntax([".", "align", " ", imm])
@@ -512,7 +533,7 @@ def pattern_32_to_8_16(context, tree, c0):
 def pattern_const_i32(context, tree):
     d = context.new_reg(AtallaRegister)
     c0 = tree.value
-    context.emit(Lis(d, c0))
+    context.emit(Li(d, c0)) #erm
     return d
 
 
