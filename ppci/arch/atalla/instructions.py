@@ -261,7 +261,7 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101101)
+Lui = make_mi("lui", 0b0101101)
 
 class Li(PseudoAtallaInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -269,10 +269,10 @@ class Li(PseudoAtallaInstruction):
     syntax = Syntax(["li", " ", rd, ",", " ", imm])
 
     def render(self):
-        if isinsrange(25, self.imm):
-            yield Lis(self.rd, self.imm)
+        if isinsrange(12, self.imm):
+            yield Addis(self.rd, R0, self.imm)
         else:
-            yield Lis(self.rd, self.imm >> 7)
+            yield Lui(self.rd, self.imm >> 7)
             lower_bits = self.imm & 0x7F
             yield Addis(self.rd, self.rd, lower_bits)
 
