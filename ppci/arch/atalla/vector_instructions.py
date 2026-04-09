@@ -217,7 +217,12 @@ def pattern_masktoi32(context, tree, c0):
 
 @isa.pattern("maskreg", "MVSTMMASK(reg)", size=2)
 def pattern_mvstmmask(context, tree, rs1):
-    d = context.new_reg(AtallaMaskRegister)
+    # Selection DAG stores the mask vreg on the MVSTM node (irdag.prepare_mask).
+    # Reuse it so mv_stm defines the same virtual register consumers use; allocating
+    # a fresh reg here left an orphan vreg and could mis-color mask vs masked ops.
+    d = getattr(tree, "value", None)
+    if d is None:
+        d = context.new_reg(AtallaMaskRegister)
     context.emit(MvStm(d, rs1))
     return d
 
