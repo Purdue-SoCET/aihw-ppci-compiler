@@ -47,8 +47,16 @@ class AtallaVMSInstruction(Instruction):
     isa = isa
 
 
-def make_vv(mnemonic: str, opcode: int):
-    vd  = Operand("vd",  AtallaVectorRegister, write=True)
+def make_vv(mnemonic: str, opcode: int, *, vd_reads_old: bool = False):
+    """Masked ``add_vv`` / ``sub_vv`` / ``mul_vv`` merge inactive lanes from prior
+    ``vd``; model that read for liveness when ``vd_reads_old`` is True. ``gemm_vv``
+    does not use this merge path."""
+    vd = Operand(
+        "vd",
+        AtallaVectorRegister,
+        read=vd_reads_old,
+        write=True,
+    )
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister, read=True)
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
@@ -122,7 +130,7 @@ def make_vms(mnemonic: str, opcode: int):
     return type(mnemonic.replace(".", "_"), (AtallaVMSInstruction,), members)
 
 # VV
-AddVv   = make_vv("add_vv",   0b0110011)
+AddVv   = make_vv("add_vv",   0b0110011, vd_reads_old=True)
 SubVv   = make_vv("sub_vv",   0b0110100)
 MulVv   = make_vv("mul_vv",   0b0110101)
 #DivVv   = make_vv("div_vv",   0b0110101)
@@ -217,7 +225,9 @@ def pattern_masktoi32(context, tree, c0):
 
 @isa.pattern("maskreg", "MVSTMMASK(reg)", size=2)
 def pattern_mvstmmask(context, tree, rs1):
-    d = context.new_reg(AtallaMaskRegister)
+    d = getattr(tree, "value", None)
+    if d is None:
+        d = context.new_reg(AtallaMaskRegister)
     context.emit(MvStm(d, rs1))
     return d
 
@@ -343,7 +353,7 @@ def pattern_reg(context, tree):
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_add_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
+    d = tree.value if tree.value is not None else _new_v(ctx)
     ctx.emit(AddVv(d, v0, v1, mask))
     return d
 

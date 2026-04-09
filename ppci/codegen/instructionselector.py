@@ -167,6 +167,8 @@ class InstructionContext(ContextInterface):
 
     def move(self, dst, src):
         """Generate move"""
+        if dst is src:
+            return
         self.emit(self.arch.move(dst, src))
 
     def emit(self, instruction):

@@ -44,9 +44,8 @@ int main() {
 
             int r1 = in_row + 1;
             vec v1 = vector_load(0, r1, WIDTH_M1, 0);
-            /* True max needs vd=best on masked add; if cos vs NumPy drops, fix codegen or use rmax path. */
             int gt1 = make_mask(">", v1, best, lane_mask);
-            best = vec_op_masked("+", v1, zero_vec, gt1);
+            best = vec_op_masked("+", zero_vec, v1, gt1);
 
             vector_store(best, 0, oh, WIDTH_M1, 0);
             oh = oh + 1;

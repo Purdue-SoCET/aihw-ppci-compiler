@@ -1329,6 +1329,25 @@ class CCodeGenerator:
                 self.gen_copy_struct(lhs, rhs, amount)
                 value = None
             else:
+                if (
+                    expr.op == "="
+                    and isinstance(expr.b, expressions.VecOpMasked)
+                    and expr.b.op == "+"
+                ):
+                    ir_typ = self.get_ir_type(expr.typ)
+                    if isinstance(ir_typ, ir.VectorTyp):
+                        lhs = self.gen_expr(expr.a, rvalue=False)
+                        loaded = self._load_value(lhs, expr.typ)
+                        vm = expr.b
+                        arg1 = self.gen_expr(vm.arg1, rvalue=True)
+                        arg2 = self.gen_expr(vm.arg2, rvalue=True)
+                        mask = self.gen_expr(vm.mask, rvalue=True)
+                        value = self.builder.emit_vec_op_masked(
+                            vm.op, arg1, arg2, mask, ir_typ, merge_base=loaded
+                        )
+                        self._store_value(value, lhs)
+                        return value
+
                 lhs = self.gen_expr(expr.a, rvalue=False)
                 rhs = self.gen_expr(expr.b, rvalue=True)
 
