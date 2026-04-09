@@ -149,7 +149,7 @@ def _match_gemm() -> MatchResult:
     gemm() calls, and three nested tile loops."""
     from kernels.gemm import gemm_c
     gen = gemm_c(M=4, N=4, K=4)
-    ref = (SCRIPT_DIR / "gemm_tiled.c").read_text()
+    ref = (SCRIPT_DIR / "gemm_tiled_baseline.c").read_text()
 
     gen_builtins = extract_builtins(gen)
     ref_builtins = extract_builtins(ref)

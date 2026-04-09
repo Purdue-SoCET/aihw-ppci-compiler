@@ -2,6 +2,7 @@
 #define TILE      4
 #define TILE_M1   3
 
+/* Tiled GEMM: baseline — rolled loops, no K-tile W prefetch. */
 int main() {
     int cfg = CFG_BASE;
     int A_GMEM; int W_GMEM; int C_GMEM;
@@ -31,20 +32,17 @@ int main() {
         int ni = 0;
         while (ni < N_tiles) {
             int c_off = mi * tile_sz * gN + ni * tile_sz;
-            int c_byte = c_off * 2;
-            int c_addr = C_GMEM + c_byte;
+            int c_addr = C_GMEM + c_off * 2;
 
             scpad_load(sp_base, c_addr, sdma_ctl_sp1);
 
             int ki = 0;
             while (ki < K_tiles) {
                 int a_off = mi * tile_sz * gK + ki * tile_sz;
-                int a_byte = a_off * 2;
-                int a_addr = A_GMEM + a_byte;
+                int a_addr = A_GMEM + a_off * 2;
 
                 int w_off = ki * tile_sz * gN + ni * tile_sz;
-                int w_byte = w_off * 2;
-                int w_addr = W_GMEM + w_byte;
+                int w_addr = W_GMEM + w_off * 2;
 
                 scpad_load(sp_base, w_addr, sdma_ctl_sp0);
 
@@ -61,9 +59,7 @@ int main() {
                 while (ri < TILE) {
                     vec a_row = vector_load(0, ri, TILE_M1, 0);
                     vec c_row = vector_load(0, ri, TILE_M1, 1);
-
                     vec result = gemm(a_row, c_row, all_mask);
-
                     vector_store(result, 0, ri, TILE_M1, 1);
                     ri = ri + 1;
                 }
