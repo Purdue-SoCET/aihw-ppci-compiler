@@ -133,6 +133,8 @@ class MiniCtx(ContextInterface):
 
     def move(self, dst, src):
         """Generate move"""
+        if dst is src:
+            return
         self.emit(self._arch.move(dst, src))
 
     def emit(self, instruction):

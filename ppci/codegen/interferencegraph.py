@@ -67,9 +67,18 @@ class InterferenceGraph(MaskableGraph):
                         self.add_edge(n1, n2)
 
                     # Add clobbered interfering edges:
-                    for tmp2 in ins.clobbers:
-                        n2 = self.get_node(tmp2)
-                        self.add_edge(n1, n2)
+                for tmp2 in ins.clobbers:
+                    n2 = self.get_node(tmp2)
+                    self.add_edge(n1, n2)
+
+                # Atalla masked vv add/sub/mul: vd merges with prior vd on inactive
+                # lanes while vs1/vs2 supply the operation; coalescing vd with either
+                # operand produced add_vv vd, vs1, vd with wrong "old vd" semantics.
+                if ins.__class__.__name__ in ("add_vv", "sub_vv", "mul_vv"):
+                    vd, vs1, vs2 = ins.vd, ins.vs1, ins.vs2
+                    for a, b in ((vd, vs1), (vd, vs2), (vs1, vs2)):
+                        if a is not b:
+                            self.add_edge(self.get_node(a), self.get_node(b))
 
                 # Generate usage info:
                 for reg in ins.defined_registers:
