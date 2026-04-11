@@ -279,7 +279,9 @@ def disassemble_instruction(insn_int, offset):
 
 def get_code_bounds(data):
     """Infer code bounds from ELF metadata, preferring the .text section."""
+    print("entered the get_code_bounds function")
     if len(data) < 52 or data[0:4] != b"\x7fELF":
+        print("returned early")
         return 0, len(data)
 
     # ELF32 header fields used by current Atalla output.
@@ -322,6 +324,9 @@ def get_code_bounds(data):
                         text_start = sec_off
                         text_end = sec_off + sec_size
                         if 0 <= text_start < text_end <= len(data):
+                            print(f'Code start {text_start}, Code end: {text_end}')
+                            print(f'Code start {hex(text_start)}, Code end: {hex(text_end)}')
+                            # return 0x38, 0xFFFF
                             return text_start, text_end
 
     code_start = e_ehsize if 0 < e_ehsize <= len(data) else 0
