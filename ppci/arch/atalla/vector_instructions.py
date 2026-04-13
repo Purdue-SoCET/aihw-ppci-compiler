@@ -289,7 +289,7 @@ def pattern_store_vecreg(context, tree, c0, v1):
     c = context.new_reg(AtallaRegister)
     Code = Lis(c, 1)
     context.emit(Code)
-    Code = VregSt(v1, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
+    Code = VregSt(v1, c0[0], c, 31, 3)
     Code.fprel = True
     context.emit(Code)
 
@@ -299,7 +299,7 @@ def pattern_load_vecreg(context, tree, c0):
     c = context.new_reg(AtallaRegister)
     Code = Lis(c, 1)
     context.emit(Code)
-    Code = VregLd(d, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
+    Code = VregLd(d, c0[0], c, 31, 3)
     Code.fprel = True
     context.emit(Code)
     return d

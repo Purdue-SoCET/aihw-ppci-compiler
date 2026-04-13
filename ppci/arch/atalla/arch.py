@@ -58,6 +58,7 @@ from .instructions import (
     Jalr,
     #isa
     isa,
+    Luis,
     Align,
     Section,
     dcd,
@@ -145,6 +146,8 @@ from .registers import (
     R29,
     R30,
     R31,
+    SCPADSP,
+    SCPADFP,
     Register,
     #AtallaFRegister,
     AtallaRegister as AtallaRegister,
@@ -203,6 +206,7 @@ class AtallaArch(Architecture):
         self.regclass = register_classes_swfp + vector_register_classes + mask_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
+        self.scpad_fp_start = 2000000
         # self.isa.sectinst = Section
         # self.isa.dbinst = DByte
         # self.isa.dsinst = DZero
@@ -320,6 +324,13 @@ class AtallaArch(Architecture):
         """
         # Label indication function:
         yield Label(frame.name)
+
+        # Program entry setup: initialize scratchpad SP/FP to start address.
+        if frame.name == "main":
+            yield Luis(SCPADSP, self.scpad_fp_start >> 7)
+            yield Addis(SCPADSP, SCPADSP, self.scpad_fp_start & 0x7F)
+            yield Addis(SCPADFP, SCPADSP, 0)
+
         ssize = round_up(frame.stacksize + 8)
         # if self.has_option("rvc") and isinsrange(10, -ssize):
         #     yield CAddi16sp(-ssize)  # Reserve stack space
@@ -332,6 +343,8 @@ class AtallaArch(Architecture):
         # else:
         yield Sws(LR, 4, SP)
         yield Sws(FP, 0, SP)
+        if frame.scpad_stacksize:
+            yield Sws(SCPADFP, 8, SP)
 
         # if self.has_option("rvc"):
         #     yield CAddi4spn(FP, 8)  # Setup frame pointer
@@ -365,6 +378,11 @@ class AtallaArch(Architecture):
             # else:
             yield Addis(SP, SP, -ssize)  # Reserve stack space
 
+        # Scratchpad frame: x33 is frame base, x32 is moving stack pointer.
+        if frame.scpad_stacksize:
+            yield Addis(SCPADFP, SCPADSP, 0)
+            yield Addis(SCPADSP, SCPADSP, -frame.scpad_stacksize)
+
     def gen_epilogue(self, frame):
         """
         later we restore callee-saves, reload LR and FP, deallocate the stack
@@ -376,6 +394,10 @@ class AtallaArch(Architecture):
             #     yield CAddi16sp(ssize)  # Reserve stack space
             # else:
             yield Addis(SP, SP, ssize)  # Reserve stack space
+
+        if frame.scpad_stacksize:
+            # Drop this function's scratchpad frame.
+            yield Addis(SCPADSP, SCPADFP, 0)
 
         # Callee saved registers:
         saved_registers = self.get_callee_saved(frame)
@@ -399,6 +421,8 @@ class AtallaArch(Architecture):
         #     yield CLwsp(LR, 4)
         #     yield CLwsp(FP, 0)
         # else:
+        if frame.scpad_stacksize:
+            yield Lws(SCPADFP, 8, SP)
         yield Lws(LR, 4, SP)
         yield Lws(FP, 0, SP)
 
