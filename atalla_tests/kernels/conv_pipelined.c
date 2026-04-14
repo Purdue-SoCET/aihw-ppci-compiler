@@ -6,7 +6,11 @@
 #define K_OUT_M1   (K_OUT - 1)
 #define ALL_MASK   0xFFFFF
 
-/* Conv-as-GEMM: pipelined M loop — prefetch (a,c) for next row; rolled weight load. */
+/* Conv-as-GEMM: software-pipelined row schedule (M fixed at 4).
+ * Uses explicit interleaving like conv_pipelined_unrolled.c instead of a rolled
+ * double-buffer loop — PPCI -O2 has miscompiled that pattern on some platforms
+ * (wrong results + different packet counts vs Linux).
+ * Weight load stays rolled to differ from conv_pipelined_unrolled.c. */
 int main() {
     int cfg_ptr = CFG_BASE;
 
@@ -38,38 +42,30 @@ int main() {
 
     scpad_load(c_sp, c_gmem, sdma_ctl_c);
 
-    int row = 0;
-    int prefetch_row = 1;
     int all_mask = ALL_MASK;
 
-    vec a_buf0 = vector_load(a_sp, row, K_FLAT_M1, 0);
-    vec c_buf0 = vector_load(c_sp, row, K_OUT_M1, 1);
+    vec a0 = vector_load(a_sp, 0, K_FLAT_M1, 0);
+    vec c0 = vector_load(c_sp, 0, K_OUT_M1, 1);
+    vec a1 = vector_load(a_sp, 1, K_FLAT_M1, 0);
+    vec c1 = vector_load(c_sp, 1, K_OUT_M1, 1);
 
-    while (row < M) {
-        vec result0 = gemm(a_buf0, c_buf0, all_mask);
-        vector_store(result0, c_sp, row, K_OUT_M1, 1);
-        row = row + 1;
-        if (row >= M) break;
+    vec r0 = gemm(a0, c0, all_mask);
+    vector_store(r0, c_sp, 0, K_OUT_M1, 1);
 
-        vec a_buf1;
-        vec c_buf1;
-        if (prefetch_row < M) {
-            a_buf1 = vector_load(a_sp, prefetch_row, K_FLAT_M1, 0);
-            c_buf1 = vector_load(c_sp, prefetch_row, K_OUT_M1, 1);
-        }
-        prefetch_row = prefetch_row + 1;
+    vec a2 = vector_load(a_sp, 2, K_FLAT_M1, 0);
+    vec c2 = vector_load(c_sp, 2, K_OUT_M1, 1);
 
-        vec result1 = gemm(a_buf1, c_buf1, all_mask);
-        vector_store(result1, c_sp, row, K_OUT_M1, 1);
-        row = row + 1;
-        if (row >= M) break;
+    vec r1 = gemm(a1, c1, all_mask);
+    vector_store(r1, c_sp, 1, K_OUT_M1, 1);
 
-        if (prefetch_row < M) {
-            a_buf0 = vector_load(a_sp, prefetch_row, K_FLAT_M1, 0);
-            c_buf0 = vector_load(c_sp, prefetch_row, K_OUT_M1, 1);
-        }
-        prefetch_row = prefetch_row + 1;
-    }
+    vec a3 = vector_load(a_sp, 3, K_FLAT_M1, 0);
+    vec c3 = vector_load(c_sp, 3, K_OUT_M1, 1);
+
+    vec r2 = gemm(a2, c2, all_mask);
+    vector_store(r2, c_sp, 2, K_OUT_M1, 1);
+
+    vec r3 = gemm(a3, c3, all_mask);
+    vector_store(r3, c_sp, 3, K_OUT_M1, 1);
 
     scpad_store(c_sp, c_gmem, sdma_ctl_c);
 
