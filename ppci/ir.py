@@ -1438,6 +1438,14 @@ class VecOpMasked(LocalValue):
         self.arg2 = arg2
         self.mask = mask
         self.op = op
+        self.merge_base = None
+
+    def replace_use(self, old, new):
+        super().replace_use(old, new)
+        if self.merge_base is old:
+            self.del_use(old)
+            self.merge_base = new
+            self.add_use(new)
 
     def __str__(self):
         return f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"

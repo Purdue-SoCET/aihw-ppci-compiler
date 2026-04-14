@@ -165,6 +165,8 @@ class Builder:
         inst = ir.VecOpMasked(op, a, b, mask, "tmp_vec_op_masked", ty)
         if merge_base is not None:
             inst.merge_base = merge_base
+            # So mem2reg Load.replace_by rewrites merge_base like other uses.
+            inst.add_use(merge_base)
         return self.emit(inst)
     
     def emit_make_mask(self, op, a, b, mask, ty):

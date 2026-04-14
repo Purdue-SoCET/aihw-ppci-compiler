@@ -344,6 +344,19 @@ def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
+
+@isa.pattern("stm", "MOVVEC(LDRVEC(mem))", size=4)
+def pattern_movvec_from_ldrvec(context, tree, c0):
+    """Spill reload: load stack slot into an already-allocated destination vector reg."""
+    dst = tree.value
+    c = context.new_reg(AtallaRegister)
+    context.emit(Lis(c, 1))
+    code = VregLd(dst, c0[0], c, 31, 0)
+    code.fprel = True
+    context.emit(code)
+    return dst
+
+
 @isa.pattern("vecreg", "REGVEC(vecreg)", size=1)
 def pattern_reg(context, tree):
     return tree.value

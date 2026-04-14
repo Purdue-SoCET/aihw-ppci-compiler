@@ -721,6 +721,21 @@ def pattern_mem_fpreli32(context, tree):
     return FP, offset
 
 
+@isa.pattern(
+    "mem",
+    "FPRELU32",
+    size=14,
+    condition=lambda t: t.value.offset < -2048 or t.value.offset >= 2048,
+)
+def pattern_mem_fprel_large(context, tree):
+    """Frame-pointer + offset when the offset is outside Addis immediate range."""
+    offset = tree.value.offset
+    d = context.new_reg(AtallaRegister)
+    context.emit(Lis(d, offset))
+    context.emit(Adds(d, FP, d))
+    return d, 0
+
+
 @isa.pattern("mem", "reg", size=10)
 def pattern_mem_reg(context, tree, c0):
     return c0, 0

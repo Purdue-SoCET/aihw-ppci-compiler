@@ -149,9 +149,22 @@ class MiniGen:
         self.arch = arch
         self.selector = selector
 
+    @staticmethod
+    def _wide_vector_spill_reg(vreg) -> bool:
+        """True for register classes wider than scalar (e.g. Atalla 512b vectors)."""
+        cls = type(vreg)
+        return issubclass(cls, Register) and getattr(cls, "bitsize", 0) > 128
+
     def gen_load(self, frame, vreg, slot):
         """Generate instructions to load vreg from a stack slot"""
         at = self.make_at(slot)
+        if self._wide_vector_spill_reg(vreg):
+            t = Tree(
+                "MOVVEC",
+                Tree("LDRVEC", at),
+                value=vreg,
+            )
+            return self.gen(frame, t)
         fmt = self.make_fmt(vreg)
 
         t = Tree(
@@ -164,6 +177,13 @@ class MiniGen:
     def gen_store(self, frame, vreg, slot):
         """Generate instructions to store vreg at a stack slot"""
         at = self.make_at(slot)
+        if self._wide_vector_spill_reg(vreg):
+            t = Tree(
+                "STRVEC",
+                at,
+                Tree("REGVEC", value=vreg),
+            )
+            return self.gen(frame, t)
         fmt = self.make_fmt(vreg)
         t = Tree(
             f"STR{fmt}",
