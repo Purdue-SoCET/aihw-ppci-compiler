@@ -6,6 +6,11 @@ Decodes Atalla instructions from ELF binary
 
 ISA_BYTES = 5
 
+
+def is_valid_opcode(insn_int):
+    opcode = extract_bits(insn_int, 0, 7)
+    return opcode in OPCODES
+
 def extract_bits(value, start, end):
     """Extract bits [start:end) from value (LSB = bit 0)"""
     mask = (1 << (end - start)) - 1
@@ -324,9 +329,6 @@ def get_code_bounds(data):
                         text_start = sec_off
                         text_end = sec_off + sec_size
                         if 0 <= text_start < text_end <= len(data):
-                            print(f'Code start {text_start}, Code end: {text_end}')
-                            print(f'Code start {hex(text_start)}, Code end: {hex(text_end)}')
-                            # return 0x38, 0xFFFF
                             return text_start, text_end
 
     code_start = e_ehsize if 0 < e_ehsize <= len(data) else 0
@@ -355,22 +357,24 @@ def disassemble_elf(input_file, output_file):
         
         offset = code_start
         while offset < code_end:
-            if offset + ISA_BYTES <= len(data):
-                # Read one instruction worth of bytes.
-                insn_bytes = data[offset:offset+ISA_BYTES]
+            # Decode full-width instructions when possible.
+            if offset + ISA_BYTES <= code_end:
+                insn_bytes = data[offset:offset + ISA_BYTES]
                 insn_int = bytes_to_insn_int(insn_bytes)
-                
-                # Format bytes
-                hex_str = ' '.join(f'{b:02X}' for b in insn_bytes)
-                
-                # Disassemble
-                disasm = disassemble_instruction(insn_int, offset)
-                
-                out.write(f"0x{offset:04X}    {hex_str:<28} {disasm}\n")
-                
-                offset += ISA_BYTES
-            else:
-                break
+                if is_valid_opcode(insn_int):
+                    hex_str = ' '.join(f'{b:02X}' for b in insn_bytes)
+                    disasm = disassemble_instruction(insn_int, offset)
+                    out.write(f"0x{offset:04X}    {hex_str:<28} {disasm}\n")
+                    offset += ISA_BYTES
+                    continue
+
+            # If we cannot decode a valid instruction, consume one padding byte
+            # and retry so disassembly can recover after section alignment bytes.
+            pad = data[offset]
+            out.write(
+                f"0x{offset:04X}    {pad:02X}{'':<27} PAD 0x{pad:02X}\n"
+            )
+            offset += 1
         
         out.write("\n" + "=" * 100 + "\n")
 

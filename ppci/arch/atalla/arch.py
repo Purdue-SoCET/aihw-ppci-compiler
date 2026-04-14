@@ -318,6 +318,10 @@ class AtallaArch(Architecture):
         We will impliment load/store/stack later
         when we have the MEM operations.
         """
+        # Keep code section alignment consistent with the 5-byte ISA width.
+        # This prevents the linker from inserting 4-byte section merge padding.
+        yield Align(5)
+
         # Label indication function:
         yield Label(frame.name)
         ssize = round_up(frame.stacksize + 8)
@@ -416,7 +420,6 @@ class AtallaArch(Architecture):
 
         # Add final literal pool:
         yield from self.litpool(frame)
-        yield Align(4)  # Align at 4 bytes
 
     def peephole(self, frame):
         removed = set()

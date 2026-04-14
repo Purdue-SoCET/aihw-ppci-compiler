@@ -142,7 +142,7 @@ class AtallaBRInstruction(Instruction):
     isa = isa
 
 class BranchBase(AtallaBRInstruction):
-    def gen_relocations(self):
+    def relocations(self):
         # return [AtallaBR_Imm10_Relocation(self.imm10)]
         yield AtallaBR_Imm10_Relocation(self.imm10)
     
@@ -299,9 +299,9 @@ class Jal(AtallaMIInstruction):
         tokens[0][7:15] = self.rd.num
         return tokens[0].encode()
 
-    def gen_relocations(self):
-        # return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
-        yield AtallaMI_JAL_Imm25_Relocation(self.imm25)
+    def relocations(self):
+        print("entered the jal relocation")
+        return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
 
 class Jalr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -338,7 +338,7 @@ def dcd(v):
 #         tokens[0][0:32] = 0
 #         return tokens[0].encode()
 
-#     def gen_relocations(self):
+#     def relocations(self):
 #         return [AbsAddr32Relocation(self.v)]
 
 class PseudoAtallaInstruction(ArtificialInstruction):
@@ -374,7 +374,7 @@ class Adrl(AtallaIInstruction): #This is wrong due to the 64 bit encoding but wa
         tokens[0][41:49] = self.rs1.num
         return tokens[0].encode()
 
-    def gen_relocations(self):
+    def relocations(self):
         # return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
         yield AtallaI_JALR_Imm12_Relocation(self.imm12)
     
@@ -404,7 +404,7 @@ class Luil(AtallaMIInstruction):
         # imm25 will be filled in by relocation
         return tokens[0].encode()
 
-    def gen_relocations(self):
+    def relocations(self):
         # return [AtallaMI_Abs_Imm25_Relocation(self.label)]
         yield AtallaMI_Abs_Imm25_Relocation(self.label)
 
@@ -423,7 +423,7 @@ class Addil(AtallaIInstruction):
         # imm7 will be filled in by relocation
         return tokens[0].encode()
 
-    def gen_relocations(self):
+    def relocations(self):
         print("entered the addil relocation")
         # return [AtallaI_Abs_Imm7_Relocation(self.label)]
         yield AtallaI_Abs_Imm7_Relocation(self.label)

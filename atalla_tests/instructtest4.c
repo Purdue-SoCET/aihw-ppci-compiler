@@ -1,4 +1,4 @@
-extern int helper(int);
+#include "help.h"
 int globa = 8;
 int other = 2;
 
