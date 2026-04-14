@@ -284,17 +284,9 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
     context.emit(code)
     return d
 
-@isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
-def pattern_store_vecreg(context, tree, c0, v1):
-    c = context.new_reg(AtallaRegister)
-    Code = Lis(c, 1)
-    context.emit(Code)
-    Code = VregSt(v1, c0[0], c, 31, 3)
-    Code.fprel = True
-    context.emit(Code)
 
-@isa.pattern("vecreg", "LDRVEC(mem)", size=2)
-def pattern_load_vecreg(context, tree, c0):
+def _emit_vreg_ld_fprel(context, c0):
+    """Load vector from FP-relative slot (shared by LDRVEC and LDRI512 spill trees)."""
     d = context.new_reg(AtallaVectorRegister)
     c = context.new_reg(AtallaRegister)
     Code = Lis(c, 1)
@@ -303,6 +295,50 @@ def pattern_load_vecreg(context, tree, c0):
     Code.fprel = True
     context.emit(Code)
     return d
+
+
+def _emit_vreg_st_fprel(context, c0, v1):
+    """Store vector to FP-relative slot (shared by STRVEC and STRI512 spill trees)."""
+    c = context.new_reg(AtallaRegister)
+    Code = Lis(c, 1)
+    context.emit(Code)
+    Code = VregSt(v1, c0[0], c, 31, 3)
+    Code.fprel = True
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
+def pattern_store_vecreg(context, tree, c0, v1):
+    _emit_vreg_st_fprel(context, c0, v1)
+
+
+@isa.pattern("vecreg", "LDRVEC(mem)", size=2)
+def pattern_load_vecreg(context, tree, c0):
+    return _emit_vreg_ld_fprel(context, c0)
+
+
+# Register-allocator spill/reload: MiniGen uses ty+bitsize → I512 (see registerallocator.MiniGen.make_fmt).
+# Same lowering as LDRVEC/STRVEC; Burg needs explicit *512 names for tree matching.
+@isa.pattern("stm", "MOVI512(vecreg)", size=2)
+def pattern_movi512(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
+@isa.pattern("vecreg", "LDRI512(mem)", size=2)
+def pattern_ldri512_mem(context, tree, c0):
+    return _emit_vreg_ld_fprel(context, c0)
+
+
+@isa.pattern("stm", "STRI512(mem, vecreg)", size=2)
+def pattern_stri512_mem(context, tree, c0, v1):
+    _emit_vreg_st_fprel(context, c0, v1)
+
+
+@isa.pattern("vecreg", "REGI512", size=0)
+def pattern_reg_i512(context, tree):
+    return tree.value
+
 
 @isa.pattern(
     "reg",

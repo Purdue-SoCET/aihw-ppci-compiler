@@ -294,6 +294,15 @@ def _parse_mem_operand(op: str) -> tuple[int, int]:
 
 
 def _latency_for(mnemonic: str) -> int:
+    # Cycle-accurate SDMA/DRAM latencies (e.g. scpad.ld=520) inflate static packet
+    # rows and PC span; BEQ/BNE only reach ±2044 bytes. Functional validation should
+    # schedule with latency=1 (structural hazards only). See ATALLA_FUNCTIONAL_SCHED_LATENCY.
+    if os.environ.get("ATALLA_FUNCTIONAL_SCHED_LATENCY", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return 1
     m = mnemonic.lower()
     base_name = m.split(".", 1)[0]
     for key in (m, base_name):

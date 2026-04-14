@@ -2,7 +2,7 @@
 """Kernel C validation: atalla_cc → build_compiler → seed .data → functional_sim.run.
 
 add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool: finite outputs (SDMA layout ≠ dense seed).
-gemm_tiled: baseline vs pipelined must match (same RNG). conv: skip (VLOAD codegen). unrolled gemm: skip if branch range.
+gemm_tiled: baseline vs pipelined must match (same RNG). Failures are not skipped—compile/build/sim errors propagate.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable
 
 import numpy as np
 
@@ -51,12 +51,6 @@ def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Pat
         raise RuntimeError(
             f"Command failed with exit code {proc.returncode}: {' '.join(cmd)}\nSee {log_path}"
         )
-
-
-def run_capture(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> int:
-    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True)
-    log_path.write_text(proc.stdout + proc.stderr)
-    return proc.returncode
 
 
 def set_data_section(image: str, data_lines: list[str]) -> str:
@@ -326,7 +320,7 @@ def run_one(
     script_dir: Path,
     repo_root: Path,
     env: dict[str, str],
-) -> Literal["ok", "skip"]:
+) -> None:
     stem = test_path.stem
     if stem not in KERNEL_REGISTRY:
         raise KeyError(f"No kernel spec for {stem!r}; known: {sorted(KERNEL_REGISTRY)}")
@@ -355,16 +349,14 @@ def run_one(
         "ppci.cli.atalla_cc",
         "--machine",
         "atalla",
+        "-O",
+        "2",
         "-S",
         str(test_path),
         "-o",
         str(asm_path),
     ]
-    if run_capture(cc, cwd=repo_root, env=env, log_path=compile_log) != 0:
-        if stem.startswith("conv_"):
-            print(f"SKIP {test_path.name}: atalla_cc failed (conv VLOAD not covered); see {compile_log}")
-            return "skip"
-        raise RuntimeError(f"compile failed: {' '.join(cc)}\nSee {compile_log}")
+    run_and_log(cc, cwd=repo_root, env=env, log_path=compile_log)
 
     bc = [
         sys.executable,
@@ -374,12 +366,7 @@ def run_one(
         "-o",
         str(image_path),
     ]
-    if run_capture(bc, cwd=repo_root, env=env, log_path=build_log) != 0:
-        log_txt = build_log.read_text()
-        if stem == "gemm_tiled_pipelined_unrolled" and "Branch target offset" in log_txt:
-            print(f"SKIP {test_path.name}: branch displacement out of range; see {build_log}")
-            return "skip"
-        raise RuntimeError(f"build_compiler failed: {' '.join(bc)}\nSee {build_log}")
+    run_and_log(bc, cwd=repo_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}
     seed_fn(words)
@@ -415,7 +402,6 @@ def run_one(
     if check_fn is not None:
         check_fn(output_mem)
     print(f"OK {test_path.name}  artifacts: {out_dir}")
-    return "ok"
 
 
 def main() -> int:
@@ -423,12 +409,15 @@ def main() -> int:
     repo_root = script_dir.parent
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root)
+    # functional_sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
+    # past BEQ/BNE range (see instruction_latency scpad.ld/st).
+    env["ATALLA_FUNCTIONAL_SCHED_LATENCY"] = "1"
 
     ap = argparse.ArgumentParser(
         description=(
             "Validate kernel C tests: compile, seed .data (cfg + tensors), run functional_sim. "
             "add/relu/maxpool use numeric goldens; softmax checks normalization; "
-            "gemm_tiled variants are cross-checked for identical C; conv may skip if codegen fails."
+            "gemm_tiled variants are cross-checked for identical C when multiple variants ran."
         )
     )
     ap.add_argument(
@@ -450,15 +439,12 @@ def main() -> int:
         tests = [script_dir / t for t in DEFAULT_TESTS]
 
     failed: list[str] = []
-    skipped = 0
     for t in tests:
         if not t.exists():
             failed.append(f"missing {t}")
             continue
         try:
-            st = run_one(t, script_dir=script_dir, repo_root=repo_root, env=env)
-            if st == "skip":
-                skipped += 1
+            run_one(t, script_dir=script_dir, repo_root=repo_root, env=env)
         except Exception as e:
             failed.append(f"{t.name}: {e}")
 
@@ -472,10 +458,7 @@ def main() -> int:
     if failed:
         print("FAILURES:\n" + "\n".join(failed), file=sys.stderr)
         return 1
-    msg = f"All {len(tests) - skipped} kernel run(s) passed."
-    if skipped:
-        msg += f" ({skipped} skipped.)"
-    print(msg)
+    print(f"All {len(tests)} kernel run(s) passed.")
     return 0
 
 

@@ -140,6 +140,15 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ASM",  # Inline assembly
 ) + tuple(x+y+z for x in ops for y in ["VEC"] for z in ["I32", "BF16"])
 
+# Spill/reload for vector-sized vregs: registerallocator.MiniGen.make_fmt uses I{bitsize}
+# (e.g. I512 for Atalla vec), not the IR type name (VEC).
+terminals += (
+    "MOVI512",
+    "LDRI512",
+    "STRI512",
+    "REGI512",
+)
+
 
 class ContextInterface(abc.ABC):
     @abc.abstractmethod
