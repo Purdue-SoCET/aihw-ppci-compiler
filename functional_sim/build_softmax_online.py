@@ -5,7 +5,7 @@ import argparse
 import os
 
 from build import *
-from kernels.utils.dataloader import load_tile_data
+from functional_sim.kernels.utils.dataloader import load_tile_data
 
 
 def _emit_load_mask(lines: list[str], scalar_reg: int, mask_reg: int, mask_val: int, comment: str = "") -> None:

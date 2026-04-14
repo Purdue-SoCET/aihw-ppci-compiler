@@ -10,7 +10,7 @@ import argparse
 import numpy as np
 
 from build import *
-from kernels.utils.dataloader import load_tile_data
+from functional_sim.kernels.utils.dataloader import load_tile_data
 
 
 def unroll_softmax(

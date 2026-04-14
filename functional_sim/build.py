@@ -13,7 +13,7 @@ from pathlib import Path
 import argparse
 import numpy as np
 
-from kernels.utils.dataloader import load_tile_data
+from functional_sim.kernels.utils.dataloader import load_tile_data
 from src.misc.opcode_table import OPCODES, name_to_opcode
 
 try:
