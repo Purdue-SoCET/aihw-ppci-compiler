@@ -1,3 +1,5 @@
+/* Vertical 2x1 pooling: max of two adjacent input rows, stride 2 in H only.
+ * Produces 4x8 from 8x8 (not full 2x2 maxpool). See maxpool_2x2.c for 4x4. */
 #define CFG_BASE  0x3C
 #define WIDTH_M1  7
 #define H_IN      8

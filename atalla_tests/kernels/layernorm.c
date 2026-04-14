@@ -11,12 +11,7 @@ int main() {
     asm("lw_s %0, 4(%1)" : "=r"(SCPAD_BASE)  : "r"(cfg));
 
     int eps_addr = EPS_ADDR;
-    float epsilon;
-    asm("lw_s %0, 0(%1)" : "=r"(epsilon) : "r"(eps_addr));
-
     int inv_addr = INV_N2_ADDR;
-    float inv_n2;
-    asm("lw_s %0, 0(%1)" : "=r"(inv_n2) : "r"(inv_addr));
 
     int sp = 0;
     int mask_val = MASK_ALL;
@@ -31,34 +26,40 @@ int main() {
     vec r2 = vector_load(0, row2, 31, 0);
     vec r3 = vector_load(0, row3, 31, 0);
 
-    vec acc = vec_op_masked("RSUM", r0, 0.0, mask_val);
-    vec tmp = vec_op_masked("RSUM", r1, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    tmp = vec_op_masked("RSUM", r2, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    tmp = vec_op_masked("RSUM", r3, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    vec mean = vec_op_masked("*", acc, inv_n2, mask_val);
+    /* sum_rows vs sum_sq must be different C variables; reusing `acc` made IR tie
+       variance masked-add merge_base to the pre-mean row sum (wrong variance). */
+    vec s0 = vec_op_masked("RSUM", r0, 0.0, mask_val);
+    vec s1 = vec_op_masked("RSUM", r1, 0.0, mask_val);
+    vec s2 = vec_op_masked("RSUM", r2, 0.0, mask_val);
+    vec s3 = vec_op_masked("RSUM", r3, 0.0, mask_val);
+    vec sum_rows = vec_op_masked("+", vec_op_masked("+", s0, s1, mask_val), vec_op_masked("+", s2, s3, mask_val), mask_val);
+
+    float inv_mean;
+    asm("lw_s %0, 0(%1)" : "=r"(inv_mean) : "r"(inv_addr));
+    vec mean = vec_op_masked("*", sum_rows, inv_mean, mask_val);
 
     vec c0 = vec_op_masked("-", r0, mean, mask_val);
     vec c1 = vec_op_masked("-", r1, mean, mask_val);
     vec c2 = vec_op_masked("-", r2, mean, mask_val);
     vec c3 = vec_op_masked("-", r3, mean, mask_val);
 
-    tmp = vec_op_masked("*", c0, c0, mask_val);
-    acc = vec_op_masked("RSUM", tmp, 0.0, mask_val);
-    tmp = vec_op_masked("*", c1, c1, mask_val);
-    tmp = vec_op_masked("RSUM", tmp, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    tmp = vec_op_masked("*", c2, c2, mask_val);
-    tmp = vec_op_masked("RSUM", tmp, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    tmp = vec_op_masked("*", c3, c3, mask_val);
-    tmp = vec_op_masked("RSUM", tmp, 0.0, mask_val);
-    acc = vec_op_masked("+", acc, tmp, mask_val);
-    vec variance = vec_op_masked("*", acc, inv_n2, mask_val);
+    vec q0 = vec_op_masked("*", c0, c0, mask_val);
+    vec q1 = vec_op_masked("*", c1, c1, mask_val);
+    vec q2 = vec_op_masked("*", c2, c2, mask_val);
+    vec q3 = vec_op_masked("*", c3, c3, mask_val);
+    vec t0 = vec_op_masked("RSUM", q0, 0.0, mask_val);
+    vec t1 = vec_op_masked("RSUM", q1, 0.0, mask_val);
+    vec t2 = vec_op_masked("RSUM", q2, 0.0, mask_val);
+    vec t3 = vec_op_masked("RSUM", q3, 0.0, mask_val);
+    vec sum_sq = vec_op_masked("+", vec_op_masked("+", t0, t1, mask_val), vec_op_masked("+", t2, t3, mask_val), mask_val);
 
-    vec denom_seed = vec_op_masked("+", variance, epsilon, mask_val);
+    float inv_var;
+    asm("lw_s %0, 0(%1)" : "=r"(inv_var) : "r"(inv_addr));
+    vec variance = vec_op_masked("*", sum_sq, inv_var, mask_val);
+
+    float eps_den;
+    asm("lw_s %0, 0(%1)" : "=r"(eps_den) : "r"(eps_addr));
+    vec denom_seed = vec_op_masked("+", variance, eps_den, mask_val);
     float var_eps = denom_seed[0];
     float denom_f = sqrt(var_eps);
     float one = 1.0;
