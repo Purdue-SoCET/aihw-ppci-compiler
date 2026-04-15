@@ -11,7 +11,7 @@ build/
 .vscode/
 venv/
 *.out
-*.out
+test_validation/out/
 *.elf
 *.txt
 *.o

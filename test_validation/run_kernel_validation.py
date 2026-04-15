@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Kernel C validation: atalla_cc → build_compiler → seed .data → functional_sim.run.
 
-add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool: finite outputs (SDMA layout ≠ dense seed).
-gemm_tiled: baseline vs pipelined must match (same RNG). Failures are not skipped—compile/build/sim errors propagate.
+add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool/maxpool_2x2: finite outputs
+(SDMA layout ≠ dense seed for 2x1; 2x2 checks 4×4 out tile). layernorm: BF16 golden vs numpy
+on the 4×4 active mask. conv_*: systolic GEMM golden + bias (W DRAM K×N). gemm_tiled: cross-variant C match.
+Failures are not skipped—compile/build/sim errors propagate.
 """
 from __future__ import annotations
 
@@ -20,7 +22,10 @@ _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from functional_sim.src.components.gemm import to_bf16  # noqa: E402
+from functional_sim.src.components.gemm import (  # noqa: E402
+    systolic_gemm_vv_dram_reference,
+    to_bf16,
+)
 
 GEMM_TILED_STEMS = (
     "gemm_tiled_baseline",
@@ -38,7 +43,9 @@ DEFAULT_TESTS = (
     "gemm_tiled_baseline.c",
     "gemm_tiled_pipelined.c",
     "gemm_tiled_pipelined_unrolled.c",
+    "layernorm.c",
     "maxpool.c",
+    "maxpool_2x2.c",
     "relu.c",
     "softmax.c",
 )
@@ -92,6 +99,11 @@ def write_bf16_matrix(words: dict[int, int], base: int, mat: np.ndarray) -> None
 def write_u32_words(words: dict[int, int], base: int, vals: list[int]) -> None:
     for i, v in enumerate(vals):
         words[base + i * 4] = int(v) & 0xFFFFFFFF
+
+
+def write_f32(words: dict[int, int], byte_addr: int, x: float) -> None:
+    u = struct.unpack("<I", struct.pack("<f", np.float32(x)))[0]
+    words[int(byte_addr) & 0xFFFFFFFF] = u & 0xFFFFFFFF
 
 
 def words_to_lines(words: dict[int, int]) -> list[str]:
@@ -175,6 +187,33 @@ def validate_maxpool(out_mem: Path) -> None:
         raise RuntimeError("maxpool: non-finite outputs")
 
 
+def validate_maxpool_2x2(out_mem: Path) -> None:
+    h_out, w = 4, 4
+    out_base = 0x1800
+    mem = parse_data_mem(out_mem)
+    got = read_bf16_matrix(mem, out_base, h_out, w)
+    if not np.all(np.isfinite(got)):
+        raise RuntimeError("maxpool_2x2: non-finite outputs")
+
+
+def validate_layernorm(out_mem: Path) -> None:
+    """4×32 tile, mask 0xF: stats over the leading 4 lanes × 4 rows (same as build_layernorm_param layout)."""
+    rows, active = 4, 4
+    in_base = 0x1000
+    eps = 1e-5
+    rng = np.random.default_rng(6)
+    inp = (rng.normal(size=(rows, 32)) * 0.35).astype(np.float32)
+    x4 = inp[:, :active].astype(np.float64)
+    mean = float(x4.mean())
+    var = float(((x4 - mean) ** 2).mean())
+    exp4 = (x4 - mean) / np.sqrt(var + eps)
+    exp = to_bf16(exp4.astype(np.float32))
+    mem = parse_data_mem(out_mem)
+    got_full = read_bf16_matrix(mem, in_base, rows, 32)
+    got = got_full[:, :active]
+    assert_close_bf16(got, exp, name="layernorm out (4×4 active)", atol=0.08, rtol=0.12)
+
+
 def validate_relu(out_mem: Path) -> None:
     rows, cols = 4, 32
     in_base, out_base = 0x1000, 0x1400
@@ -211,17 +250,44 @@ def seed_add(words: dict[int, int]) -> None:
     write_bf16_matrix(words, c_base, np.zeros((rows, cols), dtype=np.float32))
 
 
-def seed_conv(words: dict[int, int]) -> None:
+def _conv_tensors() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Same RNG + shapes as ``seed_conv`` / ``validate_conv`` (M×K_flat, K_out×K_flat, M×K_out)."""
     m, k_flat, n_out = 4, 27, 4
-    a_base, w_base, c_base = 0x1000, 0x1100, 0x1300
     rng = np.random.default_rng(1)
     a = (rng.normal(size=(m, k_flat)) * 0.1).astype(np.float32)
     w_rows = (rng.normal(size=(n_out, k_flat)) * 0.1).astype(np.float32)
     c0 = (rng.normal(size=(m, n_out)) * 0.05).astype(np.float32)
+    return a, w_rows, c0
+
+
+def seed_conv(words: dict[int, int]) -> None:
+    """DRAM layout matches ``validate_and_benchmark._run_conv_variant``: A (M×K), W (K×N), C (M×N)."""
+    m, k_flat, n_out = 4, 27, 4
+    a_base, w_base, c_base = 0x1000, 0x2000, 0x3000
+    a, w_rows, c0 = _conv_tensors()
+    w_kn = w_rows.T
     write_u32_words(words, CFG, [a_base, 0, w_base, 0, c_base, 0])
     write_bf16_matrix(words, a_base, a)
-    write_bf16_matrix(words, w_base, w_rows)
+    write_bf16_matrix(words, w_base, w_kn)
     write_bf16_matrix(words, c_base, c0)
+
+
+def validate_conv(out_mem: Path) -> None:
+    """Golden = systolic GEMM ref (same as validate_and_benchmark) + float32 add of BF16 bias C0.
+
+    functional_sim gemm.vv writes ``matmul_out + src2`` in float32; DRAM stores BF16, so we
+    compare against ``to_bf16(mat + to_bf16(c0))``.
+    """
+    m, k_out = 4, 4
+    c_base = 0x3000
+    a, w_rows, c0 = _conv_tensors()
+    b_kn = w_rows.T
+    mat = systolic_gemm_vv_dram_reference(a, b_kn)
+    c0_q = to_bf16(c0)
+    exp = to_bf16(mat + c0_q)
+    mem = parse_data_mem(out_mem)
+    got = read_bf16_matrix(mem, c_base, m, k_out)
+    assert_close_bf16(got, exp, name="conv-as-GEMM C", atol=0.002, rtol=0.0)
 
 
 def seed_gemm_tiled(words: dict[int, int]) -> None:
@@ -264,6 +330,28 @@ def seed_maxpool(words: dict[int, int]) -> None:
     write_bf16_matrix(words, out_base, np.zeros((4, w), dtype=np.float32))
 
 
+def seed_maxpool_2x2(words: dict[int, int]) -> None:
+    h_in, w = 8, 8
+    in_base, out_base = 0x1000, 0x1800
+    rng = np.random.default_rng(7)
+    inp = (rng.random(size=(h_in, w)) * 2.0 - 0.5).astype(np.float32)
+    write_u32_words(words, CFG, [in_base, out_base])
+    write_bf16_matrix(words, in_base, inp)
+    write_bf16_matrix(words, out_base, np.zeros((4, 4), dtype=np.float32))
+
+
+def seed_layernorm(words: dict[int, int]) -> None:
+    rows, cols = 4, 32
+    in_base = 0x1000
+    scpad_base = 1
+    rng = np.random.default_rng(6)
+    inp = (rng.normal(size=(rows, cols)) * 0.35).astype(np.float32)
+    write_u32_words(words, CFG, [in_base, scpad_base])
+    write_f32(words, 20, 1e-5)
+    write_f32(words, 24, 1.0 / 16.0)
+    write_bf16_matrix(words, in_base, inp)
+
+
 def seed_relu(words: dict[int, int]) -> None:
     rows, cols = 4, 32
     in_base, out_base = 0x1000, 0x1400
@@ -287,13 +375,15 @@ KernelSpec = tuple[Callable[[dict[int, int]], None], Callable[[Path], None] | No
 
 KERNEL_REGISTRY: dict[str, KernelSpec] = {
     "add": (seed_add, validate_add),
-    "conv_baseline": (seed_conv, None),
-    "conv_pipelined": (seed_conv, None),
-    "conv_pipelined_unrolled": (seed_conv, None),
+    "conv_baseline": (seed_conv, validate_conv),
+    "conv_pipelined": (seed_conv, validate_conv),
+    "conv_pipelined_unrolled": (seed_conv, validate_conv),
     "gemm_tiled_baseline": (seed_gemm_tiled, None),
     "gemm_tiled_pipelined": (seed_gemm_tiled, None),
     "gemm_tiled_pipelined_unrolled": (seed_gemm_tiled, None),
+    "layernorm": (seed_layernorm, validate_layernorm),
     "maxpool": (seed_maxpool, validate_maxpool),
+    "maxpool_2x2": (seed_maxpool_2x2, validate_maxpool_2x2),
     "relu": (seed_relu, validate_relu),
     "softmax": (seed_softmax, validate_softmax),
 }
@@ -416,8 +506,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=(
             "Validate kernel C tests: compile, seed .data (cfg + tensors), run functional_sim. "
-            "add/relu/maxpool use numeric goldens; softmax checks normalization; "
-            "gemm_tiled variants are cross-checked for identical C when multiple variants ran."
+            "add/relu/layernorm/conv use numeric goldens (conv: systolic GEMM ref + bias); "
+            "maxpool variants sanity-check outputs; softmax checks normalization; "
+            "gemm_tiled variants are cross-checked when all ran."
         )
     )
     ap.add_argument(
