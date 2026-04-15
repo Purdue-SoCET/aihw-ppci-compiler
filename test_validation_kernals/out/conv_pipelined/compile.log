@@ -198,33 +198,33 @@ JMP[main_epilog:]
 main_epilog:
 [emit] mapped li_s vreg57, 60 to MOVI32
 [emit] mapped addi_s vreg2, vreg57, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b273cb0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ae10050> to ASM
 [emit] mapped sw_s vreg3, -4(x8) to STRU32
 [emit] mapped li_s vreg58, 60 to MOVI32
 [emit] mapped addi_s vreg4, vreg58, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b27efd0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ac5f110> to ASM
 [emit] mapped sw_s vreg5, -8(x8) to STRU32
 [emit] mapped li_s vreg59, 60 to MOVI32
 [emit] mapped addi_s vreg6, vreg59, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b27f4d0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ac5f610> to ASM
 [emit] mapped sw_s vreg7, -12(x8) to STRU32
 [emit] mapped li_s vreg60, 60 to MOVI32
 [emit] mapped addi_s vreg8, vreg60, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b2c5810> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ac91ba0> to ASM
 [emit] mapped sw_s vreg9, -16(x8) to STRU32
 [emit] mapped li_s vreg61, 60 to MOVI32
 [emit] mapped addi_s vreg10, vreg61, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b2c5cd0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ac92060> to ASM
 [emit] mapped sw_s vreg11, -20(x8) to STRU32
 [emit] mapped li_s vreg62, 60 to MOVI32
 [emit] mapped addi_s vreg12, vreg62, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b3c69f0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ada30b0> to ASM
 [emit] mapped sw_s vreg13, -24(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b1ce9c0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10abb29c0> to ASM
 [emit] mapped sw_s vreg14, -28(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b1cebe0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10abb2be0> to ASM
 [emit] mapped sw_s vreg15, -32(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b1d2d50> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10abbad50> to ASM
 [emit] mapped sw_s vreg16, -36(x8) to STRU32
 [emit] mapped lw_s vreg63, -8(x8) to LDRI32
 [emit] mapped addi_s vreg23tmp_load_11_236, vreg63, 0 to LDRI32
@@ -339,15 +339,15 @@ main_epilog:
 [emit] mapped lw_s vreg123, -36(x8) to LDRI32
 [emit] mapped addi_s vreg56tmp_load_165, vreg123, 0 to LDRI32
 [emit] mapped scpad_st vreg54tmp_load_163, vreg55tmp_load_164, vreg56tmp_load_165 to SCPADST
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10b1d3650> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10abbb650> to ASM
 [emit] mapped li_s vreg124, 0 to MOVI32
 [emit] mapped addi_s vreg1retval, vreg124, 0 to MOVI32
 [emit] mapped jal x0, main_epilog to JMP
-2026-04-15 17:52:09,205 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
-2026-04-15 17:52:09,207 |     INFO |   cbuilder | Starting C compilation (c99)
-2026-04-15 17:52:09,212 |     INFO |    cparser | Parsing finished
-[1;35m2026-04-15 17:52:09,215 |  WARNING |   ccodegen | Function does not return a value[0m
-2026-04-15 17:52:09,215 |     INFO |   ccodegen | Finished IR-code generation
-2026-04-15 17:52:09,215 |     INFO |   optimize | Optimizing module main level 2
-2026-04-15 17:52:09,221 |     INFO |    codegen | Generating atalla-arch code for module main
-2026-04-15 17:52:09,221 |     INFO |    codegen | Generating atalla-arch code for function main
+2026-04-15 18:08:47,544 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-15 18:08:47,548 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-15 18:08:47,556 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-15 18:08:47,559 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-15 18:08:47,559 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-15 18:08:47,559 |     INFO |   optimize | Optimizing module main level 2
+2026-04-15 18:08:47,566 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-15 18:08:47,566 |     INFO |    codegen | Generating atalla-arch code for function main

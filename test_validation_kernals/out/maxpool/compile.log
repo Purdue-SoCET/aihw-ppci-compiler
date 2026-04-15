@@ -185,15 +185,15 @@ JMP[main_block2:]
 main_epilog:
 [emit] mapped li_s vreg45, 60 to MOVI32
 [emit] mapped addi_s vreg9, vreg45, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108e03b60> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108837e00> to ASM
 [emit] mapped sw_s vreg10, -4(x8) to STRU32
 [emit] mapped li_s vreg46, 60 to MOVI32
 [emit] mapped addi_s vreg11, vreg46, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108e0ed50> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108846e90> to ASM
 [emit] mapped sw_s vreg12, -8(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108e0efd0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108847110> to ASM
 [emit] mapped sw_s vreg13, -12(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108f25350> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10886d810> to ASM
 [emit] mapped sw_s vreg14, -16(x8) to STRU32
 [emit] mapped li_s vreg47, 0 to MOVI32
 [emit] mapped li_s vreg48, 0 to MOVI32
@@ -247,7 +247,7 @@ main_epilog:
 [emit] mapped add_s vreg67, vreg37tmp_load_34, vreg66 to ADDI32
 [emit] mapped addi_s vreg38tmp_42, vreg67, 0 to ADDI32
 [emit] mapped jal x0, main_block5 to JMP
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x108f25e00> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10886e2c0> to ASM
 [emit] mapped li_s vreg68, 0 to MOVI32
 [emit] mapped addi_s vreg8retval, vreg68, 0 to MOVI32
 [emit] mapped jal x0, main_epilog to JMP
@@ -300,17 +300,17 @@ main_epilog:
 [emit] mapped addi_s vreg2phi_alloca_125_1, vreg32, 0 to MOVI32
 [emit] mapped addi_s vreg3phi_alloca_117_0, vreg33, 0 to MOVI32
 [emit] mapped jal x0, main_block2 to JMP
-2026-04-15 17:52:12,873 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
-2026-04-15 17:52:12,874 |     INFO |   cbuilder | Starting C compilation (c99)
-2026-04-15 17:52:12,878 |     INFO |    cparser | Parsing finished
-[1;35m2026-04-15 17:52:12,881 |  WARNING |   ccodegen | Function does not return a value[0m
-2026-04-15 17:52:12,881 |     INFO |   ccodegen | Finished IR-code generation
-2026-04-15 17:52:12,881 |     INFO |   optimize | Optimizing module main level 2
-[1;35m2026-04-15 17:52:12,884 |  WARNING |   verifier | Undefined value 'und_alloca_131 = undefined' is used[0m
-[1;35m2026-04-15 17:52:12,884 |  WARNING |   verifier | Undefined value 'und_alloca_127 = undefined' is used[0m
-[1;35m2026-04-15 17:52:12,884 |  WARNING |   verifier | Undefined value 'und_alloca_125 = undefined' is used[0m
-[1;35m2026-04-15 17:52:12,885 |  WARNING |   verifier | Undefined value 'und_alloca_131 = undefined' is used[0m
-[1;35m2026-04-15 17:52:12,885 |  WARNING |   verifier | Undefined value 'und_alloca_127 = undefined' is used[0m
-[1;35m2026-04-15 17:52:12,885 |  WARNING |   verifier | Undefined value 'und_alloca_125 = undefined' is used[0m
-2026-04-15 17:52:12,886 |     INFO |    codegen | Generating atalla-arch code for module main
-2026-04-15 17:52:12,886 |     INFO |    codegen | Generating atalla-arch code for function main
+2026-04-15 18:08:50,819 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-15 18:08:50,821 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-15 18:08:50,825 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-15 18:08:50,827 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-15 18:08:50,827 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-15 18:08:50,827 |     INFO |   optimize | Optimizing module main level 2
+[1;35m2026-04-15 18:08:50,830 |  WARNING |   verifier | Undefined value 'und_alloca_131 = undefined' is used[0m
+[1;35m2026-04-15 18:08:50,830 |  WARNING |   verifier | Undefined value 'und_alloca_127 = undefined' is used[0m
+[1;35m2026-04-15 18:08:50,830 |  WARNING |   verifier | Undefined value 'und_alloca_125 = undefined' is used[0m
+[1;35m2026-04-15 18:08:50,831 |  WARNING |   verifier | Undefined value 'und_alloca_131 = undefined' is used[0m
+[1;35m2026-04-15 18:08:50,831 |  WARNING |   verifier | Undefined value 'und_alloca_127 = undefined' is used[0m
+[1;35m2026-04-15 18:08:50,831 |  WARNING |   verifier | Undefined value 'und_alloca_125 = undefined' is used[0m
+2026-04-15 18:08:50,831 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-15 18:08:50,831 |     INFO |    codegen | Generating atalla-arch code for function main

@@ -64,14 +64,14 @@ global function i32 main() {
     vec phi_alloca_193_0 = phi main_block3: phi_alloca_193_1, main_block6: tmp_vload_74;
     vec phi_alloca_189_0 = phi main_block3: phi_alloca_189_1, main_block6: tmp_vec_op_masked_86;
     i32 phi_alloca_187_0 = phi main_block3: phi_alloca_187_1, main_block6: tmp_55;
-    i32 phi_alloca_185_1 = phi main_block3: num_48, main_block6: tmp_94;
+    i32 phi_alloca_185_0 = phi main_block3: num_48, main_block6: tmp_94;
     i32 num_52 = 4;
-    cjmp phi_alloca_185_1 < num_52 ? main_block6 : main_block7;
+    cjmp phi_alloca_185_0 < num_52 ? main_block6 : main_block7;
   }
 
   main_block6: {
     i32 num_54 = 2;
-    i32 tmp_55 = phi_alloca_185_1 * num_54;
+    i32 tmp_55 = phi_alloca_185_0 * num_54;
     i32 num_58 = 0;
     i32 num_60 = 7;
     vector_load num_58, tmp_55, num_60, num_58;
@@ -81,8 +81,8 @@ global function i32 main() {
     make_mask > tmp_vload_74, tmp_vload_62, num_6_219;
     i32 typecast_80 = cast tmp_make_mask;
     vecop_masked + tmp_vec_op_masked_225, tmp_vload_74, typecast_80;
-    vector_store tmp_vec_op_masked_86, num_58, phi_alloca_185_1, num_60, num_58;
-    i32 tmp_94 = phi_alloca_185_1 + num_66;
+    vector_store tmp_vec_op_masked_86, num_58, phi_alloca_185_0, num_60, num_58;
+    i32 tmp_94 = phi_alloca_185_0 + num_66;
     jmp main_block5;
   }
 
@@ -180,7 +180,7 @@ MOVI32[vreg27](CONSTI32[0])
 MOVVEC[vreg5phi_alloca_193_0](REGVEC[vreg24])
 MOVVEC[vreg6phi_alloca_189_0](REGVEC[vreg25])
 MOVI32[vreg7phi_alloca_187_0](REGI32[vreg26])
-MOVI32[vreg8phi_alloca_185_1](REGI32[vreg27])
+MOVI32[vreg8phi_alloca_185_0](REGI32[vreg27])
 MOVI32[vreg49tmp_42](ADDI32(REGI32[vreg48tmp_load_34], MULI32(REGI32[vreg4phi_alloca_179_0], CONSTI32[32])))
 JMP[main_block5:]
 main_block4:
@@ -188,25 +188,25 @@ ASM[('halt', [], [], [])]
 MOVI32[vreg11retval](CONSTI32[0])
 JMP[main_epilog:]
 main_block5:
-MOVI32[vreg8phi_alloca_185_1](REGI32[vreg8phi_alloca_185_1])
+MOVI32[vreg8phi_alloca_185_0](REGI32[vreg8phi_alloca_185_0])
 MOVVEC[vreg6phi_alloca_189_0](REGVEC[vreg6phi_alloca_189_0])
 MOVI32[vreg7phi_alloca_187_0](REGI32[vreg7phi_alloca_187_0])
 MOVVEC[vreg5phi_alloca_193_0](REGVEC[vreg5phi_alloca_193_0])
-CJMPI32[('<', main_block6:, main_block7:)](REGI32[vreg8phi_alloca_185_1], CONSTI32[4])
+CJMPI32[('<', main_block6:, main_block7:)](REGI32[vreg8phi_alloca_185_0], CONSTI32[4])
 main_block6:
-MOVI32[vreg51tmp_55](MULI32(REGI32[vreg8phi_alloca_185_1], CONSTI32[2]))
+MOVI32[vreg51tmp_55](MULI32(REGI32[vreg8phi_alloca_185_0], CONSTI32[2]))
 MOVVEC[vreg52tmp_vload_62](VLOADVEC(CONSTI32[0], REGI32[vreg51tmp_55], CONSTI32[7], CONSTI32[0]))
 MOVVEC[vreg53tmp_vload_74](VLOADVEC(CONSTI32[0], ADDI32(REGI32[vreg51tmp_55], CONSTI32[1]), CONSTI32[7], CONSTI32[0]))
 MOVVEC[vreg54tmp_vec_op_masked_86](ADDVEC(REGVEC[vreg46tmp_vec_op_masked_225], REGVEC[vreg53tmp_vload_74], MVSTMMASK[vreg29](MASKTOI32(MGTMASK(REGVEC[vreg53tmp_vload_74], REGVEC[vreg52tmp_vload_62], MVSTMMASK[vreg28](CONSTI32[255]))))))
-VSTORE(REGVEC[vreg54tmp_vec_op_masked_86], CONSTI32[0], REGI32[vreg8phi_alloca_185_1], CONSTI32[7], CONSTI32[0])
+VSTORE(REGVEC[vreg54tmp_vec_op_masked_86], CONSTI32[0], REGI32[vreg8phi_alloca_185_0], CONSTI32[7], CONSTI32[0])
 MOVVEC[vreg30](REGVEC[vreg53tmp_vload_74])
 MOVVEC[vreg31](REGVEC[vreg54tmp_vec_op_masked_86])
 MOVI32[vreg32](REGI32[vreg51tmp_55])
-MOVI32[vreg33](ADDI32(REGI32[vreg8phi_alloca_185_1], CONSTI32[1]))
+MOVI32[vreg33](ADDI32(REGI32[vreg8phi_alloca_185_0], CONSTI32[1]))
 MOVVEC[vreg5phi_alloca_193_0](REGVEC[vreg30])
 MOVVEC[vreg6phi_alloca_189_0](REGVEC[vreg31])
 MOVI32[vreg7phi_alloca_187_0](REGI32[vreg32])
-MOVI32[vreg8phi_alloca_185_1](REGI32[vreg33])
+MOVI32[vreg8phi_alloca_185_0](REGI32[vreg33])
 JMP[main_block5:]
 main_block7:
 MOVVEC[vreg34](REGVEC[vreg0phi_alloca_199_1])
@@ -243,15 +243,15 @@ JMP[main_block2:]
 main_epilog:
 [emit] mapped li_s vreg57, 60 to MOVI32
 [emit] mapped addi_s vreg12, vreg57, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1087b7b60> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ae8fe00> to ASM
 [emit] mapped sw_s vreg13, -4(x8) to STRU32
 [emit] mapped li_s vreg58, 60 to MOVI32
 [emit] mapped addi_s vreg14, vreg58, 0 to MOVI32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1087c2d50> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ae9ae90> to ASM
 [emit] mapped sw_s vreg15, -8(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1087c2fd0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10ae9b110> to ASM
 [emit] mapped sw_s vreg16, -12(x8) to STRU32
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1088e55b0> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10aec5a70> to ASM
 [emit] mapped sw_s vreg17, -16(x8) to STRU32
 [emit] mapped li_s vreg59, 0 to MOVI32
 [emit] mapped li_s vreg60, 0 to MOVI32
@@ -304,23 +304,23 @@ main_epilog:
 [emit] mapped add_vv vreg5phi_alloca_193_0, vreg24, v0, m0 to MOVVEC
 [emit] mapped add_vv vreg6phi_alloca_189_0, vreg25, v0, m0 to MOVVEC
 [emit] mapped addi_s vreg7phi_alloca_187_0, vreg26, 0 to MOVI32
-[emit] mapped addi_s vreg8phi_alloca_185_1, vreg27, 0 to MOVI32
+[emit] mapped addi_s vreg8phi_alloca_185_0, vreg27, 0 to MOVI32
 [emit] mapped muli_s vreg79, vreg4phi_alloca_179_0, 32 to ADDI32
 [emit] mapped add_s vreg80, vreg48tmp_load_34, vreg79 to ADDI32
 [emit] mapped addi_s vreg49tmp_42, vreg80, 0 to ADDI32
 [emit] mapped jal x0, main_block5 to JMP
-[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1088e6190> to ASM
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10aec6650> to ASM
 [emit] mapped li_s vreg81, 0 to MOVI32
 [emit] mapped addi_s vreg11retval, vreg81, 0 to MOVI32
 [emit] mapped jal x0, main_epilog to JMP
-[emit] mapped addi_s vreg8phi_alloca_185_1, vreg8phi_alloca_185_1, 0 to REGI32
+[emit] mapped addi_s vreg8phi_alloca_185_0, vreg8phi_alloca_185_0, 0 to REGI32
 [emit] mapped add_vv vreg6phi_alloca_189_0, vreg6phi_alloca_189_0, v0, m0 to REGVEC
 [emit] mapped addi_s vreg7phi_alloca_187_0, vreg7phi_alloca_187_0, 0 to REGI32
 [emit] mapped add_vv vreg5phi_alloca_193_0, vreg5phi_alloca_193_0, v0, m0 to REGVEC
 [emit] mapped li_s vreg82, 4 to CJMPI32
-[emit] mapped blt_s vreg8phi_alloca_185_1, vreg82, main_block6 to CJMPI32
+[emit] mapped blt_s vreg8phi_alloca_185_0, vreg82, main_block6 to CJMPI32
 [emit] mapped jal x0, main_block7 to CJMPI32
-[emit] mapped muli_s vreg83, vreg8phi_alloca_185_1, 2 to MULI32
+[emit] mapped muli_s vreg83, vreg8phi_alloca_185_0, 2 to MULI32
 [emit] mapped addi_s vreg51tmp_55, vreg83, 0 to MULI32
 [emit] mapped li_s vreg84, 0 to VSTORE
 [emit] mapped vreg_ld vreg85, vreg84, vreg51tmp_55, 7, 0 to VLOADVEC
@@ -337,16 +337,16 @@ main_epilog:
 [emit] mapped add_vv vreg94, vreg46tmp_vec_op_masked_225, vreg53tmp_vload_74, vreg93 to ADDVEC
 [emit] mapped add_vv vreg54tmp_vec_op_masked_86, vreg94, v0, m0 to ADDVEC
 [emit] mapped li_s vreg95, 0 to VSTORE
-[emit] mapped vreg_st vreg54tmp_vec_op_masked_86, vreg95, vreg8phi_alloca_185_1, 7, 0 to VSTORE
+[emit] mapped vreg_st vreg54tmp_vec_op_masked_86, vreg95, vreg8phi_alloca_185_0, 7, 0 to VSTORE
 [emit] mapped add_vv vreg30, vreg53tmp_vload_74, v0, m0 to MOVVEC
 [emit] mapped add_vv vreg31, vreg54tmp_vec_op_masked_86, v0, m0 to MOVVEC
 [emit] mapped addi_s vreg32, vreg51tmp_55, 0 to MOVI32
-[emit] mapped addi_s vreg96, vreg8phi_alloca_185_1, 1 to MOVI32
+[emit] mapped addi_s vreg96, vreg8phi_alloca_185_0, 1 to MOVI32
 [emit] mapped addi_s vreg33, vreg96, 0 to MOVI32
 [emit] mapped add_vv vreg5phi_alloca_193_0, vreg30, v0, m0 to MOVVEC
 [emit] mapped add_vv vreg6phi_alloca_189_0, vreg31, v0, m0 to MOVVEC
 [emit] mapped addi_s vreg7phi_alloca_187_0, vreg32, 0 to MOVI32
-[emit] mapped addi_s vreg8phi_alloca_185_1, vreg33, 0 to MOVI32
+[emit] mapped addi_s vreg8phi_alloca_185_0, vreg33, 0 to MOVI32
 [emit] mapped jal x0, main_block5 to JMP
 [emit] mapped add_vv vreg34, vreg0phi_alloca_199_1, v0, m0 to MOVVEC
 [emit] mapped li_s vreg97, 0 to MOVI32
@@ -392,19 +392,19 @@ main_epilog:
 [emit] mapped addi_s vreg3phi_alloca_187_1, vreg43, 0 to MOVI32
 [emit] mapped addi_s vreg4phi_alloca_179_0, vreg44, 0 to MOVI32
 [emit] mapped jal x0, main_block2 to JMP
-2026-04-15 17:52:13,331 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
-2026-04-15 17:52:13,332 |     INFO |   cbuilder | Starting C compilation (c99)
-2026-04-15 17:52:13,338 |     INFO |    cparser | Parsing finished
-[1;35m2026-04-15 17:52:13,340 |  WARNING |   ccodegen | Function does not return a value[0m
-2026-04-15 17:52:13,341 |     INFO |   ccodegen | Finished IR-code generation
-2026-04-15 17:52:13,341 |     INFO |   optimize | Optimizing module main level 2
-[1;35m2026-04-15 17:52:13,349 |  WARNING |   verifier | Undefined value 'und_alloca_199 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,349 |  WARNING |   verifier | Undefined value 'und_alloca_193 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,349 |  WARNING |   verifier | Undefined value 'und_alloca_189 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,349 |  WARNING |   verifier | Undefined value 'und_alloca_187 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,351 |  WARNING |   verifier | Undefined value 'und_alloca_199 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,351 |  WARNING |   verifier | Undefined value 'und_alloca_193 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,351 |  WARNING |   verifier | Undefined value 'und_alloca_189 = undefined' is used[0m
-[1;35m2026-04-15 17:52:13,351 |  WARNING |   verifier | Undefined value 'und_alloca_187 = undefined' is used[0m
-2026-04-15 17:52:13,351 |     INFO |    codegen | Generating atalla-arch code for module main
-2026-04-15 17:52:13,351 |     INFO |    codegen | Generating atalla-arch code for function main
+2026-04-15 18:08:51,326 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-15 18:08:51,327 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-15 18:08:51,332 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-15 18:08:51,334 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-15 18:08:51,335 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-15 18:08:51,335 |     INFO |   optimize | Optimizing module main level 2
+[1;35m2026-04-15 18:08:51,338 |  WARNING |   verifier | Undefined value 'und_alloca_199 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,338 |  WARNING |   verifier | Undefined value 'und_alloca_193 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,338 |  WARNING |   verifier | Undefined value 'und_alloca_189 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,339 |  WARNING |   verifier | Undefined value 'und_alloca_187 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,340 |  WARNING |   verifier | Undefined value 'und_alloca_199 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,340 |  WARNING |   verifier | Undefined value 'und_alloca_193 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,340 |  WARNING |   verifier | Undefined value 'und_alloca_189 = undefined' is used[0m
+[1;35m2026-04-15 18:08:51,340 |  WARNING |   verifier | Undefined value 'und_alloca_187 = undefined' is used[0m
+2026-04-15 18:08:51,340 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-15 18:08:51,340 |     INFO |    codegen | Generating atalla-arch code for function main

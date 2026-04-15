@@ -10,6 +10,8 @@ from typing import Iterable
 import build as base
 from instruction_latency import latency
 
+SCHED_LATENCY_OVERRIDE_ENV = "ATALLA_FUNCTIONAL_SCHED_LATENCY"
+
 IMM_RE = re.compile(r"^[+-]?(?:0x[0-9a-fA-F]+|0b[01]+|\d+)$")
 REG_RE = re.compile(r"^\$?[xv](\d+)$", re.IGNORECASE)
 NORM_REG_RE = re.compile(r"^\$(\d+)$")
@@ -293,15 +295,38 @@ def _parse_mem_operand(op: str) -> tuple[int, int]:
     return rs1, imm
 
 
+def _sched_latency_override() -> int | None:
+    raw = os.environ.get(SCHED_LATENCY_OVERRIDE_ENV)
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"{SCHED_LATENCY_OVERRIDE_ENV} must be a positive integer, got {raw!r}"
+        ) from exc
+    if value < 1:
+        raise ValueError(
+            f"{SCHED_LATENCY_OVERRIDE_ENV} must be a positive integer, got {raw!r}"
+        )
+    return value
+
+
 def _latency_for(mnemonic: str) -> int:
     m = mnemonic.lower()
     base_name = m.split(".", 1)[0]
+    override = _sched_latency_override()
     for key in (m, base_name):
         if key in latency:
             try:
-                return max(1, int(latency[key]))
+                default_latency = max(1, int(latency[key]))
+                if override is not None:
+                    return min(default_latency, override)
+                return default_latency
             except (TypeError, ValueError):
                 pass
+    if override is not None:
+        return override
     return 1
 
 
