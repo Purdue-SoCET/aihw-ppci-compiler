@@ -66,7 +66,7 @@ int main() {
         }
 
         int row = 0;
-        while (row < H_OUT) {
+        while (row < H_MID) {
             vec r = vector_load(0, row, WIDTH_M1, 0);
 
             vec p01 = vec_op_masked("RMAX", r, 0.0, M01);
