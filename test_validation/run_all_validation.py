@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_TEST = "vector_add_lane0.c"
 EXPECT_X10_RE = re.compile(r"EXPECT_X10:\s*([+-]?(?:0x[0-9A-Fa-f]+|\d+))")
 INPUT_BASE_RE = re.compile(r"INPUT_GMEM_BASE:\s*([+-]?(?:0x[0-9A-Fa-f]+|\d+))")
 INPUT_LANE0_RE = re.compile(r"INPUT_LANE0:\s*([+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?)")
@@ -43,22 +42,30 @@ def parse_x10(sreg_path: Path) -> int:
     return int(match.group(1), 16)
 
 
-def _parse_required(regex: re.Pattern[str], text: str, *, key: str, test_path: Path) -> str:
+def parse_required(regex: re.Pattern[str], text: str, *, key: str, test_path: Path) -> str:
     match = regex.search(text)
     if not match:
         raise RuntimeError(f"Could not find {key} in {test_path}")
     return match.group(1)
 
 
-def parse_metadata(test_path: Path) -> tuple[int, int, float, float]:
+def is_vector_test(source_text: str) -> bool:
+    return "INPUT_GMEM_BASE:" in source_text
+
+
+def parse_test_metadata(test_path: Path) -> tuple[int, int | None, float | None, float | None]:
     text = test_path.read_text()
-    expect_x10 = int(_parse_required(EXPECT_X10_RE, text, key="EXPECT_X10", test_path=test_path), 0)
-    input_base = int(_parse_required(INPUT_BASE_RE, text, key="INPUT_GMEM_BASE", test_path=test_path), 0)
-    input_lane0 = float(_parse_required(INPUT_LANE0_RE, text, key="INPUT_LANE0", test_path=test_path))
+    expected_x10 = int(parse_required(EXPECT_X10_RE, text, key="EXPECT_X10", test_path=test_path), 0)
+
+    if not is_vector_test(text):
+        return expected_x10, None, None, None
+
+    input_base = int(parse_required(INPUT_BASE_RE, text, key="INPUT_GMEM_BASE", test_path=test_path), 0)
+    input_lane0 = float(parse_required(INPUT_LANE0_RE, text, key="INPUT_LANE0", test_path=test_path))
     input_other_lanes = float(
-        _parse_required(INPUT_OTHER_LANES_RE, text, key="INPUT_OTHER_LANES", test_path=test_path)
+        parse_required(INPUT_OTHER_LANES_RE, text, key="INPUT_OTHER_LANES", test_path=test_path)
     )
-    return expect_x10, input_base, input_lane0, input_other_lanes
+    return expected_x10, input_base, input_lane0, input_other_lanes
 
 
 def bf16_bits(x: float) -> int:
@@ -76,35 +83,16 @@ def render_bf16_vector_data(base_addr: int, values: list[float]) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
-    script_dir = Path(__file__).resolve().parent
-    repo_root = script_dir.parent
+def seed_vector_input(image_path: Path, *, input_base: int, input_lane0: float, input_other_lanes: float) -> None:
+    input_vector = [input_lane0] + [input_other_lanes] * 31
+    data_text = render_bf16_vector_data(input_base, input_vector)
+    image_text = image_path.read_text().rstrip()
+    image_path.write_text(image_text + "\n" + data_text + "\n")
 
-    ap = argparse.ArgumentParser(
-        description="Compile a vector validation C test, seed GMEM, run build_compiler, then run functional_sim."
-    )
-    ap.add_argument(
-        "--test",
-        type=Path,
-        default=script_dir / DEFAULT_TEST,
-        help="Path to the C test file to validate",
-    )
-    ap.add_argument(
-        "--expect-x10",
-        type=lambda value: int(value, 0),
-        default=None,
-        help="Expected final value in x10; if omitted, read EXPECT_X10 from the C file comment",
-    )
-    args = ap.parse_args()
 
-    test_path = args.test.resolve()
-    if not test_path.exists():
-        raise FileNotFoundError(f"Test file not found: {test_path}")
-
-    comment_expect_x10, input_base, input_lane0, input_other_lanes = parse_metadata(test_path)
-    expected_x10 = args.expect_x10 if args.expect_x10 is not None else comment_expect_x10
-
-    out_dir = script_dir / "out" / test_path.stem
+def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
+    expected_x10, input_base, input_lane0, input_other_lanes = parse_test_metadata(test_path)
+    out_dir = out_root / test_path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
 
     asm_path = out_dir / f"{test_path.stem}.s"
@@ -155,10 +143,13 @@ def main() -> int:
         log_path=build_log,
     )
 
-    input_vector = [input_lane0] + [input_other_lanes] * 31
-    data_text = render_bf16_vector_data(input_base, input_vector)
-    image_text = image_path.read_text().rstrip()
-    image_path.write_text(image_text + "\n" + data_text + "\n")
+    if input_base is not None and input_lane0 is not None and input_other_lanes is not None:
+        seed_vector_input(
+            image_path,
+            input_base=input_base,
+            input_lane0=input_lane0,
+            input_other_lanes=input_other_lanes,
+        )
 
     run_and_log(
         [
@@ -195,11 +186,52 @@ def main() -> int:
             f"(0x{observed_x10:08X}). See {output_sregs}"
         )
 
-    print(f"Validation passed for {test_path.name}")
-    print(f"Expected x10: {expected_x10} (0x{expected_x10:08X})")
-    print(f"Observed x10: {observed_x10} (0x{observed_x10:08X})")
-    print(f"Seeded input base: 0x{input_base:08X}")
-    print(f"Artifacts: {out_dir}")
+    return out_dir
+
+
+def main() -> int:
+    script_dir = Path(__file__).resolve().parent
+    repo_root = script_dir.parent
+    out_root = script_dir / "out"
+
+    ap = argparse.ArgumentParser(
+        description=(
+            "Compile validation C tests, optionally seed vector GMEM input, run the "
+            "functional simulator, and verify the final x10 result."
+        )
+    )
+    ap.add_argument(
+        "--match",
+        default="*.c",
+        help="Glob used to select validation C files (default: *.c)",
+    )
+    args = ap.parse_args()
+
+    tests = sorted(
+        path for path in script_dir.glob(args.match) if path.is_file() and path.suffix == ".c"
+    )
+    if not tests:
+        raise RuntimeError(f"No validation tests matched {args.match!r} in {script_dir}")
+
+    failures: list[tuple[Path, str]] = []
+    for test_path in tests:
+        try:
+            out_dir = validate_test(test_path.resolve(), repo_root=repo_root, out_root=out_root)
+            print(f"PASS {test_path.name} -> {out_dir}")
+        except Exception as exc:
+            failures.append((test_path, str(exc)))
+            print(f"FAIL {test_path.name}")
+
+    if failures:
+        print()
+        for test_path, message in failures:
+            print(f"--- {test_path.name} ---")
+            print(message)
+            print()
+        return 1
+
+    print()
+    print(f"Validated {len(tests)} tests successfully.")
     return 0
 
 

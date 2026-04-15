@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build_compiler.py", line 832, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build_compiler.py", line 819, in main
+    final, ready, packets = compile_asm(asm)
+                            ~~~~~~~~~~~^^^^^
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build_compiler.py", line 803, in compile_asm
+    encoded = relocate_and_encode(instructions, packets, labels)
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build_compiler.py", line 710, in relocate_and_encode
+    instr_dict = asm_to_instr_dict(inst.mnemonic, inst.ops, labels=label_to_pc, pc=pc)
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build_compiler.py", line 199, in asm_to_instr_dict
+    return base.asm_to_instr_dict(mnemonic, ops, labels=labels, pc=pc)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build.py", line 557, in asm_to_instr_dict
+    imm1, imm9 = split_br_target_imm(delta_bytes)
+                 ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/sahilpatel/Documents/GitHub/aihw-ppci-compiler/functional_sim/build.py", line 409, in split_br_target_imm
+    raise ValueError(
+    ...<2 lines>...
+    )
+ValueError: Branch target offset 10640 out of range; must fit signed 10-bit words ([-2048, 2044] bytes)
