@@ -1,340 +1,193 @@
-#!/usr/bin/env python3
-"""
-Atalla Relocation Verification Script
-
-Tests that JAL and JALR instructions correctly resolve to their intended targets.
-Parses ELF symbol table and disassembly output to verify relocations.
-"""
-# Claude made this, had to change how it was parsing the header but it is good otherwise
-
 import re
-import json
-from typing import Dict, List, Tuple, Optional
 
-class ELFParser:
-    """Parse ELF file to extract symbol table"""
-    
-    def __init__(self, elf_path: str):
-        with open(elf_path, 'rb') as f:
-            self.data = f.read()
-        self.symbols = {}
-        self.code_section_offset = 0x34  # Will be dynamically found
-        self._find_code_section()
-        self._parse_symbols()
-    
-    def _find_code_section(self):
-        """Find the actual offset of the code section in the file"""
-        shoff = int.from_bytes(self.data[0x20:0x24], 'little')
-        shentsize = int.from_bytes(self.data[0x2E:0x30], 'little')
-        shnum = int.from_bytes(self.data[0x30:0x32], 'little')
-        shstrndx = int.from_bytes(self.data[0x32:0x34], 'little')
-        
-        # Read string table section header
-        strtab_header_off = shoff + shstrndx * shentsize
-        strtab_header = self.data[strtab_header_off : strtab_header_off + shentsize]
-        strtab_offset = int.from_bytes(strtab_header[16:20], 'little')
-        
-        # Find "code" section
-        for i in range(shnum):
-            sh_offset = shoff + i * shentsize
-            sh = self.data[sh_offset : sh_offset + shentsize]
-            
-            # Get section name
-            name_offset = int.from_bytes(sh[0:4], 'little')
-            name_start = strtab_offset + name_offset
-            name_end = self.data.index(b'\x00', name_start)
-            section_name = self.data[name_start:name_end].decode('ascii')
-            
-            if section_name == "code":
-                # Get section offset in file
-                self.code_section_offset = int.from_bytes(sh[16:20], 'little')
-                print(f"✓ Found code section at file offset 0x{self.code_section_offset:04X}")
-                break
-    
-    def _parse_symbols(self):
-        """Extract symbol table from ELF and adjust addresses"""
-        shoff = int.from_bytes(self.data[0x20:0x24], 'little')
-        shentsize = int.from_bytes(self.data[0x2E:0x30], 'little')
-        shnum = int.from_bytes(self.data[0x30:0x32], 'little')
-        shstrndx = int.from_bytes(self.data[0x32:0x34], 'little')
-        
-        # Read string table section header
-        strtab_header_off = shoff + shstrndx * shentsize
-        strtab_header = self.data[strtab_header_off : strtab_header_off + shentsize]
-        strtab_offset = int.from_bytes(strtab_header[16:20], 'little')
-        
-        # Find .symtab section
-        for i in range(shnum):
-            sh_offset = shoff + i * shentsize
-            sh = self.data[sh_offset : sh_offset + shentsize]
-            
-            # Get section name
-            name_offset = int.from_bytes(sh[0:4], 'little')
-            name_start = strtab_offset + name_offset
-            name_end = self.data.index(b'\x00', name_start)
-            section_name = self.data[name_start:name_end].decode('ascii')
-            
-            if section_name == ".symtab":
-                symtab_offset = int.from_bytes(sh[16:20], 'little')
-                symtab_size = int.from_bytes(sh[20:24], 'little')
-                symtab_entsize = int.from_bytes(sh[36:40], 'little')
-                
-                # Find .strtab for symbol names
-                strtab_link = int.from_bytes(sh[24:28], 'little')
-                strtab_sh_off = shoff + strtab_link * shentsize
-                strtab_sh = self.data[strtab_sh_off : strtab_sh_off + shentsize]
-                sym_strtab_offset = int.from_bytes(strtab_sh[16:20], 'little')
-                
-                # Parse symbol table
-                for sym_i in range(0, symtab_size, symtab_entsize):
-                    sym = self.data[symtab_offset + sym_i : symtab_offset + sym_i + symtab_entsize]
-                    
-                    sym_name_off = int.from_bytes(sym[0:4], 'little')
-                    sym_value = int.from_bytes(sym[4:8], 'little')
-                    sym_size = int.from_bytes(sym[8:12], 'little')
-                    sym_info = sym[12]
-                    sym_shndx = int.from_bytes(sym[14:16], 'little')
-                    
-                    # Get symbol name
-                    if sym_name_off > 0:
-                        name_start = sym_strtab_offset + sym_name_off
-                        name_end = self.data.index(b'\x00', name_start)
-                        sym_name = self.data[name_start:name_end].decode('ascii')
-                        
-                        # Store function symbols
-                        sym_type = sym_info & 0xF
-                        if sym_type == 2 or sym_value > 0:  # STT_FUNC or has value
-                            # CRITICAL FIX: Add code section offset to get actual file address
-                            actual_address = sym_value + self.code_section_offset
-                            self.symbols[sym_name] = actual_address
-                
-                break
-    
-    def get_symbol_address(self, name: str) -> Optional[int]:
-        """Get address of a symbol by name"""
-        return self.symbols.get(name)
-    
-    def get_all_symbols(self) -> Dict[str, int]:
-        """Get all symbols"""
-        return self.symbols.copy()
+MMAP_FILE = "atalla_layout.mmap"
+DIS_FILE = "disassembly.txt"
 
-class DisassemblyParser:
-    """Parse disassembly output to extract jump instructions"""
-    
-    def __init__(self, disasm_path: str):
-        with open(disasm_path, 'r') as f:
-            self.lines = f.readlines()
-        self.instructions = []
-        self._parse()
-    
-    def _parse(self):
-        """Extract all instructions with addresses and targets"""
-        # Pattern: 0x0070    AB 00 06 00 00 00            jal        x1, 0xB8  # offset=12
-        pattern = r'^(0x[0-9A-Fa-f]+)\s+([0-9A-Fa-f\s]+)\s+(jal|jalr|beq_s|bne_s|blt_s|bge_s|bgt_s|ble_s)\s+.*?(0x[0-9A-Fa-f]+)'
-        
-        for line in self.lines:
-            match = re.search(pattern, line)
-            if match:
-                addr = int(match.group(1), 16)
-                mnemonic = match.group(3)
-                target = int(match.group(4), 16)
-                
-                self.instructions.append({
-                    'address': addr,
-                    'mnemonic': mnemonic,
-                    'target': target,
-                    'line': line.strip()
-                })
-    
-    def get_jumps(self) -> List[Dict]:
-        """Get all jump/branch instructions"""
-        return self.instructions.copy()
+# ----------------------------
+# Parse memory map
+# ----------------------------
+def parse_mmap(path):
+    text = open(path).read()
 
+    regions = {}
+    for name, base, size in re.findall(
+        r"MEMORY\s+(\w+)\s+LOCATION=0x([0-9A-Fa-f]+)\s+SIZE=0x([0-9A-Fa-f]+)",
+        text,
+    ):
+        base = int(base, 16)
+        size = int(size, 16)
+        regions[name] = (base, base + size)
 
-class RelocationTester:
-    """Test relocation correctness"""
-    
-    def __init__(self, elf_parser: ELFParser, disasm_parser: DisassemblyParser, config: Dict):
-        self.elf = elf_parser
-        self.disasm = disasm_parser
-        self.config = config
-        self.results = []
-    
-    def run_tests(self):
-        """Run all relocation tests"""
-        print("=" * 80)
-        print("ATALLA RELOCATION VERIFICATION")
-        print("=" * 80)
-        print()
-        
-        # Show discovered symbols
-        print("Discovered Symbols:")
-        symbols = self.elf.get_all_symbols()
-        for name, addr in sorted(symbols.items(), key=lambda x: x[1]):
-            print(f"  {name:30s} @ 0x{addr:04X}")
-        print()
-        
-        # Show discovered jumps
-        jumps = self.disasm.get_jumps()
-        print(f"Found {len(jumps)} jump/branch instructions")
-        print()
-        
-        # Test each expected relocation
-        print("=" * 80)
-        print("TESTING RELOCATIONS")
-        print("=" * 80)
-        print()
-        
-        for test in self.config.get("expected_relocations", []):
-            self._test_relocation(test, jumps, symbols)
-        
-        # Check for unexpected jumps
-        self._check_unexpected_jumps(jumps)
-        
-        # Print summary
-        self._print_summary()
-    
-    def _test_relocation(self, test: Dict, jumps: List[Dict], symbols: Dict[str, int]):
-        """Test a single expected relocation"""
-        reloc_type = test["type"]
-        source_func = test.get("source_function")
-        target_name = test["target"]
-        should_succeed = test.get("should_succeed", True)
-        
-        # Find target address
-        target_addr = symbols.get(target_name)
-        if target_addr is None:
-            print(f"❌ FAIL: Target '{target_name}' not found in symbol table")
-            self.results.append(("FAIL", f"Missing target: {target_name}"))
-            return
-        
-        # Find matching jump instruction
-        matching_jumps = []
-        for jump in jumps:
-            if reloc_type.lower() in jump['mnemonic'].lower():
-                # Check if in correct source function (optional)
-                if source_func:
-                    source_addr = symbols.get(source_func)
-                    # Simple heuristic: jump is within ~200 bytes of function start
-                    if source_addr and abs(jump['address'] - source_addr) < 200:
-                        matching_jumps.append(jump)
+    return regions
+
+# ----------------------------
+# Parse disassembly.txt file
+# ----------------------------
+def parse_disassembly(path):
+    lines = open(path).read().splitlines()
+
+    instructions = []
+    symbols = {}
+
+    in_code = False
+    in_symbols = False
+
+    for line in lines:
+        if "=== CODE SECTION ===" in line:
+            in_code = True
+            continue
+        if "=== SYMBOL TABLE ===" in line:
+            in_symbols = True
+            in_code = False
+            continue
+
+        if in_code:
+            m = re.match(r"\s*(0x[0-9A-Fa-f]+)\s+(.+)", line)
+            if m:
+                offset = int(m.group(1), 16)
+                instructions.append((offset, line.strip()))
+
+        if in_symbols:
+            m = re.match(r"(\w+)\s+(0x[0-9A-Fa-f]+)", line.strip())
+            if m:
+                name = m.group(1)
+                addr = int(m.group(2), 16)
+                symbols[addr] = name
+
+    return instructions, symbols
+
+# ----------------------------
+# Extract relocation targets
+# ----------------------------
+def extract_target(line):
+    matches = re.findall(r"0x([0-9A-Fa-f]+)", line)
+    if not matches:
+        return None
+    return int(matches[-1], 16)
+
+# ----------------------------
+# Control flow test
+# ----------------------------
+def test_control_flow(instructions, symbols, code_base, code_end):
+    print("\n=== CONTROL FLOW TEST ===")
+
+    PASS = WARN = FAIL = 0
+
+    for offset, line in instructions:
+        if re.search(r"\b(jal|bgt_s|blt_s|beq_s|bne_s)\b", line):
+            target = extract_target(line)
+            if target is None:
+                continue
+
+            target_va = target + code_base
+            pc_va = code_base + offset
+            # This comment should stay here for critical debugging at a later point
+            # print(f'PC_VA: 0x{pc_va:X}, Target 0x{target:X}')
+
+            if not (code_base <= target_va < code_end):
+                print(f"Failed {line} -> OUTSIDE CODE (0x{target_va:X})")
+                FAIL += 1
+            elif target_va in symbols:
+                print(f"Correct {line} -> {symbols[target_va]} (0x{target_va:X})")
+                PASS += 1
+            else:
+                print(f"Warning {line} -> 0x{target_va:X} (no symbol)")
+                WARN += 1
+
+    print(f"\nPASS={PASS} WARN={WARN} FAIL={FAIL}")
+
+# ----------------------------
+# Global relocation test
+# ----------------------------
+def test_globals(instructions, data_base, data_end, code_base):
+    print("\n=== GLOBAL ADDRESS TEST ===")
+    PASS = FAIL = 0
+    i = 0
+    while i < len(instructions) - 1:
+        off1, l1 = instructions[i]
+        off2, l2 = instructions[i + 1]
+
+        # detect LUI + ADDI pair
+        if "lui_s" in l1 and "addi_s" in l2:
+            m1 = re.search(r"lui_s\s+x(\d+),\s*([0-9]+)", l1)
+            m2 = re.search(r"addi_s\s+x(\d+),\s*x(\d+),\s*([0-9\-]+)", l2)
+
+            if m1 and m2:
+                reg_lui = int(m1.group(1))
+                reg_addi_dst = int(m2.group(1))
+                reg_addi_src = int(m2.group(2))
+
+                # ensure it's the same register chain
+                if reg_lui != reg_addi_dst or reg_lui != reg_addi_src:
+                    i += 1
+                    continue
+
+                upper = int(m1.group(2))
+                lower = int(m2.group(3))
+
+                addr = (upper << 12) + lower
+
+            if m1 and m2:
+                reg = int(m1.group(1))
+                upper = int(m1.group(2))
+                lower = int(m2.group(1))
+
+                addr = upper + lower
+
+                if data_base <= addr < data_end:
+                    PASS += 1
+                elif code_base <= addr < data_end:
+                    print(f"WRONG REGION (code used as global): 0x{addr:X}")
+                    FAIL += 1
                 else:
-                    matching_jumps.append(jump)
-        
-        # Check if any matching jump points to target
-        found = False
-        for jump in matching_jumps:
-            if jump['target'] == target_addr:
-                found = True
-                status = "✅ PASS" if should_succeed else "⚠️  UNEXPECTED SUCCESS"
-                msg = f"{reloc_type:6s} @ 0x{jump['address']:04X} → {target_name} (0x{target_addr:04X})"
-                print(f"{status}: {msg}")
-                self.results.append(("PASS" if should_succeed else "WARN", msg))
-                
-                # Mark jump as verified
-                jump['verified'] = True
-                break
-        
-        if not found:
-            status = "❌ FAIL" if should_succeed else "✅ EXPECTED FAIL"
-            msg = f"{reloc_type:6s} to {target_name} (0x{target_addr:04X})"
-            print(f"{status}: {msg}")
-            if matching_jumps:
-                print(f"         Found {len(matching_jumps)} {reloc_type} instructions but none target 0x{target_addr:04X}")
-                for j in matching_jumps[:3]:  # Show first 3
-                    print(f"           0x{j['address']:04X} → 0x{j['target']:04X}")
-            self.results.append(("FAIL" if should_succeed else "PASS", msg))
-    
-    def _check_unexpected_jumps(self, jumps: List[Dict]):
-        """Check for jumps not in expected config"""
-        print()
-        print("=" * 80)
-        print("UNVERIFIED JUMPS")
-        print("=" * 80)
-        print()
-        
-        unverified = [j for j in jumps if not j.get('verified')]
-        
-        if unverified:
-            print(f"⚠️  Found {len(unverified)} unverified jump instructions:")
-            for jump in unverified:
-                # Try to find what symbol it points to
-                target_name = "unknown"
-                for name, addr in self.elf.get_all_symbols().items():
-                    if addr == jump['target']:
-                        target_name = name
-                        break
-                
-                print(f"  {jump['mnemonic']:6s} @ 0x{jump['address']:04X} → 0x{jump['target']:04X} ({target_name})")
-        else:
-            print("✅ All jumps verified!")
-    
-    def _print_summary(self):
-        """Print test summary"""
-        print()
-        print("=" * 80)
-        print("SUMMARY")
-        print("=" * 80)
-        
-        passes = sum(1 for r in self.results if r[0] == "PASS")
-        fails = sum(1 for r in self.results if r[0] == "FAIL")
-        warns = sum(1 for r in self.results if r[0] == "WARN")
-        
-        print(f"✅ PASSED: {passes}")
-        print(f"❌ FAILED: {fails}")
-        print(f"⚠️  WARNINGS: {warns}")
-        print()
-        
-        if fails == 0:
-            print("ALL TESTS PASSED!")
-        else:
-            print("❌ SOME TESTS FAILED")
-            print("\nFailed tests:")
-            for status, msg in self.results:
-                if status == "FAIL":
-                    print(f"  - {msg}")
+                    print(f"INVALID ADDRESS: 0x{addr:X}")
+                    FAIL += 1
+
+        i += 1
+
+    print(f"\nPASS={PASS} FAIL={FAIL}")
 
 
+# ----------------------------
+# Symbol range sanity
+# ----------------------------
+def test_symbols(symbols, code_base, code_end, data_base, data_end):
+    print("\n=== SYMBOL RANGE TEST ===")
+
+    PASS = FAIL = 0
+
+    for addr, name in symbols.items():
+        if (code_base <= addr < code_end) or (data_base <= addr < data_end):
+            PASS += 1
+        else:
+            print(f"Incorrect {name} at 0x{addr:X} outside all regions")
+            FAIL += 1
+
+    print(f"\nPASS={PASS} FAIL={FAIL}")
+
+
+# ----------------------------
+# Main
+# ----------------------------
 def main():
-    # Load configuration
-    try:
-        with open("relocation_tests.json", 'r') as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        print("⚠️  No relocation_tests.json found, using default config")
-        config = {
-            "expected_relocations": [
-                {
-                    "type": "JAL",
-                    "source_function": "instruct_tests",
-                    "target": "helper",
-                    "should_succeed": True
-                },
-                {
-                    "type": "JAL",
-                    "source_function": "instruct_tests",
-                    "target": "instruct_tests_epilog",
-                    "should_succeed": True
-                },
-                {
-                    "type": "JAL",
-                    "source_function": "helper",
-                    "target": "helper_epilog",
-                    "should_succeed": True
-                }
-            ]
-        }
-    
-    # Parse ELF and disassembly
-    print("Parsing ELF file...")
-    elf_parser = ELFParser("output.elf")
-    
-    print("Parsing disassembly...")
-    disasm_parser = DisassemblyParser("disassembly.txt")
-    
-    # Run tests
-    tester = RelocationTester(elf_parser, disasm_parser, config)
-    tester.run_tests()
+    print("Parsing memory map...")
+    regions = parse_mmap(MMAP_FILE)
+
+    code_base, code_end = regions["code"]
+    data_base, data_end = regions["data"]
+
+    print(f"code: 0x{code_base:X} - 0x{code_end:X}")
+    print(f"data: 0x{data_base:X} - 0x{data_end:X}")
+
+    print("\nParsing disassembly...")
+    instructions, symbols = parse_disassembly(DIS_FILE)
+
+    print(f"Found {len(instructions)} instructions")
+    print(f"Found {len(symbols)} symbols")
+
+    test_symbols(symbols, code_base, code_end, data_base, data_end)
+    test_control_flow(instructions, symbols, code_base, code_end)
+    test_globals(instructions, data_base, data_end, code_base)
 
 
 if __name__ == "__main__":
