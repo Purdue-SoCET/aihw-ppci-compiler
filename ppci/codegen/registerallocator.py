@@ -116,6 +116,8 @@ The following class can be used to perform register allocation.
 import logging
 from functools import lru_cache
 
+from ppci.arch.atalla.vector_registers import AtallaVectorRegister
+
 from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.collections import OrderedSet
@@ -181,8 +183,11 @@ class MiniGen:
     def make_fmt(self, vreg):
         """Determine the type suffix, such as I32 or F64."""
         # TODO: hack to retrieve register type (U, I or F):
-        ty = getattr(vreg, "ty", "I")
-        fmt = f"{ty}{vreg.bitsize}"
+        if isinstance(vreg.registers[0], AtallaVectorRegister):
+            fmt = "VEC"
+        else:
+            ty = getattr(vreg, "ty", "I")
+            fmt = f"{ty}{vreg.bitsize}"
         return fmt
 
     def make_at(self, slot):
@@ -701,7 +706,10 @@ class GraphColoringRegisterAllocator:
 
         size = node.reg_class.bitsize // 8
         alignment = size
-        slot = self.frame.alloc(size, alignment)
+        if node.reg_class == AtallaVectorRegister:
+            slot = self.frame.scpad_alloc(size, alignment)
+        else:
+            slot = self.frame.alloc(size, alignment)
         self.logger.debug("Allocating stack slot %s", slot)
 
         # TODO: maybe break-up coalesced node before doing this?
