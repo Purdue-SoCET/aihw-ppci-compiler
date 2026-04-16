@@ -132,7 +132,7 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
     run_and_log(
         [
             sys.executable,
-            str(repo_root / "functional_sim" / "build_compiler.py"),
+            str(repo_root / "atalla-functional-sim" / "build_compiler.py"),
             "-i",
             str(asm_path),
             "-o",
