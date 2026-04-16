@@ -183,7 +183,7 @@ class MiniGen:
     def make_fmt(self, vreg):
         """Determine the type suffix, such as I32 or F64."""
         # TODO: hack to retrieve register type (U, I or F):
-        if isinstance(vreg.registers[0], AtallaVectorRegister):
+        if isinstance(vreg, AtallaVectorRegister):
             fmt = "VEC"
         else:
             ty = getattr(vreg, "ty", "I")

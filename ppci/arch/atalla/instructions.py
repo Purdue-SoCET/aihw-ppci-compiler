@@ -727,11 +727,12 @@ def pattern_mem_fpreli32(context, tree):
     size=4,
     condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
 )
-def pattern_fpreli32(context, tree):
+def pattern_fpreli32_scpad(context, tree):
     d = context.new_reg(AtallaRegister)
     offset = tree.value.offset
     Code = Addis(d, SCPADFP, offset)
     Code.fprel = True
+    Code.scpadfprel = True
     context.emit(Code)
     return d
 
@@ -743,7 +744,7 @@ def pattern_fpreli32(context, tree):
     size=0,
     condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
 )
-def pattern_mem_fpreli32(context, tree):
+def pattern_mem_fpreli32_scpad(context, tree):
     offset = tree.value.offset
     return SCPADFP, offset
 
