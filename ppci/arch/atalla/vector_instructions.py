@@ -286,22 +286,40 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
 
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
+    base_reg, offset = c0
+    addr_reg = base_reg
+    if offset != 0:
+        addr_reg = context.new_reg(AtallaRegister)
+        code = Addis(addr_reg, base_reg, offset)
+        code.scpadfprel = True
+        code.fprel = True
+        context.emit(code)
+
     c = context.new_reg(AtallaRegister)
-    Code = Lis(c, 1)
-    context.emit(Code)
-    Code = VregSt(v1, c0[0], c, 31, 3)
-    Code.fprel = True
-    context.emit(Code)
+    code = Lis(c, 1)
+    context.emit(code)
+    code = VregSt(v1, addr_reg, c, 31, 3)
+    code.fprel = True
+    context.emit(code)
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
     d = context.new_reg(AtallaVectorRegister)
+    base_reg, offset = c0
+    addr_reg = base_reg
+    if offset != 0:
+        addr_reg = context.new_reg(AtallaRegister)
+        code = Addis(addr_reg, base_reg, offset)
+        code.scpadfprel = True
+        code.fprel = True
+        context.emit(code)
+
     c = context.new_reg(AtallaRegister)
-    Code = Lis(c, 1)
-    context.emit(Code)
-    Code = VregLd(d, c0[0], c, 31, 3)
-    Code.fprel = True
-    context.emit(Code)
+    code = Lis(c, 1)
+    context.emit(code)
+    code = VregLd(d, addr_reg, c, 31, 3)
+    code.fprel = True
+    context.emit(code)
     return d
 
 @isa.pattern(
@@ -624,6 +642,40 @@ def pattern_vload(context, tree, addr, rs2):
     sid = tree.children[3].value
     context.emit(VregLd(d, addr, rs2, num_cols, sid))
     return d
+
+
+# @isa.pattern(
+#     "stm",
+#     "MOVVEC(VLOADVEC(reg, reg, CONSTI32, CONSTI32))",
+#     size=2,
+#     condition=lambda t: t.children[0].children[2].value in range(0, 32)
+#     and t.children[0].children[3].value in range(0, 4),
+# )
+# def pattern_movvec_vload(context, tree, addr, rs2):
+#     dst = tree.value
+#     num_cols = tree.children[0].children[2].value
+#     sid = tree.children[0].children[3].value
+#     context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+#     return dst
+
+
+# @isa.pattern("stm", "MOVVEC(LDRVEC(mem))", size=2)
+# def pattern_movvec_ldvec_mem(context, tree, c0):
+#     dst = tree.value
+#     base_reg, offset = c0
+#     addr_reg = base_reg
+#     if offset != 0:
+#         addr_reg = context.new_reg(AtallaRegister)
+#         code = Addis(addr_reg, base_reg, offset)
+#         code.fprel = True
+#         context.emit(code)
+#     c = context.new_reg(AtallaRegister)
+#     code = Lis(c, 1)
+#     context.emit(code)
+#     code = VregLd(dst, addr_reg, c, 31, 3)
+#     code.fprel = True
+#     context.emit(code)
+#     return dst
 
 
 @isa.pattern("stm", "VSTORE(vecreg, reg, reg, CONSTI32, CONSTI32)", size=2,

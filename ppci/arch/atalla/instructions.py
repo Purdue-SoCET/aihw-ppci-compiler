@@ -1,3 +1,4 @@
+from ppci.arch.stack import StackKind
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
@@ -727,7 +728,7 @@ def pattern_label1(context, tree):
     "reg",
     "FPRELU32",
     size=4,
-    condition=lambda t: t.value.offset in range(-2048, 2048),
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.NORMAL,
 )
 def pattern_fpreli32(context, tree):
     d = context.new_reg(AtallaRegister)
@@ -743,11 +744,38 @@ def pattern_fpreli32(context, tree):
     "mem",
     "FPRELU32",
     size=0,
-    condition=lambda t: t.value.offset in range(-2048, 2048),
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.NORMAL,
 )
 def pattern_mem_fpreli32(context, tree):
     offset = tree.value.offset
     return FP, offset
+
+@isa.pattern(
+    "reg",
+    "FPRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
+)
+def pattern_fpreli32_scpad(context, tree):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    Code = Addis(d, SCPADFP, offset)
+    Code.fprel = True
+    Code.scpadfprel = True
+    context.emit(Code)
+    return d
+
+
+# Memory patterns:
+@isa.pattern(
+    "mem",
+    "FPRELU32",
+    size=0,
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
+)
+def pattern_mem_fpreli32_scpad(context, tree):
+    offset = tree.value.offset
+    return SCPADFP, offset
 
 
 @isa.pattern("mem", "reg", size=10)
