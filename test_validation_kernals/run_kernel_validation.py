@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kernel C validation: atalla_cc → build_compiler → seed .data → functional_sim.run.
+"""Kernel C validation: atalla_cc → build_compiler → seed .data → atalla-functional-sim/run.py.
 
 add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool/maxpool_2x2: finite outputs
 (SDMA layout ≠ dense seed for 2x1; 2x2 checks 4×4 out tile). layernorm: BF16 golden vs numpy
@@ -19,10 +19,35 @@ from typing import Callable
 import numpy as np
 
 _REPO = Path(__file__).resolve().parent.parent
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_SIM_ROOT = _REPO / "atalla-functional-sim"
 
-from functional_sim.src.components.gemm import (  # noqa: E402
+
+def _prepend_sys_path(path: Path) -> None:
+    path_str = str(path)
+    if path_str in sys.path:
+        sys.path.remove(path_str)
+    sys.path.insert(0, path_str)
+
+
+def build_pythonpath(*paths: Path) -> str:
+    entries: list[str] = []
+    for path in paths:
+        entry = str(path)
+        if entry not in entries:
+            entries.append(entry)
+    for entry in os.environ.get("PYTHONPATH", "").split(os.pathsep):
+        if entry and entry not in entries:
+            entries.append(entry)
+    return os.pathsep.join(entries)
+
+
+if not _SIM_ROOT.is_dir():
+    raise RuntimeError(f"Missing simulator dependency directory: {_SIM_ROOT}")
+
+_prepend_sys_path(_REPO)
+_prepend_sys_path(_SIM_ROOT)
+
+from src.components.gemm import (  # noqa: E402
     systolic_gemm_vv_dram_reference,
     to_bf16,
 )
@@ -409,6 +434,7 @@ def run_one(
     *,
     script_dir: Path,
     repo_root: Path,
+    sim_root: Path,
     env: dict[str, str],
 ) -> None:
     stem = test_path.stem
@@ -450,13 +476,13 @@ def run_one(
 
     bc = [
         sys.executable,
-        str(repo_root / "atalla-functional-sim" / "build_compiler.py"),
+        str(sim_root / "build_compiler.py"),
         "-i",
         str(asm_path),
         "-o",
         str(image_path),
     ]
-    run_and_log(bc, cwd=repo_root, env=env, log_path=build_log)
+    run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}
     seed_fn(words)
@@ -465,8 +491,7 @@ def run_one(
     run_and_log(
         [
             sys.executable,
-            "-m",
-            "functional_sim.run",
+            str(sim_root / "run.py"),
             "--input_file",
             str(image_path),
             "--output_mem_file",
@@ -484,7 +509,7 @@ def run_one(
             "--output_perf_file",
             str(output_perf),
         ],
-        cwd=repo_root,
+        cwd=sim_root,
         env=env,
         log_path=run_log,
     )
@@ -497,8 +522,9 @@ def run_one(
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
+    sim_root = repo_root / "atalla-functional-sim"
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(repo_root)
+    env["PYTHONPATH"] = build_pythonpath(sim_root, repo_root)
     # functional_sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
     # past BEQ/BNE range (see instruction_latency scpad.ld/st).
     env["ATALLA_FUNCTIONAL_SCHED_LATENCY"] = "1"
@@ -535,7 +561,7 @@ def main() -> int:
             failed.append(f"missing {t}")
             continue
         try:
-            run_one(t, script_dir=script_dir, repo_root=repo_root, env=env)
+            run_one(t, script_dir=script_dir, repo_root=repo_root, sim_root=sim_root, env=env)
         except Exception as e:
             failed.append(f"{t.name}: {e}")
 

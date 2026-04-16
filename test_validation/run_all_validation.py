@@ -18,6 +18,18 @@ INPUT_OTHER_LANES_RE = re.compile(
 )
 
 
+def build_pythonpath(*paths: Path) -> str:
+    entries: list[str] = []
+    for path in paths:
+        entry = str(path)
+        if entry not in entries:
+            entries.append(entry)
+    for entry in os.environ.get("PYTHONPATH", "").split(os.pathsep):
+        if entry and entry not in entries:
+            entries.append(entry)
+    return os.pathsep.join(entries)
+
+
 def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> None:
     proc = subprocess.run(
         cmd,
@@ -90,7 +102,7 @@ def seed_vector_input(image_path: Path, *, input_base: int, input_lane0: float, 
     image_path.write_text(image_text + "\n" + data_text + "\n")
 
 
-def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
+def validate_test(test_path: Path, *, repo_root: Path, sim_root: Path, out_root: Path) -> Path:
     expected_x10, input_base, input_lane0, input_other_lanes = parse_test_metadata(test_path)
     out_dir = out_root / test_path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +122,7 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
     output_perf = out_dir / "output_perf.out"
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(repo_root)
+    env["PYTHONPATH"] = build_pythonpath(sim_root, repo_root)
 
     run_and_log(
         [
@@ -132,13 +144,13 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
     run_and_log(
         [
             sys.executable,
-            str(repo_root / "atalla-functional-sim" / "build_compiler.py"),
+            str(sim_root / "build_compiler.py"),
             "-i",
             str(asm_path),
             "-o",
             str(image_path),
         ],
-        cwd=repo_root,
+        cwd=sim_root,
         env=env,
         log_path=build_log,
     )
@@ -154,8 +166,7 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
     run_and_log(
         [
             sys.executable,
-            "-m",
-            "functional_sim.run",
+            str(sim_root / "run.py"),
             "--input_file",
             str(image_path),
             "--output_mem_file",
@@ -173,7 +184,7 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
             "--output_perf_file",
             str(output_perf),
         ],
-        cwd=repo_root,
+        cwd=sim_root,
         env=env,
         log_path=run_log,
     )
@@ -192,7 +203,11 @@ def validate_test(test_path: Path, *, repo_root: Path, out_root: Path) -> Path:
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
+    sim_root = repo_root / "atalla-functional-sim"
     out_root = script_dir / "out"
+
+    if not sim_root.is_dir():
+        raise RuntimeError(f"Missing simulator dependency directory: {sim_root}")
 
     ap = argparse.ArgumentParser(
         description=(
@@ -216,7 +231,12 @@ def main() -> int:
     failures: list[tuple[Path, str]] = []
     for test_path in tests:
         try:
-            out_dir = validate_test(test_path.resolve(), repo_root=repo_root, out_root=out_root)
+            out_dir = validate_test(
+                test_path.resolve(),
+                repo_root=repo_root,
+                sim_root=sim_root,
+                out_root=out_root,
+            )
             print(f"PASS {test_path.name} -> {out_dir}")
         except Exception as exc:
             failures.append((test_path, str(exc)))
