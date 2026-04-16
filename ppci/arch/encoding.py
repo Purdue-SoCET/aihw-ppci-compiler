@@ -263,7 +263,6 @@ class Constructor:
 
     def gen_relocations(self):
         """Override this method to generate relocation information"""
-        print("gen_relocations override")
         return []
 
 

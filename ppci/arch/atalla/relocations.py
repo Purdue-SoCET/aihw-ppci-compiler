@@ -35,30 +35,14 @@ class AtallaMI_JAL_Imm25_Relocation(Relocation):
 
 # For if lui uses or loads symbol addresses
 class AtallaMI_Abs_Imm25_Relocation(Relocation):
-    print("we in the lui_s instruction")
     name = "MI_abs_i25"
     token = AtallaMIToken
     field = "imm25"
     
     def calc(self, sym_value, reloc_value):
-        # return (sym_value >> 7) & 0x1FFFFFF # Shifts and grabs the upper 25 bits
-        result = (sym_value >> 7) & 0x1FFFFFF
-        print(f"[HI25] sym_value=0x{sym_value:X}, result=0x{result:X}")
-        return result
+        return (sym_value >> 7) & 0x1FFFFFF # Shifts and grabs the upper 25 bits
     
     def apply(self, sym_value, data, reloc_value):
-        
-        print(f"[HI25 APPLY] sym_value=0x{sym_value:X}")
-        print(f"[HI25 APPLY] Input bytes: {data.hex()}")
-        
-        imm25 = self.calc(sym_value, reloc_value)
-        token = self.token.from_data(data)
-        token.imm25 = imm25
-        result = token.encode()
-        
-        print(f"[HI25 APPLY] Output bytes: {result.hex()}")
-        return result
-        print("the relocation should be applied")
         imm25 = self.calc(sym_value, reloc_value)
         token = self.token.from_data(data)
         token.imm25 = imm25

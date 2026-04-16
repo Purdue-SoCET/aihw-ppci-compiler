@@ -312,7 +312,6 @@ class ObjectFile:
         return reloc
 
     def gen_relocation(self, reloc_type, symbol_id, section, offset):
-        print("we be in the gen_relocation function")
         reloc = RelocationEntry(reloc_type, symbol_id, section, offset, 0)
         self.add_relocation(reloc)
 

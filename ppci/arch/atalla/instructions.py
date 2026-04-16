@@ -143,7 +143,6 @@ class AtallaBRInstruction(Instruction):
 
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
-        # return [AtallaBR_Imm10_Relocation(self.imm10)]
         yield AtallaBR_Imm10_Relocation(self.imm10)
     
     def encode(self):
@@ -300,8 +299,7 @@ class Jal(AtallaMIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        print("entered the jal relocation")
-        return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
+        yield AtallaMI_JAL_Imm25_Relocation(self.imm25)
 
 class Jalr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -375,7 +373,6 @@ class Adrl(AtallaIInstruction): #This is wrong due to the 64 bit encoding but wa
         return tokens[0].encode()
 
     def relocations(self):
-        # return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
         yield AtallaI_JALR_Imm12_Relocation(self.imm12)
     
 
@@ -405,7 +402,6 @@ class Luil(AtallaMIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        # return [AtallaMI_Abs_Imm25_Relocation(self.label)]
         yield AtallaMI_Abs_Imm25_Relocation(self.label)
 
 # This class is for ADDI but for labels in conjunction with Luil
@@ -424,8 +420,6 @@ class Addil(AtallaIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        print("entered the addil relocation")
-        # return [AtallaI_Abs_Imm7_Relocation(self.label)]
         yield AtallaI_Abs_Imm7_Relocation(self.label)
 
 @isa.pattern("stm", "MOVI16(reg)", size=2)
