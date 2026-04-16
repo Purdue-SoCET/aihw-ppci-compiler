@@ -284,7 +284,6 @@ def disassemble_instruction(insn_int, offset):
 
 def get_elf_sections(data):
     """Return a list of ELF section descriptors.
-
     Each descriptor has: name (bytes), type (int), flags (int), off (int), size (int)
     """
     if len(data) < 52 or data[0:4] != b"\x7fELF":
@@ -338,6 +337,79 @@ def get_elf_sections(data):
 
     return sections
 
+def get_symbols(data, sections):
+    """Parse ELF symbol table and return list of symbols with file offsets."""
+    symbols = []
+
+    symtab_sec = None
+    for sec in sections:
+        if sec["name"] == b".symtab":
+            symtab_sec = sec
+            break
+
+    if not symtab_sec:
+        return symbols
+
+    symtab_offset = symtab_sec["off"]
+    symtab_size = symtab_sec["size"]
+    symtab_entsize = symtab_sec["type"]
+
+    # Re-read raw section header to get entsize + link
+    e_shoff = int.from_bytes(data[32:36], "little")
+    e_shentsize = int.from_bytes(data[46:48], "little")
+    e_shnum = int.from_bytes(data[48:50], "little")
+
+    # Find symtab index
+    symtab_index = None
+    for i in range(e_shnum):
+        sh = e_shoff + i * e_shentsize
+        sec_off = int.from_bytes(data[sh + 16:sh + 20], "little")
+        if sec_off == symtab_offset:
+            symtab_index = i
+            symtab_entsize = int.from_bytes(data[sh + 36:sh + 40], "little")
+            strtab_link = int.from_bytes(data[sh + 24:sh + 28], "little")
+            break
+
+    if symtab_index is None or symtab_entsize == 0:
+        return symbols
+
+    strtab_sec = sections[strtab_link]
+    strtab = data[strtab_sec["off"]:strtab_sec["off"] + strtab_sec["size"]]
+
+    for off in range(0, symtab_size, symtab_entsize):
+        sym = data[symtab_offset + off : symtab_offset + off + symtab_entsize]
+
+        st_name = int.from_bytes(sym[0:4], "little")
+        st_value = int.from_bytes(sym[4:8], "little")
+        st_info = sym[12]
+        st_shndx = int.from_bytes(sym[14:16], "little")
+
+        if st_name == 0:
+            continue
+
+        end = strtab.find(b"\x00", st_name)
+        if end == -1:
+            continue
+        name = strtab[st_name:end].decode("ascii")
+
+        if st_shndx == 0:
+            continue
+
+        # Compute file offset
+        if st_shndx < len(sections):
+            sec = sections[st_shndx]
+            file_offset = sec["off"] + st_value - 4
+        else:
+            file_offset = st_value - 4
+
+        symbols.append({
+            "name": name,
+            "offset": file_offset,
+            "value": st_value,
+            "section": st_shndx
+        })
+
+    return symbols
 
 def get_code_bounds(data):
     """Infer code bounds from ELF metadata, preferring the .text section."""
@@ -368,7 +440,6 @@ def get_code_bounds(data):
 
     return code_start, code_end
 
-
 def get_data_bounds(data):
     """Infer data bounds from ELF metadata, preferring .data/data section."""
     for sec in get_elf_sections(data):
@@ -388,6 +459,9 @@ def disassemble_elf(input_file, output_file):
     with open(input_file, 'rb') as f:
         data = f.read()
     
+    sections = get_elf_sections(data)
+    symbols = get_symbols(data, sections)
+    
     with open(output_file, 'w') as out:
         out.write(f"Atalla Disassembly: {input_file}\n")
         out.write("=" * 100 + "\n\n")
@@ -395,7 +469,7 @@ def disassemble_elf(input_file, output_file):
         code_start, code_end = get_code_bounds(data)
         data_start, data_end = get_data_bounds(data)
         
-        out.write("=== CODE SECTION ===\n\n")
+        out.write("=== CODE SECTION ===\n")
         out.write(f"{'Offset':<10} {'Bytes':<30} {'Instruction'}\n")
         out.write("-" * 100 + "\n")
         
@@ -421,7 +495,7 @@ def disassemble_elf(input_file, output_file):
             offset += 1
 
         if data_start is not None and data_end is not None:
-            out.write("\n=== DATA SECTION ===\n\n")
+            out.write("\n=== DATA SECTION ===\n")
             out.write(f"{'Offset':<10} {'Bytes':<18} {'u32':<12} {'s32':<12} {'ASCII'}\n")
             out.write("-" * 100 + "\n")
 
@@ -439,6 +513,15 @@ def disassemble_elf(input_file, output_file):
                     f"0x{offset:04X}    {hex_str:<18} {u32_val:<12} {s32_val:<12} {ascii_str}\n"
                 )
                 offset += 4
+                
+        out.write("\n\n=== SYMBOL TABLE ===\n")
+        out.write(f"{'Name':<30} {'Offset':<10}\n")
+        out.write("-" * 50 + "\n")
+
+        for sym in sorted(symbols, key=lambda x: x["offset"]):
+            out.write(f"{sym['name']:<30} 0x{sym['offset']:04X}\n")
+
+        out.write("\n")
         
         out.write("\n" + "=" * 100 + "\n")
 
