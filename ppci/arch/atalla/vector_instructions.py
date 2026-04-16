@@ -291,7 +291,7 @@ def pattern_store_vecreg(context, tree, c0, v1):
     if offset != 0:
         addr_reg = context.new_reg(AtallaRegister)
         code = Addis(addr_reg, base_reg, offset)
-        code.fprel = True
+        code.scpadfprel = True
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
@@ -309,7 +309,7 @@ def pattern_load_vecreg(context, tree, c0):
     if offset != 0:
         addr_reg = context.new_reg(AtallaRegister)
         code = Addis(addr_reg, base_reg, offset)
-        code.fprel = True
+        code.scpadfprel = True
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
