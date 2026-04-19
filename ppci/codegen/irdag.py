@@ -181,6 +181,7 @@ class SelectionGraphBuilder:
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
+            print(ir_block)
             self.block_to_sgraph(ir_block, function_info)
 
         self.sgraph.check()
@@ -288,26 +289,6 @@ class SelectionGraphBuilder:
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
         mask_output = self.prepare_mask(scalar_mask)
-        merge_base = getattr(node, "merge_base", None)
-
-        if op == "ADD" and merge_base is not None:
-            mb = self.get_value(merge_base)
-            cls = self.arch.get_reg_class(ty=node.ty)
-            shared = self.function_info.frame.new_reg(cls, twain="masked_merge_vd")
-            # Phi-style MOV: destination in node.value, no DATA output (avoids
-            # dagsplit double-MOVVEC); MEMORY edge orders MOV before ADD.
-            mov_n = self.new_node("MOV", node.ty, mb, value=shared)
-            sync = mov_n.new_output("masked_merge_order", kind=SGValue.MEMORY)
-            add_n = self.new_node(op, node.ty, vs1, vs2, mask_output)
-            add_n.value = shared
-            add_n.add_input(sync)
-            out = add_n.new_output(node.name)
-            out.vreg = shared
-            out.wants_vreg = False
-            self.debug_db.map(node, add_n)
-            self.add_map(node, out)
-            return
-
         sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
@@ -341,7 +322,16 @@ class SelectionGraphBuilder:
         arg4 = self.get_value(node.arg4)
         sgnode = self.new_node("VLOAD", node.ty, addr, arg2, arg3, arg4)
         self.debug_db.map(node, sgnode)
+        
+        # REPLACE WITH COMMENT
         self.add_map(node, sgnode.new_output(node.name))
+        
+        # # self.add_map(node, sgnode.new_output(node.name))
+        # output = sgnode.new_output(node.name)
+        # # Keep VLOAD as a first-class producer so the splitter does not
+        # # force a MOVVEC vreg copy purely because the node is chained.
+        # output.wants_vreg = False
+        # self.add_map(node, output)
         self.chain(sgnode)
 
     def do_vector_store(self, node):

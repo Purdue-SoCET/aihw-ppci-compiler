@@ -47,16 +47,8 @@ class AtallaVMSInstruction(Instruction):
     isa = isa
 
 
-def make_vv(mnemonic: str, opcode: int, *, vd_reads_old: bool = False):
-    """Masked ``add_vv`` / ``sub_vv`` / ``mul_vv`` merge inactive lanes from prior
-    ``vd``; model that read for liveness when ``vd_reads_old`` is True. ``gemm_vv``
-    does not use this merge path."""
-    vd = Operand(
-        "vd",
-        AtallaVectorRegister,
-        read=vd_reads_old,
-        write=True,
-    )
+def make_vv(mnemonic: str, opcode: int):
+    vd  = Operand("vd",  AtallaVectorRegister, write=True)
     vs1 = Operand("vs1", AtallaVectorRegister, read=True)
     vs2 = Operand("vs2", AtallaVectorRegister, read=True)
     mask_reg = Operand("mask_reg", AtallaMaskRegister, read=True)
@@ -130,7 +122,7 @@ def make_vms(mnemonic: str, opcode: int):
     return type(mnemonic.replace(".", "_"), (AtallaVMSInstruction,), members)
 
 # VV
-AddVv   = make_vv("add_vv",   0b0110011, vd_reads_old=True)
+AddVv   = make_vv("add_vv",   0b0110011)
 SubVv   = make_vv("sub_vv",   0b0110100)
 MulVv   = make_vv("mul_vv",   0b0110101)
 #DivVv   = make_vv("div_vv",   0b0110101)
@@ -225,9 +217,7 @@ def pattern_masktoi32(context, tree, c0):
 
 @isa.pattern("maskreg", "MVSTMMASK(reg)", size=2)
 def pattern_mvstmmask(context, tree, rs1):
-    d = getattr(tree, "value", None)
-    if d is None:
-        d = context.new_reg(AtallaMaskRegister)
+    d = context.new_reg(AtallaMaskRegister)
     context.emit(MvStm(d, rs1))
     return d
 
@@ -296,22 +286,40 @@ def emit_stackrel_u32(context, base_reg, tree, mark):
 
 @isa.pattern("stm", "STRVEC(mem, vecreg)", size=2)
 def pattern_store_vecreg(context, tree, c0, v1):
+    base_reg, offset = c0
+    addr_reg = base_reg
+    if offset != 0:
+        addr_reg = context.new_reg(AtallaRegister)
+        code = Addis(addr_reg, base_reg, offset)
+        code.scpadfprel = True
+        code.fprel = True
+        context.emit(code)
+
     c = context.new_reg(AtallaRegister)
-    Code = Lis(c, 1)
-    context.emit(Code)
-    Code = VregSt(v1, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
-    Code.fprel = True
-    context.emit(Code)
+    code = Lis(c, 1)
+    context.emit(code)
+    code = VregSt(v1, addr_reg, c, 31, 3)
+    code.fprel = True
+    context.emit(code)
 
 @isa.pattern("vecreg", "LDRVEC(mem)", size=2)
 def pattern_load_vecreg(context, tree, c0):
     d = context.new_reg(AtallaVectorRegister)
+    base_reg, offset = c0
+    addr_reg = base_reg
+    if offset != 0:
+        addr_reg = context.new_reg(AtallaRegister)
+        code = Addis(addr_reg, base_reg, offset)
+        code.scpadfprel = True
+        code.fprel = True
+        context.emit(code)
+
     c = context.new_reg(AtallaRegister)
-    Code = Lis(c, 1)
-    context.emit(Code)
-    Code = VregLd(d, c0[0], c, 31, 0) #TODO: not sure about the SID field (discuss with Sooraj)
-    Code.fprel = True
-    context.emit(Code)
+    code = Lis(c, 1)
+    context.emit(code)
+    code = VregLd(d, addr_reg, c, 31, 3)
+    code.fprel = True
+    context.emit(code)
     return d
 
 @isa.pattern(
@@ -344,19 +352,6 @@ def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
-
-@isa.pattern("stm", "MOVVEC(LDRVEC(mem))", size=4)
-def pattern_movvec_from_ldrvec(context, tree, c0):
-    """Spill reload: load stack slot into an already-allocated destination vector reg."""
-    dst = tree.value
-    c = context.new_reg(AtallaRegister)
-    context.emit(Lis(c, 1))
-    code = VregLd(dst, c0[0], c, 31, 0)
-    code.fprel = True
-    context.emit(code)
-    return dst
-
-
 @isa.pattern("vecreg", "REGVEC(vecreg)", size=1)
 def pattern_reg(context, tree):
     return tree.value
@@ -366,7 +361,7 @@ def pattern_reg(context, tree):
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_add_vv(ctx, tree, v0, v1, mask = M0):
-    d = tree.value if tree.value is not None else _new_v(ctx)
+    d = _new_v(ctx)
     ctx.emit(AddVv(d, v0, v1, mask))
     return d
 
@@ -533,8 +528,7 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
 def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    # imm8 bit6=1 broadcasts reduction to all lanes (functional_sim apply_imm_vector_op)
-    imm = 64
+    imm = _f32_to_f16_bits(tree.children[1].value)
     ctx.emit(RsumVi(d, vsrc, imm, mask))
     return d
 
@@ -542,7 +536,7 @@ def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
 def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = 64
+    imm = _f32_to_f16_bits(tree.children[1].value)
     ctx.emit(RminVi(d, vsrc, imm, mask))
     return d
 
@@ -550,7 +544,7 @@ def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
 def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = 64
+    imm = _f32_to_f16_bits(tree.children[1].value)
     ctx.emit(RmaxVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------
@@ -648,6 +642,40 @@ def pattern_vload(context, tree, addr, rs2):
     sid = tree.children[3].value
     context.emit(VregLd(d, addr, rs2, num_cols, sid))
     return d
+
+
+# @isa.pattern(
+#     "stm",
+#     "MOVVEC(VLOADVEC(reg, reg, CONSTI32, CONSTI32))",
+#     size=2,
+#     condition=lambda t: t.children[0].children[2].value in range(0, 32)
+#     and t.children[0].children[3].value in range(0, 4),
+# )
+# def pattern_movvec_vload(context, tree, addr, rs2):
+#     dst = tree.value
+#     num_cols = tree.children[0].children[2].value
+#     sid = tree.children[0].children[3].value
+#     context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+#     return dst
+
+
+# @isa.pattern("stm", "MOVVEC(LDRVEC(mem))", size=2)
+# def pattern_movvec_ldvec_mem(context, tree, c0):
+#     dst = tree.value
+#     base_reg, offset = c0
+#     addr_reg = base_reg
+#     if offset != 0:
+#         addr_reg = context.new_reg(AtallaRegister)
+#         code = Addis(addr_reg, base_reg, offset)
+#         code.fprel = True
+#         context.emit(code)
+#     c = context.new_reg(AtallaRegister)
+#     code = Lis(c, 1)
+#     context.emit(code)
+#     code = VregLd(dst, addr_reg, c, 31, 3)
+#     code.fprel = True
+#     context.emit(code)
+#     return dst
 
 
 @isa.pattern("stm", "VSTORE(vecreg, reg, reg, CONSTI32, CONSTI32)", size=2,

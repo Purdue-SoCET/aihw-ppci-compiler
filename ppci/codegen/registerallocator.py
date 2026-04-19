@@ -116,6 +116,8 @@ The following class can be used to perform register allocation.
 import logging
 from functools import lru_cache
 
+from ppci.arch.atalla.vector_registers import AtallaVectorRegister
+
 from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.collections import OrderedSet
@@ -149,22 +151,9 @@ class MiniGen:
         self.arch = arch
         self.selector = selector
 
-    @staticmethod
-    def _wide_vector_spill_reg(vreg) -> bool:
-        """True for register classes wider than scalar (e.g. Atalla 512b vectors)."""
-        cls = type(vreg)
-        return issubclass(cls, Register) and getattr(cls, "bitsize", 0) > 128
-
     def gen_load(self, frame, vreg, slot):
         """Generate instructions to load vreg from a stack slot"""
         at = self.make_at(slot)
-        if self._wide_vector_spill_reg(vreg):
-            t = Tree(
-                "MOVVEC",
-                Tree("LDRVEC", at),
-                value=vreg,
-            )
-            return self.gen(frame, t)
         fmt = self.make_fmt(vreg)
 
         t = Tree(
@@ -177,13 +166,6 @@ class MiniGen:
     def gen_store(self, frame, vreg, slot):
         """Generate instructions to store vreg at a stack slot"""
         at = self.make_at(slot)
-        if self._wide_vector_spill_reg(vreg):
-            t = Tree(
-                "STRVEC",
-                at,
-                Tree("REGVEC", value=vreg),
-            )
-            return self.gen(frame, t)
         fmt = self.make_fmt(vreg)
         t = Tree(
             f"STR{fmt}",
@@ -201,8 +183,11 @@ class MiniGen:
     def make_fmt(self, vreg):
         """Determine the type suffix, such as I32 or F64."""
         # TODO: hack to retrieve register type (U, I or F):
-        ty = getattr(vreg, "ty", "I")
-        fmt = f"{ty}{vreg.bitsize}"
+        if isinstance(vreg, AtallaVectorRegister):
+            fmt = "VEC"
+        else:
+            ty = getattr(vreg, "ty", "I")
+            fmt = f"{ty}{vreg.bitsize}"
         return fmt
 
     def make_at(self, slot):
@@ -721,7 +706,10 @@ class GraphColoringRegisterAllocator:
 
         size = node.reg_class.bitsize // 8
         alignment = size
-        slot = self.frame.alloc(size, alignment)
+        if node.reg_class == AtallaVectorRegister:
+            slot = self.frame.scpad_alloc(size, alignment)
+        else:
+            slot = self.frame.alloc(size, alignment)
         self.logger.debug("Allocating stack slot %s", slot)
 
         # TODO: maybe break-up coalesced node before doing this?
