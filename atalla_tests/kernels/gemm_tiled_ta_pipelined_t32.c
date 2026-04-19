@@ -1,35 +1,48 @@
-#define CFG_BASE  0x00080000  /* GEMM cfg: must match functional_sim/gemm_dram_layout.GEMM_CFG_BASE */
-#define TILE      4
-#define TILE_M1   3
+#define CFG_BASE  0x00080000u  /* functional_sim/gemm_dram_layout.GEMM_CFG_BASE */
+/*
+ * TA tiled GEMM — pipelined K loop, TILE=32. SP row split does not fit (2*TILE>32);
+ * W then A reuse sid-0 row 0 sequentially after weights enter the systolic array.
+ */
+#define TILE      32
+#define TILE_M1   31
 
-/* SDMA rs3: sid | (tile_rows-1)<<25 | (tile_cols-1)<<20 | (full_cols-1) — see emit_sdma_metadata_asm / scpad_ls. */
 #define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
     ((((sid) & 3) << 30) | ((((tile_rows) - 1) & 0x1F) << 25) | ((((tile_cols) - 1) & 0x1F) << 20) | (((full_cols) - 1) & 0xFFFFF))
 
 #define SP_ROW_A 0
 #define SP_ROW_W ((TILE) <= 16 ? (TILE) : 0)
 
-/* Tiled GEMM: baseline — rolled loops, no K-tile W prefetch. */
 int main(void) {
     int cfg = (int)CFG_BASE;
-    int A_GMEM; int W_GMEM; int C_GMEM;
-    int gM; int gN; int gK;
-    int M_tiles; int N_tiles; int K_tiles; int tile_sz;
+    int A_GMEM;
+    int W_GMEM;
+    int C_GMEM;
+    int gM;
+    int gN;
+    int gK;
+    int M_tiles;
+    int N_tiles;
+    int K_tiles;
+    int tile_sz;
 
-    asm("lw_s %0, 0(%1)"  : "=r"(A_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 4(%1)"  : "=r"(W_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 8(%1)"  : "=r"(C_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 12(%1)" : "=r"(gM)      : "r"(cfg));
-    asm("lw_s %0, 16(%1)" : "=r"(gN)      : "r"(cfg));
-    asm("lw_s %0, 20(%1)" : "=r"(gK)      : "r"(cfg));
+    asm("lw_s %0, 0(%1)" : "=r"(A_GMEM) : "r"(cfg));
+    asm("lw_s %0, 4(%1)" : "=r"(W_GMEM) : "r"(cfg));
+    asm("lw_s %0, 8(%1)" : "=r"(C_GMEM) : "r"(cfg));
+    asm("lw_s %0, 12(%1)" : "=r"(gM) : "r"(cfg));
+    asm("lw_s %0, 16(%1)" : "=r"(gN) : "r"(cfg));
+    asm("lw_s %0, 20(%1)" : "=r"(gK) : "r"(cfg));
     asm("lw_s %0, 24(%1)" : "=r"(M_tiles) : "r"(cfg));
     asm("lw_s %0, 28(%1)" : "=r"(N_tiles) : "r"(cfg));
     asm("lw_s %0, 32(%1)" : "=r"(K_tiles) : "r"(cfg));
     asm("lw_s %0, 36(%1)" : "=r"(tile_sz) : "r"(cfg));
 
+    if (tile_sz != TILE) {
+        asm("halt");
+        return 0;
+    }
+
     int all_mask = -1;
     int sp_c = 0;
-    /* volatile: rs3 must survive regalloc across nested loops (else sid/stride corrupt at scpad_*). */
     volatile int sdma_ctl_w = SDMA_RS3(0, TILE, TILE, gN);
     volatile int sdma_ctl_a = SDMA_RS3(0, TILE, TILE, gK);
     volatile int sdma_ctl_c = SDMA_RS3(1, TILE, TILE, gN);
@@ -43,15 +56,12 @@ int main(void) {
 
             scpad_load(sp_c, c_addr, sdma_ctl_c);
 
+            int w_off_first = ni * tile_sz;
+            scpad_load(SP_ROW_W, W_GMEM + w_off_first * 2, sdma_ctl_w);
+
             int ki = 0;
             while (ki < K_tiles) {
-                int a_off = mi * tile_sz * gK + ki * tile_sz;
-                int a_addr = A_GMEM + a_off * 2;
-
-                int w_off = ki * tile_sz * gN + ni * tile_sz;
-                int w_addr = W_GMEM + w_off * 2;
-
-                scpad_load(SP_ROW_W, w_addr, sdma_ctl_w);
+                int a_addr = A_GMEM + (mi * tile_sz * gK + ki * tile_sz) * 2;
 
                 int wi = 0;
                 while (wi < TILE) {
@@ -72,6 +82,10 @@ int main(void) {
                 }
 
                 ki = ki + 1;
+                if (ki < K_tiles) {
+                    int w_off_n = ki * tile_sz * gN + ni * tile_sz;
+                    scpad_load(SP_ROW_W, W_GMEM + w_off_n * 2, sdma_ctl_w);
+                }
             }
 
             scpad_store(sp_c, c_addr, sdma_ctl_c);
