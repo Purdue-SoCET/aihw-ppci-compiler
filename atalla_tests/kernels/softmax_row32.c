@@ -3,18 +3,16 @@
 #define ROWS      1
 #define ROWS_M1   0
 #define MASK_VAL  0xFFFFFFFF
+#define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
+    ((((sid) & 3) << 30) | ((((tile_rows) - 1) & 0x1F) << 25) | ((((tile_cols) - 1) & 0x1F) << 20) | (((full_cols) - 1) & 0xFFFFF))
 
 int main() {
-    int cfg = CFG_BASE;
-    int IN_GMEM;
-    int dummy;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_GMEM) : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(dummy)   : "r"(cfg));
+    volatile int* cfg = (volatile int*)CFG_BASE;
+    int IN_GMEM = cfg[0];
 
     int sp = 0;
     int mask_val = MASK_VAL;
-    int sdma_ctl;
-    asm("li_s %0, 32505887" : "=r"(sdma_ctl));
+    volatile int sdma_ctl = SDMA_RS3(0, 1, 32, 32);
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -40,6 +38,5 @@ int main() {
 
     scpad_store(sp, IN_GMEM, sdma_ctl);
 
-    asm("halt");
     return 0;
 }

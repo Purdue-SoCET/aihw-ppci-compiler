@@ -118,7 +118,7 @@ def _match_relu() -> MatchResult:
     (tile + row) while reference has 1 (row only). Accept gen >= ref loops."""
     from kernels.relu import relu_c
     gen = relu_c(total=128, width=32)
-    ref = (SCRIPT_DIR / "relu.c").read_text()
+    ref = (SCRIPT_DIR / "relu_4x32.c").read_text()
     r = _structural_compare("relu", gen, ref)
     gen_lc = len(extract_loops(gen))
     ref_lc = len(extract_loops(ref))
@@ -131,14 +131,14 @@ def _match_relu() -> MatchResult:
 def _match_softmax() -> MatchResult:
     from kernels.softmax import softmax_c
     gen = softmax_c(length=32)
-    ref = (SCRIPT_DIR / "softmax.c").read_text()
+    ref = (SCRIPT_DIR / "softmax_row32.c").read_text()
     return _structural_compare("softmax", gen, ref)
 
 
 def _match_maxpool() -> MatchResult:
     from kernels.maxpool import maxpool_c
     gen = maxpool_c(H=8, W=8, C=1, pool=2, stride=2)
-    ref = (SCRIPT_DIR / "maxpool.c").read_text()
+    ref = (SCRIPT_DIR / "maxpool_8x8_pool2_stride2.c").read_text()
     return _structural_compare("maxpool", gen, ref)
 
 
@@ -149,7 +149,7 @@ def _match_gemm() -> MatchResult:
     gemm() calls, and three nested tile loops."""
     from kernels.gemm import gemm_c
     gen = gemm_c(M=4, N=4, K=4)
-    ref = (SCRIPT_DIR / "gemm_tiled_baseline.c").read_text()
+    ref = (SCRIPT_DIR / "gemm_32_tiled_t32_baseline.c").read_text()
 
     gen_builtins = extract_builtins(gen)
     ref_builtins = extract_builtins(ref)

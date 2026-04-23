@@ -17,7 +17,7 @@ else:
 
 
 with html_reporter("report.html") as reporter:
-    with open("add.c") as f:
+    with open("add_4x32.c") as f:
         oj = api.cc(f, arch, reporter=reporter)
     print(oj)
 

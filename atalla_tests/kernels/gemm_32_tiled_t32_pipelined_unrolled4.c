@@ -1,12 +1,14 @@
 #define CFG_BASE  0x00080000  /* GEMM cfg: must match functional_sim/gemm_dram_layout.GEMM_CFG_BASE */
-#define TILE      4
-#define TILE_M1   3
+#define TILE      32
+#define TILE_M1   31
 
 #define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
     ((((sid) & 3) << 30) | ((((tile_rows) - 1) & 0x1F) << 25) | ((((tile_cols) - 1) & 0x1F) << 20) | (((full_cols) - 1) & 0xFFFFF))
 
 #define SP_ROW_A 0
 #define SP_ROW_W ((TILE) <= 16 ? (TILE) : 0)
+#define SP_BYTE_A (SP_ROW_A * 32 * 2)
+#define SP_BYTE_W (SP_ROW_W * 32 * 2)
 
 /* Tiled GEMM: K-tile W prefetch + manual unroll of TILE weight loads and row GEMMs. */
 int main(void) {
@@ -42,7 +44,7 @@ int main(void) {
             scpad_load(sp_c, c_addr, sdma_ctl_c);
 
             int w_off_first = ni * tile_sz;
-            scpad_load(SP_ROW_W, W_GMEM + w_off_first * 2, sdma_ctl_w);
+            scpad_load(SP_BYTE_W, W_GMEM + w_off_first * 2, sdma_ctl_w);
 
             int ki = 0;
             while (ki < K_tiles) {
@@ -59,7 +61,7 @@ int main(void) {
                     load_weights(w3);
                 }
 
-                scpad_load(SP_ROW_A, a_addr, sdma_ctl_a);
+                scpad_load(SP_BYTE_A, a_addr, sdma_ctl_a);
 
                 {
                     vec a0 = vector_load(0, SP_ROW_A + 0, TILE_M1, 0);
@@ -86,7 +88,7 @@ int main(void) {
                 ki = ki + 1;
                 if (ki < K_tiles) {
                     int w_off_next = ki * tile_sz * gN + ni * tile_sz;
-                    scpad_load(SP_ROW_W, W_GMEM + w_off_next * 2, sdma_ctl_w);
+                    scpad_load(SP_BYTE_W, W_GMEM + w_off_next * 2, sdma_ctl_w);
                 }
             }
 

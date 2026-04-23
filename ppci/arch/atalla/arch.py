@@ -70,6 +70,7 @@ from .vector_instructions import (
     # DivVv,
     MulVv,
     AddVv,
+    AddVs,
     # AndVv,
     # OrVv,
     # XorVv,
@@ -302,9 +303,10 @@ class AtallaArch(Architecture):
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
-        #no MOV function in ISA so we use a existing custom instruction addis to move
-        if V0 in src.registers or V0 in dst.registers:
-            return AddVv(dst, src, V0, M0)
+        # No dedicated vector MOV in ISA; lower vector copy as add.vs with scalar 0.
+        # This avoids depending on V0 contents (old lowering used add.vv src+V0).
+        if isinstance(dst, AtallaVectorRegister) and isinstance(src, AtallaVectorRegister):
+            return AddVs(dst, src, R0, M0)
         return Addis(dst, src, 0)
 
     # don't need until implement memory

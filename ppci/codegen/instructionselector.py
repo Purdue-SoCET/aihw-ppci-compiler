@@ -73,6 +73,7 @@ data_types = [str(t).upper() for t in ir.all_types]
 
 ops = [
     "ADD",
+    "ADDM",
     "SUB",
     "MUL",
     "DIV",

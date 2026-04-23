@@ -1,6 +1,6 @@
 #define CFG_BASE  0x00080000  /* GEMM cfg: must match functional_sim/gemm_dram_layout.GEMM_CFG_BASE */
-#define TILE      4
-#define TILE_M1   3
+#define TILE      32
+#define TILE_M1   31
 
 /* SDMA rs3: sid | (tile_rows-1)<<25 | (tile_cols-1)<<20 | (full_cols-1) — see emit_sdma_metadata_asm / scpad_ls. */
 #define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
@@ -8,6 +8,8 @@
 
 #define SP_ROW_A 0
 #define SP_ROW_W ((TILE) <= 16 ? (TILE) : 0)
+#define SP_BYTE_A (SP_ROW_A * 32 * 2)
+#define SP_BYTE_W (SP_ROW_W * 32 * 2)
 
 /* Tiled GEMM: baseline — rolled loops, no K-tile W prefetch. */
 int main(void) {
@@ -51,7 +53,7 @@ int main(void) {
                 int w_off = ki * tile_sz * gN + ni * tile_sz;
                 int w_addr = W_GMEM + w_off * 2;
 
-                scpad_load(SP_ROW_W, w_addr, sdma_ctl_w);
+                scpad_load(SP_BYTE_W, w_addr, sdma_ctl_w);
 
                 int wi = 0;
                 while (wi < TILE) {
@@ -60,7 +62,7 @@ int main(void) {
                     wi = wi + 1;
                 }
 
-                scpad_load(SP_ROW_A, a_addr, sdma_ctl_a);
+                scpad_load(SP_BYTE_A, a_addr, sdma_ctl_a);
 
                 int ri = 0;
                 while (ri < TILE) {

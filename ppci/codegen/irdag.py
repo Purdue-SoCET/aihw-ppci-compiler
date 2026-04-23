@@ -289,7 +289,14 @@ class SelectionGraphBuilder:
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
         mask_output = self.prepare_mask(scalar_mask)
-        sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        # For C assignment lowering of masked '+' (x = vec_op_masked("+", ...)),
+        # codegen may provide merge_base so inactive lanes preserve prior x.
+        # Preserve that intent in DAG by using a distinct op with merge input.
+        if getattr(node, "merge_base", None) is not None and op == "ADD":
+            merge = self.get_value(node.merge_base)
+            sgnode = self.new_node("ADDM", node.ty, vs1, vs2, mask_output, merge)
+        else:
+            sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 

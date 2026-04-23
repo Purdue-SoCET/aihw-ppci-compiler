@@ -2,21 +2,20 @@
 #define EPS_ADDR   20
 #define INV_N2_ADDR 24
 #define MASK_ALL   0xF
+#define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
+    ((((sid) & 3) << 30) | ((((tile_rows) - 1) & 0x1F) << 25) | ((((tile_cols) - 1) & 0x1F) << 20) | (((full_cols) - 1) & 0xFFFFF))
 
 int main() {
-    int cfg = CFG_BASE;
-    int IN_GMEM;
-    int SCPAD_BASE;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_GMEM)    : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(SCPAD_BASE)  : "r"(cfg));
+    volatile int* cfg = (volatile int*)CFG_BASE;
+    int IN_GMEM = cfg[0];
+    int SCPAD_BASE = cfg[1];
 
     int eps_addr = EPS_ADDR;
     int inv_addr = INV_N2_ADDR;
 
     int sp = 0;
     int mask_val = MASK_ALL;
-    int sdma_ctl;
-    asm("li_s %0, 133169183" : "=r"(sdma_ctl));
+    volatile int sdma_ctl = SDMA_RS3(0, 4, 32, 32);
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -34,8 +33,8 @@ int main() {
     vec s3 = vec_op_masked("RSUM", r3, 0.0, mask_val);
     vec sum_rows = vec_op_masked("+", vec_op_masked("+", s0, s1, mask_val), vec_op_masked("+", s2, s3, mask_val), mask_val);
 
-    float inv_mean;
-    asm("lw_s %0, 0(%1)" : "=r"(inv_mean) : "r"(inv_addr));
+    volatile float* inv_ptr = (volatile float*)inv_addr;
+    float inv_mean = inv_ptr[0];
     vec mean = vec_op_masked("*", sum_rows, inv_mean, mask_val);
 
     vec c0 = vec_op_masked("-", r0, mean, mask_val);
@@ -53,12 +52,11 @@ int main() {
     vec t3 = vec_op_masked("RSUM", q3, 0.0, mask_val);
     vec sum_sq = vec_op_masked("+", vec_op_masked("+", t0, t1, mask_val), vec_op_masked("+", t2, t3, mask_val), mask_val);
 
-    float inv_var;
-    asm("lw_s %0, 0(%1)" : "=r"(inv_var) : "r"(inv_addr));
+    float inv_var = inv_ptr[0];
     vec variance = vec_op_masked("*", sum_sq, inv_var, mask_val);
 
-    float eps_den;
-    asm("lw_s %0, 0(%1)" : "=r"(eps_den) : "r"(eps_addr));
+    volatile float* eps_ptr = (volatile float*)eps_addr;
+    float eps_den = eps_ptr[0];
     vec denom_seed = vec_op_masked("+", variance, eps_den, mask_val);
     float var_eps = denom_seed[0];
     float denom_f = sqrt(var_eps);
@@ -76,6 +74,5 @@ int main() {
 
     scpad_store(sp, IN_GMEM, sdma_ctl);
 
-    asm("halt");
     return 0;
 }

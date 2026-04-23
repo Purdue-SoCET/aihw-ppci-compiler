@@ -5,6 +5,8 @@
 #define K_FLAT_M1  (K_FLAT - 1)
 #define K_OUT_M1   (K_OUT - 1)
 #define ALL_MASK   0xFFFFF
+#define SDMA_RS3(sid, tile_rows, tile_cols, full_cols) \
+    (((unsigned)((sid) & 3u) << 30) | ((unsigned)(((tile_rows) - 1) & 0x1Fu) << 25) | ((unsigned)(((tile_cols) - 1) & 0x1Fu) << 20) | (unsigned)(((full_cols) - 1) & 0xFFFFFu))
 
 /* Conv-as-GEMM: software-pipelined row schedule (M fixed at 4).
  * Uses explicit interleaving like conv_pipelined_unrolled.c instead of a rolled
@@ -12,23 +14,17 @@
  * (wrong results + different packet counts vs Linux).
  * Weight load stays rolled to differ from conv_pipelined_unrolled.c. */
 int main() {
-    int cfg_ptr = CFG_BASE;
+    volatile int* cfg = (volatile int*)CFG_BASE;
+    int a_gmem = cfg[0];
+    int a_sp = cfg[1];
+    int w_gmem = cfg[2];
+    int w_sp = cfg[3];
+    int c_gmem = cfg[4];
+    int c_sp = cfg[5];
 
-    int a_gmem; int a_sp; int w_gmem; int w_sp; int c_gmem; int c_sp;
-
-    asm("lw_s %0, 0(%1)"  : "=r"(a_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 4(%1)"  : "=r"(a_sp)   : "r"(cfg_ptr));
-    asm("lw_s %0, 8(%1)"  : "=r"(w_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 12(%1)" : "=r"(w_sp)   : "r"(cfg_ptr));
-    asm("lw_s %0, 16(%1)" : "=r"(c_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 20(%1)" : "=r"(c_sp)   : "r"(cfg_ptr));
-
-    int sdma_ctl_a;
-    int sdma_ctl_w;
-    int sdma_ctl_c;
-    asm("li_s %0, 127926298" : "=r"(sdma_ctl_a));
-    asm("li_s %0, 1949302787" : "=r"(sdma_ctl_w));
-    asm("li_s %0, 1177550851" : "=r"(sdma_ctl_c));
+    volatile int sdma_ctl_a = SDMA_RS3(0, M, K_FLAT, K_FLAT);
+    volatile int sdma_ctl_w = SDMA_RS3(1, K_FLAT, K_OUT, K_OUT);
+    volatile int sdma_ctl_c = SDMA_RS3(1, M, K_OUT, K_OUT);
 
     scpad_load(a_sp, a_gmem, sdma_ctl_a);
     scpad_load(w_sp, w_gmem, sdma_ctl_w);
@@ -69,6 +65,5 @@ int main() {
 
     scpad_store(c_sp, c_gmem, sdma_ctl_c);
 
-    asm("halt");
     return 0;
 }

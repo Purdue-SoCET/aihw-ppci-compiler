@@ -1,6 +1,6 @@
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
+from .instructions import isa, Adds, Addis, FP, SP, SCPADSP, SCPADFP
 
 from .tokens import (
     AtallaVMVToken,
@@ -15,7 +15,7 @@ from .tokens import (
     AtallaVMemToken,
 )
 from .vector_registers import AtallaVectorRegister, V0
-from .mask_registers import M0, AtallaMaskRegister
+from .mask_registers import M0, M1, AtallaMaskRegister
 from .registers import R0, AtallaRegister
 from .instructions import Lis
 
@@ -365,6 +365,29 @@ def patt_add_vv(ctx, tree, v0, v1, mask = M0):
     ctx.emit(AddVv(d, v0, v1, mask))
     return d
 
+
+@isa.pattern("vecreg", "ADDMVEC(vecreg, vecreg, maskreg, vecreg)", size=3)
+def patt_add_vv_merge(ctx, tree, v0, v1, mask, merge):
+    """Masked add with explicit merge source for inactive lanes.
+
+    Lowering sequence:
+    1) d <- merge (all lanes)
+    2) d <- masked_add(v0, v1, mask) (inactive lanes keep d from step 1)
+    """
+    d = _new_v(ctx)
+    ctx.emit(AddVv(d, merge, V0, M0))
+    ctx.emit(AddVv(d, v0, v1, mask))
+    return d
+
+
+@isa.pattern("vecreg", "ADDMVEC(vecreg, reg, maskreg, vecreg)", size=3)
+def patt_add_vs_merge(ctx, tree, v0, rs1, mask, merge):
+    """Masked vector-scalar add with explicit merge source for inactive lanes."""
+    d = _new_v(ctx)
+    ctx.emit(AddVv(d, merge, V0, M0))
+    ctx.emit(AddVs(d, v0, rs1, mask))
+    return d
+
 @isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_sub_vv(ctx, tree, v0, v1, mask = M0):
     d = _new_v(ctx)
@@ -405,8 +428,13 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
 
 @isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=2)
 def patt_gemm_vv(ctx, tree, v0, v1, mask):
+    # Updated ISA semantics: gemm.vv is matmul-only (uses activation row + resident
+    # systolic weights). Accumulation into psums is explicit via add.vv.
     d = _new_v(ctx)
-    ctx.emit(GemmVv(d, v0, v1, mask))
+    # Keep encoding shape stable (VV has a vs2 field) but make placeholder deterministic.
+    # Using V0 avoids accidental dependence if older backends still consume vs2.
+    ctx.emit(GemmVv(d, v0, V0, mask))
+    ctx.emit(AddVv(d, d, v1, mask))
     return d
 
 # ---------- VI (vector-immediate) ----------
@@ -527,24 +555,26 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
 @isa.pattern("vecreg", "RSUMVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    # ISA contract: reduction vi ops use control immediate 64 for full-lane reduction.
+    # C intrinsics pass a dummy scalar (typically 0.0), so do not reinterpret that
+    # scalar as bf16 bits here.
+    imm = 64
     ctx.emit(RsumVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "RMINVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    # See patt_rsum_vi note: reduction control immediate is fixed.
+    imm = 64
     ctx.emit(RminVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "RMAXVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    # See patt_rsum_vi note: reduction control immediate is fixed.
+    imm = 64
     ctx.emit(RmaxVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------
@@ -621,7 +651,9 @@ def pattern_vecidx(context, tree, vsrc):
 
 @isa.pattern("stm", "LOADWEIGHTS(vecreg)")
 def pattern_loadweights(context, tree, vsrc):
-    context.emit(LwVi(V0, vsrc, 0, M0))
+    # Programmatic load_weights() must touch all active lanes in vsrc.
+    # Use M1 (set by kernel) instead of architectural M0 placeholder.
+    context.emit(LwVi(V0, vsrc, 0, M1))
 
 
 @isa.pattern("stm", "SCPADLD(reg, reg, reg)", size=1)
@@ -642,6 +674,129 @@ def pattern_vload(context, tree, addr, rs2):
     sid = tree.children[3].value
     context.emit(VregLd(d, addr, rs2, num_cols, sid))
     return d
+
+
+@isa.pattern(
+    "vecreg",
+    "VLOADVEC(CONSTI32, reg, CONSTI32, CONSTI32)",
+    size=4,
+    condition=lambda t: t.children[2].value in range(0, 32)
+    and t.children[3].value in range(0, 4)
+    and t.children[0].value in range(-(2**25), 2**25),
+)
+def pattern_vload_constbase(context, tree, rs2):
+    d = context.new_reg(AtallaVectorRegister)
+    base_imm = int(tree.children[0].value)
+    num_cols = int(tree.children[2].value)
+    sid = int(tree.children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(VregLd(d, addr, rs2, num_cols, sid))
+    return d
+
+
+@isa.pattern(
+    "vecreg",
+    "VLOADVEC(CONSTI32, ADDI32(reg, reg), CONSTI32, CONSTI32)",
+    size=6,
+    condition=lambda t: t.children[2].value in range(0, 32)
+    and t.children[3].value in range(0, 4)
+    and t.children[0].value in range(-(2**25), 2**25),
+)
+def pattern_vload_constbase_addi32(context, tree, rs2_lhs, rs2_rhs):
+    d = context.new_reg(AtallaVectorRegister)
+    base_imm = int(tree.children[0].value)
+    num_cols = int(tree.children[2].value)
+    sid = int(tree.children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    rs2 = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(Adds(rs2, rs2_lhs, rs2_rhs))
+    context.emit(VregLd(d, addr, rs2, num_cols, sid))
+    return d
+
+
+@isa.pattern(
+    "stm",
+    "MOVVEC(VLOADVEC(CONSTI32, reg, CONSTI32, CONSTI32))",
+    size=4,
+    condition=lambda t: t.children[0].children[2].value in range(0, 32)
+    and t.children[0].children[3].value in range(0, 4)
+    and t.children[0].children[0].value in range(-(2**25), 2**25),
+)
+def pattern_movvec_vload_constbase(context, tree, rs2):
+    dst = tree.value
+    base_imm = int(tree.children[0].children[0].value)
+    num_cols = int(tree.children[0].children[2].value)
+    sid = int(tree.children[0].children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+    return dst
+
+
+@isa.pattern(
+    "stm",
+    "MOVVEC(VLOADVEC(CONSTI32, REGI32, CONSTI32, CONSTI32))",
+    size=4,
+    condition=lambda t: t.children[0].children[2].value in range(0, 32)
+    and t.children[0].children[3].value in range(0, 4)
+    and t.children[0].children[0].value in range(-(2**25), 2**25),
+)
+def pattern_movvec_vload_constbase_regi32(context, tree):
+    dst = tree.value
+    base_imm = int(tree.children[0].children[0].value)
+    rs2 = tree.children[0].children[1].value
+    num_cols = int(tree.children[0].children[2].value)
+    sid = int(tree.children[0].children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+    return dst
+
+
+@isa.pattern(
+    "stm",
+    "MOVVEC(VLOADVEC(CONSTI32, ADDI32(reg, reg), CONSTI32, CONSTI32))",
+    size=6,
+    condition=lambda t: t.children[0].children[2].value in range(0, 32)
+    and t.children[0].children[3].value in range(0, 4)
+    and t.children[0].children[0].value in range(-(2**25), 2**25),
+)
+def pattern_movvec_vload_constbase_addi32(context, tree, rs2_lhs, rs2_rhs):
+    dst = tree.value
+    base_imm = int(tree.children[0].children[0].value)
+    num_cols = int(tree.children[0].children[2].value)
+    sid = int(tree.children[0].children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    rs2 = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(Adds(rs2, rs2_lhs, rs2_rhs))
+    context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+    return dst
+
+
+@isa.pattern(
+    "stm",
+    "MOVVEC(VLOADVEC(CONSTI32, ADDI32(REGI32, REGI32), CONSTI32, CONSTI32))",
+    size=6,
+    condition=lambda t: t.children[0].children[2].value in range(0, 32)
+    and t.children[0].children[3].value in range(0, 4)
+    and t.children[0].children[0].value in range(-(2**25), 2**25),
+)
+def pattern_movvec_vload_constbase_addi32_regi32(context, tree):
+    dst = tree.value
+    base_imm = int(tree.children[0].children[0].value)
+    rs2_lhs = tree.children[0].children[1].children[0].value
+    rs2_rhs = tree.children[0].children[1].children[1].value
+    num_cols = int(tree.children[0].children[2].value)
+    sid = int(tree.children[0].children[3].value)
+    addr = context.new_reg(AtallaRegister)
+    rs2 = context.new_reg(AtallaRegister)
+    context.emit(Lis(addr, base_imm))
+    context.emit(Adds(rs2, rs2_lhs, rs2_rhs))
+    context.emit(VregLd(dst, addr, rs2, num_cols, sid))
+    return dst
 
 
 # @isa.pattern(
