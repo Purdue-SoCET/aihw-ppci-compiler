@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kernel C validation: atalla_cc -> build_compiler -> seed .data -> functional_sim/run.py.
+"""Kernel C validation: atalla_cc -> build_compiler -> seed .data -> atalla-functional-sim/run.py.
 
 add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool/maxpool_2x2: finite outputs
 (SDMA layout ≠ dense seed for 2x1; 2x2 checks 4×4 out tile). layernorm: BF16 golden vs numpy
@@ -19,7 +19,7 @@ from typing import Callable
 import numpy as np
 
 _REPO = Path(__file__).resolve().parent.parent
-_SIM_ROOT = _REPO / "functional_sim"
+_SIM_ROOT = _REPO / "atalla-functional-sim"
 
 
 def _prepend_sys_path(path: Path) -> None:
@@ -300,7 +300,7 @@ def seed_conv(words: dict[int, int]) -> None:
 def validate_conv(out_mem: Path) -> None:
     """Golden = systolic GEMM ref (same as validate_and_benchmark) + float32 add of BF16 bias C0.
 
-    functional_sim gemm.vv writes ``matmul_out + src2`` in float32; DRAM stores BF16, so we
+    atalla-functional-sim gemm.vv writes ``matmul_out + src2`` in float32; DRAM stores BF16, so we
     compare against ``to_bf16(mat + to_bf16(c0))``.
     """
     m, k_out = 4, 4
@@ -417,7 +417,7 @@ KERNEL_REGISTRY: dict[str, KernelSpec] = {
 def compare_gemm_tiled_matrix_outputs(script_dir: Path) -> None:
     mats: list[tuple[str, np.ndarray]] = []
     for s in GEMM_TILED_STEMS:
-        p = script_dir / "out" / s / "output_mem.out"
+        p = script_dir / "out_atalla" / s / "output_mem.out"
         if not p.exists():
             continue
         mem = parse_data_mem(p)
@@ -442,7 +442,7 @@ def run_one(
         raise KeyError(f"No kernel spec for {stem!r}; known: {sorted(KERNEL_REGISTRY)}")
 
     seed_fn, check_fn = KERNEL_REGISTRY[stem]
-    out_dir = script_dir / "out" / stem
+    out_dir = script_dir / "out_atalla" / stem
     out_dir.mkdir(parents=True, exist_ok=True)
 
     asm_path = out_dir / f"{stem}.s"
@@ -522,16 +522,16 @@ def run_one(
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
-    sim_root = repo_root / "functional_sim"
+    sim_root = repo_root / "atalla-functional-sim"
     env = os.environ.copy()
     env["PYTHONPATH"] = build_pythonpath(sim_root, repo_root)
-    # functional_sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
+    # atalla-functional-sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
     # past BEQ/BNE range (see instruction_latency scpad.ld/st).
     env["ATALLA_FUNCTIONAL_SCHED_LATENCY"] = "1"
 
     ap = argparse.ArgumentParser(
         description=(
-            "Validate kernel C tests: compile, seed .data (cfg + tensors), run functional_sim. "
+            "Validate kernel C tests: compile, seed .data (cfg + tensors), run atalla-functional-sim. "
             "add/relu/layernorm/conv use numeric goldens (conv: systolic GEMM ref + bias); "
             "maxpool variants sanity-check outputs; softmax checks normalization; "
             "gemm_tiled variants are cross-checked when all ran."

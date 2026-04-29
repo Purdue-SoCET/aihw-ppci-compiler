@@ -203,8 +203,8 @@ def validate_test(test_path: Path, *, repo_root: Path, sim_root: Path, out_root:
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
-    sim_root = repo_root / "functional_sim"
-    out_root = script_dir / "out"
+    sim_root = repo_root / "atalla-functional-sim"
+    out_root = script_dir / "out_atalla"
 
     if not sim_root.is_dir():
         raise RuntimeError(f"Missing simulator dependency directory: {sim_root}")

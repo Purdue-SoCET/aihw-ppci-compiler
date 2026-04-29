@@ -1,0 +1,346 @@
+<class 'ppci.arch.atalla.arch.AtallaArch'>
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca_190 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_191 = &alloca_190;
+    blob<4:4> alloca_192 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_193 = &alloca_192;
+    blob<4:4> alloca_194 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_195 = &alloca_194;
+    blob<4:4> alloca_196 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_197 = &alloca_196;
+    blob<4:4> alloca_198 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_199 = &alloca_198;
+    blob<4:4> alloca_200 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_201 = &alloca_200;
+    blob<4:4> alloca_202 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_203 = &alloca_202;
+    blob<4:4> alloca_204 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_205 = &alloca_204;
+    blob<4:4> alloca_206 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_207 = &alloca_206;
+    i32 num_257 = 60;
+    asm (lw_s %0, 0(%1));
+    asm (lw_s %0, 4(%1));
+    asm (lw_s %0, 8(%1));
+    asm (lw_s %0, 12(%1));
+    asm (lw_s %0, 16(%1));
+    asm (lw_s %0, 20(%1));
+    asm (li_s %0, 127926298);
+    asm (li_s %0, 1949302787);
+    asm (li_s %0, 1177550851);
+    i32 tmp_load_11_265 = load alloca_addr_193;
+    i32 tmp_load_12_266 = load alloca_addr_191;
+    i32 tmp_load_13_267 = load alloca_addr_203;
+    scpad_load tmp_load_11_265, tmp_load_12_266, tmp_load_13_267;
+    i32 tmp_load_14_268 = load alloca_addr_197;
+    i32 tmp_load_15_269 = load alloca_addr_195;
+    i32 tmp_load_16_270 = load alloca_addr_205;
+    scpad_load tmp_load_14_268, tmp_load_15_269, tmp_load_16_270;
+    i32 tmp_load_17_271 = load alloca_addr_197;
+    i32 num_18_272 = 0;
+    i32 num_20_274 = 1;
+    i32 new_fold_275 = 26;
+    vector_load tmp_load_17_271, num_18_272, new_fold_275, num_20_274;
+    load_weights tmp_vload_276;
+    i32 tmp_load_26_278 = load alloca_addr_197;
+    vector_load tmp_load_26_278, num_20_274, new_fold_275, num_20_274;
+    load_weights tmp_vload_32_279;
+    i32 tmp_load_36_280 = load alloca_addr_197;
+    i32 num_37_281 = 2;
+    vector_load tmp_load_36_280, num_37_281, new_fold_275, num_20_274;
+    load_weights tmp_vload_42_282;
+    i32 tmp_load_46_283 = load alloca_addr_197;
+    i32 num_47_284 = 3;
+    vector_load tmp_load_46_283, num_47_284, new_fold_275, num_20_274;
+    load_weights tmp_vload_52_285;
+    i32 tmp_load_56_286 = load alloca_addr_201;
+    i32 tmp_load_57_287 = load alloca_addr_199;
+    i32 tmp_load_58_288 = load alloca_addr_207;
+    scpad_load tmp_load_56_286, tmp_load_57_287, tmp_load_58_288;
+    i32 num_59_289 = 1048575;
+    i32 tmp_load_62_290 = load alloca_addr_193;
+    vector_load tmp_load_62_290, num_18_272, new_fold_275, num_18_272;
+    i32 tmp_load_71_292 = load alloca_addr_201;
+    vector_load tmp_load_71_292, num_18_272, num_47_284, num_20_274;
+    i32 tmp_load_80_295 = load alloca_addr_193;
+    vector_load tmp_load_80_295, num_20_274, new_fold_275, num_18_272;
+    i32 tmp_load_89_297 = load alloca_addr_201;
+    vector_load tmp_load_89_297, num_20_274, num_47_284, num_20_274;
+    gemm tmp_vload_68_291, tmp_vload_77_294, num_59_289;
+    i32 tmp_load_104_303 = load alloca_addr_201;
+    vector_store tmp_gemm_302, tmp_load_104_303, num_18_272, num_47_284, num_20_274;
+    i32 tmp_load_110_304 = load alloca_addr_193;
+    vector_load tmp_load_110_304, num_37_281, new_fold_275, num_18_272;
+    i32 tmp_load_119_306 = load alloca_addr_201;
+    vector_load tmp_load_119_306, num_37_281, num_47_284, num_20_274;
+    gemm tmp_vload_86_296, tmp_vload_95_298, num_59_289;
+    i32 tmp_load_135_312 = load alloca_addr_201;
+    vector_store tmp_gemm_131_311, tmp_load_135_312, num_20_274, num_47_284, num_20_274;
+    i32 tmp_load_141_313 = load alloca_addr_193;
+    vector_load tmp_load_141_313, num_47_284, new_fold_275, num_18_272;
+    i32 tmp_load_150_315 = load alloca_addr_201;
+    vector_load tmp_load_150_315, num_47_284, num_47_284, num_20_274;
+    gemm tmp_vload_116_305, tmp_vload_125_307, num_59_289;
+    i32 tmp_load_166_321 = load alloca_addr_201;
+    vector_store tmp_gemm_162_320, tmp_load_166_321, num_37_281, num_47_284, num_20_274;
+    gemm tmp_vload_147_314, tmp_vload_156_316, num_59_289;
+    i32 tmp_load_179_326 = load alloca_addr_201;
+    vector_store tmp_gemm_175_325, tmp_load_179_326, num_47_284, num_47_284, num_20_274;
+    i32 tmp_load_185_327 = load alloca_addr_201;
+    i32 tmp_load_186_328 = load alloca_addr_199;
+    i32 tmp_load_187_329 = load alloca_addr_207;
+    scpad_store tmp_load_185_327, tmp_load_186_328, tmp_load_187_329;
+    asm (halt);
+    return num_18_272;
+  }
+
+}
+main_block0:
+
+===== Selection DAG for function main =====
+main_block0:
+MOVI32[vreg1](CONSTI32[60])
+ASM[('lw_s %0, 0(%1)', [vreg2], [vreg1], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -4]], REGU32[vreg2])
+MOVI32[vreg3](CONSTI32[60])
+ASM[('lw_s %0, 4(%1)', [vreg4], [vreg3], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -8]], REGU32[vreg4])
+MOVI32[vreg5](CONSTI32[60])
+ASM[('lw_s %0, 8(%1)', [vreg6], [vreg5], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -12]], REGU32[vreg6])
+MOVI32[vreg7](CONSTI32[60])
+ASM[('lw_s %0, 12(%1)', [vreg8], [vreg7], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -16]], REGU32[vreg8])
+MOVI32[vreg9](CONSTI32[60])
+ASM[('lw_s %0, 16(%1)', [vreg10], [vreg9], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -20]], REGU32[vreg10])
+MOVI32[vreg11](CONSTI32[60])
+ASM[('lw_s %0, 20(%1)', [vreg12], [vreg11], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -24]], REGU32[vreg12])
+ASM[('li_s %0, 127926298', [vreg13], [], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -28]], REGU32[vreg13])
+ASM[('li_s %0, 1949302787', [vreg14], [], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -32]], REGU32[vreg14])
+ASM[('li_s %0, 1177550851', [vreg15], [], [])]
+STRU32(FPRELU32[NORMAL[4 bytes at -36]], REGU32[vreg15])
+MOVI32[vreg20tmp_load_11_265](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVI32[vreg21tmp_load_12_266](LDRI32(FPRELU32[NORMAL[4 bytes at -4]]))
+MOVI32[vreg22tmp_load_13_267](LDRI32(FPRELU32[NORMAL[4 bytes at -28]]))
+SCPADLD(REGI32[vreg20tmp_load_11_265], REGI32[vreg21tmp_load_12_266], REGI32[vreg22tmp_load_13_267])
+MOVI32[vreg23tmp_load_14_268](LDRI32(FPRELU32[NORMAL[4 bytes at -16]]))
+MOVI32[vreg24tmp_load_15_269](LDRI32(FPRELU32[NORMAL[4 bytes at -12]]))
+MOVI32[vreg25tmp_load_16_270](LDRI32(FPRELU32[NORMAL[4 bytes at -32]]))
+SCPADLD(REGI32[vreg23tmp_load_14_268], REGI32[vreg24tmp_load_15_269], REGI32[vreg25tmp_load_16_270])
+MOVI32[vreg26tmp_load_17_271](LDRI32(FPRELU32[NORMAL[4 bytes at -16]]))
+MOVVEC[vreg27tmp_vload_276](VLOADVEC(REGI32[vreg26tmp_load_17_271], CONSTI32[0], CONSTI32[26], CONSTI32[1]))
+LOADWEIGHTS(REGVEC[vreg27tmp_vload_276])
+MOVI32[vreg28tmp_load_26_278](LDRI32(FPRELU32[NORMAL[4 bytes at -16]]))
+MOVVEC[vreg29tmp_vload_32_279](VLOADVEC(REGI32[vreg28tmp_load_26_278], CONSTI32[1], CONSTI32[26], CONSTI32[1]))
+LOADWEIGHTS(REGVEC[vreg29tmp_vload_32_279])
+MOVI32[vreg30tmp_load_36_280](LDRI32(FPRELU32[NORMAL[4 bytes at -16]]))
+MOVVEC[vreg31tmp_vload_42_282](VLOADVEC(REGI32[vreg30tmp_load_36_280], CONSTI32[2], CONSTI32[26], CONSTI32[1]))
+LOADWEIGHTS(REGVEC[vreg31tmp_vload_42_282])
+MOVI32[vreg32tmp_load_46_283](LDRI32(FPRELU32[NORMAL[4 bytes at -16]]))
+MOVVEC[vreg33tmp_vload_52_285](VLOADVEC(REGI32[vreg32tmp_load_46_283], CONSTI32[3], CONSTI32[26], CONSTI32[1]))
+LOADWEIGHTS(REGVEC[vreg33tmp_vload_52_285])
+MOVI32[vreg34tmp_load_56_286](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVI32[vreg35tmp_load_57_287](LDRI32(FPRELU32[NORMAL[4 bytes at -20]]))
+MOVI32[vreg36tmp_load_58_288](LDRI32(FPRELU32[NORMAL[4 bytes at -36]]))
+SCPADLD(REGI32[vreg34tmp_load_56_286], REGI32[vreg35tmp_load_57_287], REGI32[vreg36tmp_load_58_288])
+MOVI32[vreg37tmp_load_62_290](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVVEC[vreg38tmp_vload_68_291](VLOADVEC(REGI32[vreg37tmp_load_62_290], CONSTI32[0], CONSTI32[26], CONSTI32[0]))
+MOVI32[vreg39tmp_load_71_292](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVVEC[vreg40tmp_vload_77_294](VLOADVEC(REGI32[vreg39tmp_load_71_292], CONSTI32[0], CONSTI32[3], CONSTI32[1]))
+MOVI32[vreg41tmp_load_80_295](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVVEC[vreg42tmp_vload_86_296](VLOADVEC(REGI32[vreg41tmp_load_80_295], CONSTI32[1], CONSTI32[26], CONSTI32[0]))
+MOVI32[vreg43tmp_load_89_297](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVVEC[vreg44tmp_vload_95_298](VLOADVEC(REGI32[vreg43tmp_load_89_297], CONSTI32[1], CONSTI32[3], CONSTI32[1]))
+MOVI32[vreg45tmp_load_104_303](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+VSTORE(GEMMVEC(REGVEC[vreg38tmp_vload_68_291], REGVEC[vreg40tmp_vload_77_294], MVSTMMASK[vreg16](CONSTI32[1048575])), REGI32[vreg45tmp_load_104_303], CONSTI32[0], CONSTI32[3], CONSTI32[1])
+MOVI32[vreg46tmp_load_110_304](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVVEC[vreg47tmp_vload_116_305](VLOADVEC(REGI32[vreg46tmp_load_110_304], CONSTI32[2], CONSTI32[26], CONSTI32[0]))
+MOVI32[vreg48tmp_load_119_306](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVVEC[vreg49tmp_vload_125_307](VLOADVEC(REGI32[vreg48tmp_load_119_306], CONSTI32[2], CONSTI32[3], CONSTI32[1]))
+MOVI32[vreg50tmp_load_135_312](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+VSTORE(GEMMVEC(REGVEC[vreg42tmp_vload_86_296], REGVEC[vreg44tmp_vload_95_298], MVSTMMASK[vreg17](CONSTI32[1048575])), REGI32[vreg50tmp_load_135_312], CONSTI32[1], CONSTI32[3], CONSTI32[1])
+MOVI32[vreg51tmp_load_141_313](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVVEC[vreg52tmp_vload_147_314](VLOADVEC(REGI32[vreg51tmp_load_141_313], CONSTI32[3], CONSTI32[26], CONSTI32[0]))
+MOVI32[vreg53tmp_load_150_315](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVVEC[vreg54tmp_vload_156_316](VLOADVEC(REGI32[vreg53tmp_load_150_315], CONSTI32[3], CONSTI32[3], CONSTI32[1]))
+MOVI32[vreg55tmp_load_166_321](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+VSTORE(GEMMVEC(REGVEC[vreg47tmp_vload_116_305], REGVEC[vreg49tmp_vload_125_307], MVSTMMASK[vreg18](CONSTI32[1048575])), REGI32[vreg55tmp_load_166_321], CONSTI32[2], CONSTI32[3], CONSTI32[1])
+MOVI32[vreg56tmp_load_179_326](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+VSTORE(GEMMVEC(REGVEC[vreg52tmp_vload_147_314], REGVEC[vreg54tmp_vload_156_316], MVSTMMASK[vreg19](CONSTI32[1048575])), REGI32[vreg56tmp_load_179_326], CONSTI32[3], CONSTI32[3], CONSTI32[1])
+MOVI32[vreg57tmp_load_185_327](LDRI32(FPRELU32[NORMAL[4 bytes at -24]]))
+MOVI32[vreg58tmp_load_186_328](LDRI32(FPRELU32[NORMAL[4 bytes at -20]]))
+MOVI32[vreg59tmp_load_187_329](LDRI32(FPRELU32[NORMAL[4 bytes at -36]]))
+SCPADST(REGI32[vreg57tmp_load_185_327], REGI32[vreg58tmp_load_186_328], REGI32[vreg59tmp_load_187_329])
+ASM[('halt', [], [], [])]
+MOVI32[vreg0retval](CONSTI32[0])
+JMP[main_epilog:]
+main_epilog:
+[emit] mapped li_s vreg60, 60 to MOVI32
+[emit] mapped addi_s vreg1, vreg60, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x109367cb0> to ASM
+[emit] mapped sw_s vreg2, -4(x8) to STRU32
+[emit] mapped li_s vreg61, 60 to MOVI32
+[emit] mapped addi_s vreg3, vreg61, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10936ed50> to ASM
+[emit] mapped sw_s vreg4, -8(x8) to STRU32
+[emit] mapped li_s vreg62, 60 to MOVI32
+[emit] mapped addi_s vreg5, vreg62, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x10936f250> to ASM
+[emit] mapped sw_s vreg6, -12(x8) to STRU32
+[emit] mapped li_s vreg63, 60 to MOVI32
+[emit] mapped addi_s vreg7, vreg63, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1093b5810> to ASM
+[emit] mapped sw_s vreg8, -16(x8) to STRU32
+[emit] mapped li_s vreg64, 60 to MOVI32
+[emit] mapped addi_s vreg9, vreg64, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1093b5cd0> to ASM
+[emit] mapped sw_s vreg10, -20(x8) to STRU32
+[emit] mapped li_s vreg65, 60 to MOVI32
+[emit] mapped addi_s vreg11, vreg65, 0 to MOVI32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1094afad0> to ASM
+[emit] mapped sw_s vreg12, -24(x8) to STRU32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1092c29c0> to ASM
+[emit] mapped sw_s vreg13, -28(x8) to STRU32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1092c2be0> to ASM
+[emit] mapped sw_s vreg14, -32(x8) to STRU32
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1092caf50> to ASM
+[emit] mapped sw_s vreg15, -36(x8) to STRU32
+[emit] mapped lw_s vreg66, -8(x8) to LDRI32
+[emit] mapped addi_s vreg20tmp_load_11_265, vreg66, 0 to LDRI32
+[emit] mapped lw_s vreg67, -4(x8) to LDRI32
+[emit] mapped addi_s vreg21tmp_load_12_266, vreg67, 0 to LDRI32
+[emit] mapped lw_s vreg68, -28(x8) to LDRI32
+[emit] mapped addi_s vreg22tmp_load_13_267, vreg68, 0 to LDRI32
+[emit] mapped scpad_ld vreg20tmp_load_11_265, vreg21tmp_load_12_266, vreg22tmp_load_13_267 to SCPADLD
+[emit] mapped lw_s vreg69, -16(x8) to LDRI32
+[emit] mapped addi_s vreg23tmp_load_14_268, vreg69, 0 to LDRI32
+[emit] mapped lw_s vreg70, -12(x8) to LDRI32
+[emit] mapped addi_s vreg24tmp_load_15_269, vreg70, 0 to LDRI32
+[emit] mapped lw_s vreg71, -32(x8) to LDRI32
+[emit] mapped addi_s vreg25tmp_load_16_270, vreg71, 0 to LDRI32
+[emit] mapped scpad_ld vreg23tmp_load_14_268, vreg24tmp_load_15_269, vreg25tmp_load_16_270 to SCPADLD
+[emit] mapped lw_s vreg72, -16(x8) to LDRI32
+[emit] mapped addi_s vreg26tmp_load_17_271, vreg72, 0 to LDRI32
+[emit] mapped li_s vreg73, 0 to MOVI32
+[emit] mapped vreg_ld vreg74, vreg26tmp_load_17_271, vreg73, 26, 1 to VLOADVEC
+[emit] mapped add_vv vreg27tmp_vload_276, vreg74, v0, m0 to VLOADVEC
+[emit] mapped lw_vi v0, vreg27tmp_vload_276, 0, m0 to LOADWEIGHTS
+[emit] mapped lw_s vreg75, -16(x8) to LDRI32
+[emit] mapped addi_s vreg28tmp_load_26_278, vreg75, 0 to LDRI32
+[emit] mapped li_s vreg76, 1 to VSTORE
+[emit] mapped vreg_ld vreg77, vreg28tmp_load_26_278, vreg76, 26, 1 to VLOADVEC
+[emit] mapped add_vv vreg29tmp_vload_32_279, vreg77, v0, m0 to VLOADVEC
+[emit] mapped lw_vi v0, vreg29tmp_vload_32_279, 0, m0 to LOADWEIGHTS
+[emit] mapped lw_s vreg78, -16(x8) to LDRI32
+[emit] mapped addi_s vreg30tmp_load_36_280, vreg78, 0 to LDRI32
+[emit] mapped li_s vreg79, 2 to VSTORE
+[emit] mapped vreg_ld vreg80, vreg30tmp_load_36_280, vreg79, 26, 1 to VLOADVEC
+[emit] mapped add_vv vreg31tmp_vload_42_282, vreg80, v0, m0 to VLOADVEC
+[emit] mapped lw_vi v0, vreg31tmp_vload_42_282, 0, m0 to LOADWEIGHTS
+[emit] mapped lw_s vreg81, -16(x8) to LDRI32
+[emit] mapped addi_s vreg32tmp_load_46_283, vreg81, 0 to LDRI32
+[emit] mapped li_s vreg82, 3 to VSTORE
+[emit] mapped vreg_ld vreg83, vreg32tmp_load_46_283, vreg82, 26, 1 to VLOADVEC
+[emit] mapped add_vv vreg33tmp_vload_52_285, vreg83, v0, m0 to VLOADVEC
+[emit] mapped lw_vi v0, vreg33tmp_vload_52_285, 0, m0 to LOADWEIGHTS
+[emit] mapped lw_s vreg84, -24(x8) to LDRI32
+[emit] mapped addi_s vreg34tmp_load_56_286, vreg84, 0 to LDRI32
+[emit] mapped lw_s vreg85, -20(x8) to LDRI32
+[emit] mapped addi_s vreg35tmp_load_57_287, vreg85, 0 to LDRI32
+[emit] mapped lw_s vreg86, -36(x8) to LDRI32
+[emit] mapped addi_s vreg36tmp_load_58_288, vreg86, 0 to LDRI32
+[emit] mapped scpad_ld vreg34tmp_load_56_286, vreg35tmp_load_57_287, vreg36tmp_load_58_288 to SCPADLD
+[emit] mapped lw_s vreg87, -8(x8) to LDRI32
+[emit] mapped addi_s vreg37tmp_load_62_290, vreg87, 0 to LDRI32
+[emit] mapped li_s vreg88, 0 to MOVI32
+[emit] mapped vreg_ld vreg89, vreg37tmp_load_62_290, vreg88, 26, 0 to VLOADVEC
+[emit] mapped add_vv vreg38tmp_vload_68_291, vreg89, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg90, -24(x8) to LDRI32
+[emit] mapped addi_s vreg39tmp_load_71_292, vreg90, 0 to LDRI32
+[emit] mapped li_s vreg91, 0 to MOVI32
+[emit] mapped vreg_ld vreg92, vreg39tmp_load_71_292, vreg91, 3, 1 to VLOADVEC
+[emit] mapped add_vv vreg40tmp_vload_77_294, vreg92, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg93, -8(x8) to LDRI32
+[emit] mapped addi_s vreg41tmp_load_80_295, vreg93, 0 to LDRI32
+[emit] mapped li_s vreg94, 1 to VSTORE
+[emit] mapped vreg_ld vreg95, vreg41tmp_load_80_295, vreg94, 26, 0 to VLOADVEC
+[emit] mapped add_vv vreg42tmp_vload_86_296, vreg95, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg96, -24(x8) to LDRI32
+[emit] mapped addi_s vreg43tmp_load_89_297, vreg96, 0 to LDRI32
+[emit] mapped li_s vreg97, 1 to VSTORE
+[emit] mapped vreg_ld vreg98, vreg43tmp_load_89_297, vreg97, 3, 1 to VLOADVEC
+[emit] mapped add_vv vreg44tmp_vload_95_298, vreg98, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg99, -24(x8) to LDRI32
+[emit] mapped addi_s vreg45tmp_load_104_303, vreg99, 0 to LDRI32
+[emit] mapped li_s vreg100, 1048575 to VSTORE
+[emit] mapped mv_stm vreg101, vreg100 to VSTORE
+[emit] mapped gemm_vv vreg102, vreg38tmp_vload_68_291, vreg40tmp_vload_77_294, vreg101 to VSTORE
+[emit] mapped li_s vreg103, 0 to MOVI32
+[emit] mapped vreg_st vreg102, vreg45tmp_load_104_303, vreg103, 3, 1 to VSTORE
+[emit] mapped lw_s vreg104, -8(x8) to LDRI32
+[emit] mapped addi_s vreg46tmp_load_110_304, vreg104, 0 to LDRI32
+[emit] mapped li_s vreg105, 2 to VSTORE
+[emit] mapped vreg_ld vreg106, vreg46tmp_load_110_304, vreg105, 26, 0 to VLOADVEC
+[emit] mapped add_vv vreg47tmp_vload_116_305, vreg106, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg107, -24(x8) to LDRI32
+[emit] mapped addi_s vreg48tmp_load_119_306, vreg107, 0 to LDRI32
+[emit] mapped li_s vreg108, 2 to VSTORE
+[emit] mapped vreg_ld vreg109, vreg48tmp_load_119_306, vreg108, 3, 1 to VLOADVEC
+[emit] mapped add_vv vreg49tmp_vload_125_307, vreg109, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg110, -24(x8) to LDRI32
+[emit] mapped addi_s vreg50tmp_load_135_312, vreg110, 0 to LDRI32
+[emit] mapped li_s vreg111, 1048575 to VSTORE
+[emit] mapped mv_stm vreg112, vreg111 to VSTORE
+[emit] mapped gemm_vv vreg113, vreg42tmp_vload_86_296, vreg44tmp_vload_95_298, vreg112 to VSTORE
+[emit] mapped li_s vreg114, 1 to VSTORE
+[emit] mapped vreg_st vreg113, vreg50tmp_load_135_312, vreg114, 3, 1 to VSTORE
+[emit] mapped lw_s vreg115, -8(x8) to LDRI32
+[emit] mapped addi_s vreg51tmp_load_141_313, vreg115, 0 to LDRI32
+[emit] mapped li_s vreg116, 3 to VSTORE
+[emit] mapped vreg_ld vreg117, vreg51tmp_load_141_313, vreg116, 26, 0 to VLOADVEC
+[emit] mapped add_vv vreg52tmp_vload_147_314, vreg117, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg118, -24(x8) to LDRI32
+[emit] mapped addi_s vreg53tmp_load_150_315, vreg118, 0 to LDRI32
+[emit] mapped li_s vreg119, 3 to VSTORE
+[emit] mapped vreg_ld vreg120, vreg53tmp_load_150_315, vreg119, 3, 1 to VLOADVEC
+[emit] mapped add_vv vreg54tmp_vload_156_316, vreg120, v0, m0 to VLOADVEC
+[emit] mapped lw_s vreg121, -24(x8) to LDRI32
+[emit] mapped addi_s vreg55tmp_load_166_321, vreg121, 0 to LDRI32
+[emit] mapped li_s vreg122, 1048575 to VSTORE
+[emit] mapped mv_stm vreg123, vreg122 to VSTORE
+[emit] mapped gemm_vv vreg124, vreg47tmp_vload_116_305, vreg49tmp_vload_125_307, vreg123 to VSTORE
+[emit] mapped li_s vreg125, 2 to VSTORE
+[emit] mapped vreg_st vreg124, vreg55tmp_load_166_321, vreg125, 3, 1 to VSTORE
+[emit] mapped lw_s vreg126, -24(x8) to LDRI32
+[emit] mapped addi_s vreg56tmp_load_179_326, vreg126, 0 to LDRI32
+[emit] mapped li_s vreg127, 1048575 to VSTORE
+[emit] mapped mv_stm vreg128, vreg127 to VSTORE
+[emit] mapped gemm_vv vreg129, vreg52tmp_vload_147_314, vreg54tmp_vload_156_316, vreg128 to VSTORE
+[emit] mapped li_s vreg130, 3 to VSTORE
+[emit] mapped vreg_st vreg129, vreg56tmp_load_179_326, vreg130, 3, 1 to VSTORE
+[emit] mapped lw_s vreg131, -24(x8) to LDRI32
+[emit] mapped addi_s vreg57tmp_load_185_327, vreg131, 0 to LDRI32
+[emit] mapped lw_s vreg132, -20(x8) to LDRI32
+[emit] mapped addi_s vreg58tmp_load_186_328, vreg132, 0 to LDRI32
+[emit] mapped lw_s vreg133, -36(x8) to LDRI32
+[emit] mapped addi_s vreg59tmp_load_187_329, vreg133, 0 to LDRI32
+[emit] mapped scpad_st vreg57tmp_load_185_327, vreg58tmp_load_186_328, vreg59tmp_load_187_329 to SCPADST
+[emit] mapped <ppci.arch.generic_instructions.InlineAssembly object at 0x1092cb950> to ASM
+[emit] mapped li_s vreg134, 0 to MOVI32
+[emit] mapped addi_s vreg0retval, vreg134, 0 to MOVI32
+[emit] mapped jal x0, main_epilog to JMP
+2026-04-29 19:30:04,583 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-29 19:30:04,585 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-29 19:30:04,591 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-29 19:30:04,593 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-29 19:30:04,593 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-29 19:30:04,593 |     INFO |   optimize | Optimizing module main level 2
+2026-04-29 19:30:04,599 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-29 19:30:04,599 |     INFO |    codegen | Generating atalla-arch code for function main

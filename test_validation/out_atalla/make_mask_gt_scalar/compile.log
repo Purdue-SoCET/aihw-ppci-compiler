@@ -1,0 +1,92 @@
+<class 'ppci.arch.atalla.arch.AtallaArch'>
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    blob<64:64> alloca_13 = alloc 64 bytes aligned at 64;
+    ptr alloca_addr_14 = &alloca_13;
+    blob<4:4> alloca_15 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_16 = &alloca_15;
+    jmp main_block1;
+  }
+
+  main_block1: {
+    i32 num = 4096;
+    store num, alloca_addr;
+    ptr num_0 = 4;
+    ptr tmp = alloca_addr + num_0;
+    i32 tmp_load = load alloca_addr;
+    i32 num_1 = 1;
+    i32 num_2 = 31;
+    i32 num_3 = 1;
+    vector_load tmp_load, num_1, num_2, num_3;
+    store tmp_vload, alloca_addr_14;
+    ptr num_4 = 64;
+    ptr tmp_5 = alloca_addr_14 + num_4;
+    vec tmp_load_6 = load alloca_addr_14;
+    bf16 num_7 = 1.0;
+    i32 num_8 = 1;
+    i32 unop = - num_8;
+    make_mask > tmp_load_6, num_7, unop;
+    i32 typecast = cast tmp_make_mask;
+    store typecast, alloca_addr_16;
+    ptr num_9 = 4;
+    ptr tmp_10 = alloca_addr_16 + num_9;
+    i32 tmp_load_11 = load alloca_addr_16;
+    return tmp_load_11;
+  }
+
+}
+main_block0:
+main_block1:
+
+===== Selection DAG for function main =====
+main_block0:
+JMP[main_block1:]
+main_block1:
+STRI32(FPRELU32[NORMAL[4 bytes at -4]], CONSTI32[4096])
+MOVI32[vreg2tmp_load](LDRI32(FPRELU32[NORMAL[4 bytes at -4]]))
+MOVVEC[vreg3tmp_vload](VLOADVEC(REGI32[vreg2tmp_load], CONSTI32[1], CONSTI32[31], CONSTI32[1]))
+STRVEC(SCPADRELU32[SCPAD[64 bytes at -64]], REGVEC[vreg3tmp_vload])
+MOVVEC[vreg4tmp_load_6](LDRVEC(SCPADRELU32[SCPAD[64 bytes at -64]]))
+STRI32(FPRELU32[NORMAL[4 bytes at -8]], MASKTOI32(MGTMASK(REGVEC[vreg4tmp_load_6], CONSTBF16[1.0], MVSTMMASK[vreg1](NEGI32(CONSTI32[1])))))
+MOVI32[vreg5tmp_load_11](LDRI32(FPRELU32[NORMAL[4 bytes at -8]]))
+MOVI32[vreg0retval](REGI32[vreg5tmp_load_11])
+JMP[main_epilog:]
+main_epilog:
+[emit] mapped jal x0, main_block1 to JMP
+[emit] mapped li_s vreg6, 4096 to STRI32
+[emit] mapped sw_s vreg6, -4(x8) to STRI32
+[emit] mapped lw_s vreg7, -4(x8) to LDRI32
+[emit] mapped addi_s vreg2tmp_load, vreg7, 0 to LDRI32
+[emit] mapped li_s vreg8, 1 to VLOADVEC
+[emit] mapped vreg_ld vreg9, vreg2tmp_load, vreg8, 31, 1 to VLOADVEC
+[emit] mapped add_vv vreg3tmp_vload, vreg9, v0, m0 to VLOADVEC
+[emit] mapped addi_s vreg10, x33, -64 to STRVEC
+[emit] mapped li_s vreg11, 1 to STRVEC
+[emit] mapped vreg_st vreg3tmp_vload, vreg10, vreg11, 31, 3 to STRVEC
+[emit] mapped addi_s vreg12, x33, -64 to LDRVEC
+[emit] mapped li_s vreg14, 1 to LDRVEC
+[emit] mapped vreg_ld vreg13, vreg12, vreg14, 31, 3 to LDRVEC
+[emit] mapped add_vv vreg4tmp_load_6, vreg13, v0, m0 to LDRVEC
+[emit] mapped li_s vreg15, 16256 to STRI32
+[emit] mapped li_s vreg16, 1 to STRI32
+[emit] mapped sub_s vreg16, x0, vreg16 to STRI32
+[emit] mapped mv_stm vreg17, vreg16 to STRI32
+[emit] mapped mgt_mvs vreg18, vreg4tmp_load_6, vreg15, vreg17 to STRI32
+[emit] mapped mv_mts vreg19, vreg18 to STRI32
+[emit] mapped sw_s vreg19, -8(x8) to STRI32
+[emit] mapped lw_s vreg20, -8(x8) to LDRI32
+[emit] mapped addi_s vreg5tmp_load_11, vreg20, 0 to LDRI32
+[emit] mapped addi_s vreg0retval, vreg5tmp_load_11, 0 to MOVI32
+[emit] mapped jal x0, main_epilog to JMP
+2026-04-29 19:29:55,126 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-29 19:29:55,128 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-29 19:29:55,129 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-29 19:29:55,129 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-29 19:29:55,129 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-29 19:29:55,129 |     INFO |   optimize | Optimizing module main level 0
+2026-04-29 19:29:55,131 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-29 19:29:55,131 |     INFO |    codegen | Generating atalla-arch code for function main
