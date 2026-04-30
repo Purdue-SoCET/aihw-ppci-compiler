@@ -507,113 +507,220 @@ class CodeGenerator:
             if not real_insts:
                 continue
 
-            last_write     = {}  # reg_num -> cycle value is available
-            last_mem_cycle = -1
-            last_store_at  = {}
-            ready_time     = [0] * len(real_insts)
+            n = len(real_insts)
 
+            # ---- Build dependency graph for this basic block ----
+            #
+            # Each entry deps[i] is a list of (j, edge_latency): instruction i
+            # may not issue before issue_cycle[j] + edge_latency. Edge kinds:
+            #
+            #   RAW  writer j -> reader i   edge_latency = latency(j)
+            #   WAW  writer j -> writer i   edge_latency = latency(j)
+            #   WAR  reader j -> writer i   edge_latency = 1
+            #   Mem  prev mem op j -> next mem op i   edge_latency = 1
+            #   Mem(alias)  store j to mem_key -> later op i to mem_key
+            #               edge_latency = latency(j)
+            #
+            # A previous version of this packetizer skipped WAR/WAW edges and
+            # used the within-packet hazard check + linear scan order to keep
+            # things in-order. That fails on basic vector tests: PPCI emits
+            # patterns like `lw_s x9; ...; li_s x9, 0` where the linear scan
+            # picks the later `li_s` (no input dependencies) before the
+            # earlier `lw_s` reader chain finishes, so the reader observes the
+            # wrong value. Adding explicit WAR/WAW edges preserves the
+            # producer/consumer ordering encoded in the linear stream.
+            #
+            # The memory chain covers every memory-touching FU (scalar LDST,
+            # VLSU, SDMA/SCPAD, GSAU) because the SDMA path writes scratchpad
+            # while VLSU/GSAU read and write the same scratchpad. Without
+            # alias analysis we cannot prove independence, so we conservatively
+            # serialise the entire group; the per-(base,imm) `mem_key` edge
+            # additionally enforces store-then-load latency for scalar mem.
+            MEM_TOUCH_FUS = {FU_SCALAR_LDST, FU_VLSU, FU_SCPAD, FU_GSAU}
+
+            deps = [[] for _ in range(n)]
+
+            ins_op = [get_op(ins) for ins in real_insts]
+            ins_lat = [latency_map.get(op, 1) for op in ins_op]
+            ins_fu = [get_fu(ins) for ins in real_insts]
+            ins_branch = [is_branch(ins) for ins in real_insts]
+            ins_reads = [list(getattr(ins, "used_registers", [])) for ins in real_insts]
+            ins_writes = [list(getattr(ins, "defined_registers", [])) for ins in real_insts]
+
+            ins_is_load = [False] * n
+            ins_is_store = [False] * n
+            ins_is_mem = [False] * n
+            ins_mem_key = [None] * n
             for i, ins in enumerate(real_insts):
-                reads = list(getattr(ins, "used_registers", []))
-                curr_ready = max((last_write.get(r.num, 0) for r in reads), default=0)
-
-                op       = get_op(ins)
-                fu       = get_fu(ins)
-                is_load  = fu == FU_SCALAR_LDST and op.startswith("lw")
+                fu = ins_fu[i]
+                op = ins_op[i]
+                is_load = fu == FU_SCALAR_LDST and op.startswith("lw")
                 is_store = fu == FU_SCALAR_LDST and op.startswith("sw")
-                is_mem   = is_load or is_store
+                ins_is_load[i] = is_load
+                ins_is_store[i] = is_store
+                ins_is_mem[i] = fu in MEM_TOUCH_FUS
+                if (is_load or is_store) and hasattr(ins, "rs1") and hasattr(ins, "imm12"):
+                    base = ins.rs1.num if hasattr(ins.rs1, "num") else ins.rs1
+                    ins_mem_key[i] = (base, ins.imm12)
 
-                mem_key = None
-                if is_mem and hasattr(ins, "rs1") and hasattr(ins, "imm12"):
-                    base    = ins.rs1.num if hasattr(ins.rs1, "num") else ins.rs1
-                    mem_key = (base, ins.imm12)
+            last_def = {}       # reg.num -> producer index
+            last_read = {}      # reg.num -> most recent consumer index since last def
+            last_mem = None     # most recent memory-touching op index (chain head)
+            last_store_at = {}  # scalar mem_key -> last store index
 
-                if is_mem and last_mem_cycle + 1 > curr_ready:
-                    curr_ready = last_mem_cycle + 1
+            for i in range(n):
+                reads = ins_reads[i]
+                writes = ins_writes[i]
+                is_mem = ins_is_mem[i]
+                mem_key = ins_mem_key[i]
 
-                if is_mem and mem_key is not None:
-                    dep = last_store_at.get(mem_key, 0)
-                    if dep > curr_ready:
-                        curr_ready = dep
+                # RAW: depend on the most recent writer of each read register.
+                for r in reads:
+                    rn = r.num
+                    if rn in last_def:
+                        j = last_def[rn]
+                        deps[i].append((j, ins_lat[j]))
 
-                ready_time[i] = curr_ready
+                # WAW + WAR for each written register.
+                for r in writes:
+                    rn = r.num
+                    if rn in last_def:
+                        j = last_def[rn]
+                        deps[i].append((j, ins_lat[j]))
+                    if rn in last_read:
+                        j = last_read[rn]
+                        deps[i].append((j, 1))
 
-                lat = latency_map.get(op, 1)
-                for r in getattr(ins, "defined_registers", []):
-                    last_write[r.num] = curr_ready + lat
+                for r in writes:
+                    last_def[r.num] = i
+                    last_read.pop(r.num, None)
+                for r in reads:
+                    last_read[r.num] = i
 
                 if is_mem:
-                    last_mem_cycle = curr_ready
-                    if is_store and mem_key is not None:
-                        last_store_at[mem_key] = curr_ready + lat
+                    if last_mem is not None:
+                        deps[i].append((last_mem, 1))
+                    if mem_key is not None and mem_key in last_store_at:
+                        j = last_store_at[mem_key]
+                        deps[i].append((j, ins_lat[j]))
+                    last_mem = i
+                    if ins_is_store[i] and mem_key is not None:
+                        last_store_at[mem_key] = i
 
-            scheduled     = [False] * len(real_insts)
+                # Branches terminate a basic block; pin every prior instruction
+                # so the branch is the very last thing scheduled.
+                if ins_branch[i]:
+                    for j in range(i):
+                        deps[i].append((j, 1))
+
+            # Deduplicate edges (keep the maximum latency per predecessor).
+            for i in range(n):
+                if not deps[i]:
+                    continue
+                best = {}
+                for (j, lat) in deps[i]:
+                    if lat > best.get(j, -1):
+                        best[j] = lat
+                deps[i] = list(best.items())
+
+            successors = [[] for _ in range(n)]
+            for i in range(n):
+                for (j, lat) in deps[i]:
+                    successors[j].append((i, lat))
+
+            # ---- Critical-path priority: longest weighted path to a sink ----
+            cp = [0] * n
+            for i in range(n - 1, -1, -1):
+                best = 0
+                for (k, edge_lat) in successors[i]:
+                    cand = edge_lat + cp[k]
+                    if cand > best:
+                        best = cand
+                cp[i] = best
+
+            # ---- List schedule into VLIW packets ----
+            indeg = [len(deps[i]) for i in range(n)]
+            ready_cycle = [0] * n
+            issue_cycle = [-1] * n
+            scheduled_count = 0
             current_cycle = 0
-            max_iters     = len(real_insts) * max_width
 
-            for _ in range(max_iters):
-                if all(scheduled):
-                    break
-
-                packet_reads   = set()
-                packet_writes  = set()
-                scalar_fu_used = set()   # scalar FUs committed in this packet
-                vec_lanes_used = set()   # vector lane FUs committed (max MAX_VEC_LANES)
-                vlsu_in_packet = 0       # VLSU instructions issued (max MAX_VLSU)
-                sdma_in_packet = False   # SCPAD instruction issued
+            while scheduled_count < n:
+                packet_reads = set()
+                packet_writes = set()
+                scalar_fu_used = set()
+                vec_lanes_used = set()
+                vlsu_in_packet = 0
+                sdma_in_packet = False
                 count = 0
+                packet = []
 
-                for i, ins in enumerate(real_insts):
-                    if scheduled[i] or ready_time[i] > current_cycle:
-                        continue
+                # Candidates whose predecessors have all completed by current_cycle.
+                candidates = [
+                    i for i in range(n)
+                    if issue_cycle[i] == -1
+                    and indeg[i] == 0
+                    and ready_cycle[i] <= current_cycle
+                ]
+                # Highest critical-path priority first; break ties by source
+                # index so that for two equally-good candidates we keep the
+                # natural ordering produced by the upstream scheduler.
+                candidates.sort(key=lambda i: (-cp[i], i))
 
-                    fu = get_fu(ins)
-
-                    # Branches go alone in slot 0, but only after all
-                    # non-branch instructions in the block are scheduled.
-                    if is_branch(ins):
-                        all_others_done = all(
-                            scheduled[j] for j, ins2 in enumerate(real_insts)
-                            if not is_branch(ins2)
-                        )
-                        if count == 0 and all_others_done:
-                            result.append(ins)
-                            for _ in range(max_width - 1):
-                                result.append(make_nop())
-                            scheduled[i] = True
+                emitted_branch = False
+                for i in candidates:
+                    if count >= max_width:
+                        break
+                    if emitted_branch:
                         break
 
+                    if ins_branch[i]:
+                        # Branches must be solo in slot 0. The dependency graph
+                        # already pins them after every other instruction in
+                        # the block, so by the time `i` is a candidate the
+                        # rest of the block has been scheduled.
+                        if count == 0:
+                            result.append(real_insts[i])
+                            issue_cycle[i] = current_cycle
+                            packet.append(i)
+                            count = 1
+                            for _ in range(max_width - 1):
+                                result.append(make_nop())
+                            emitted_branch = True
+                            break
+                        else:
+                            continue
+
+                    fu = ins_fu[i]
                     if fu in SCALAR_FUS and fu in scalar_fu_used:
                         continue
-
                     if fu in VEC_LANE_FUS:
                         if fu in vec_lanes_used:
                             continue
                         if len(vec_lanes_used) >= MAX_VEC_LANES:
                             continue
-
                     if fu == FU_VLSU and vlsu_in_packet >= MAX_VLSU:
                         continue
-
                     if fu == FU_SCPAD and sdma_in_packet:
                         continue
 
-                    hazard = any(
-                        r.num in packet_writes
-                        for r in getattr(ins, "used_registers", [])
-                    ) or any(
-                        d.num in packet_writes or d.num in packet_reads
-                        for d in getattr(ins, "defined_registers", [])
-                    )
-                    if hazard:
+                    reads = ins_reads[i]
+                    writes = ins_writes[i]
+                    if any(r.num in packet_writes for r in reads):
+                        continue
+                    if any(d.num in packet_reads or d.num in packet_writes for d in writes):
                         continue
 
-                    result.append(ins)
-                    for r in getattr(ins, "used_registers", []):
-                        packet_reads.add(r.num)
-                    for d in getattr(ins, "defined_registers", []):
-                        packet_writes.add(d.num)
+                    result.append(real_insts[i])
+                    issue_cycle[i] = current_cycle
+                    packet.append(i)
+                    count += 1
 
-                    # Update FU occupancy tracking
+                    for r in reads:
+                        packet_reads.add(r.num)
+                    for r in writes:
+                        packet_writes.add(r.num)
+
                     if fu in SCALAR_FUS:
                         scalar_fu_used.add(fu)
                     elif fu in VEC_LANE_FUS:
@@ -623,19 +730,19 @@ class CodeGenerator:
                     elif fu == FU_SCPAD:
                         sdma_in_packet = True
 
-                    scheduled[i] = True
-                    count += 1
-                    if count == max_width:
-                        break
-
-                if 0 < count < max_width:
+                if not emitted_branch:
                     for _ in range(max_width - count):
                         result.append(make_nop())
-                elif count == 0 and not all(scheduled):
-                    # Stall cycle: latency prevents any instruction from issuing.
-                    for _ in range(max_width):
-                        result.append(make_nop())
 
+                # Release successors of everything we just scheduled.
+                for i in packet:
+                    for (k, edge_lat) in successors[i]:
+                        new_ready = current_cycle + edge_lat
+                        if new_ready > ready_cycle[k]:
+                            ready_cycle[k] = new_ready
+                        indeg[k] -= 1
+
+                scheduled_count += count
                 current_cycle += 1
 
         return result
