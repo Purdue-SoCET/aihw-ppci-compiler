@@ -35,6 +35,8 @@ class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
     isa = isa
 
+
+# Add functional unit argument
 def make_r(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     rn = Operand("rn", AtallaRegister, read=True)
@@ -62,6 +64,7 @@ def make_r(mnemonic, opcode):
     name = mnemonic.title() + "R"
     return type(name, (AtallaRInstruction,), members)
 
+#Add argument for functional unit
 # R-types:
 Adds = make_r("add_s", 0b0000001)
 Subs = make_r("sub_s", 0b0000010)

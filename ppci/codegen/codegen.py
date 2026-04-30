@@ -419,12 +419,55 @@ class CodeGenerator:
 
         from ..arch.generic_instructions import Label, VirtualInstruction
         from ..arch.atalla.instructions import BranchBase, Jal, Jalr
-        from ..arch.atalla.vector_instructions import (
-        AtallaVVInstruction, AtallaVSInstruction,
-            AtallaVIInstruction, AtallaVMemInstruction,
-        )
-        _VECTOR_BASES = (AtallaVVInstruction, AtallaVSInstruction,
-                         AtallaVIInstruction, AtallaVMemInstruction)
+
+        FU_SCALAR_ALU  = "scalar_alu"   # Unit 1: add_s, sub_s, or_s, and_s, xor_s,
+        FU_SCALAR_DIV  = "scalar_div"   # Unit 2: div_s, mod_s, divi_s, modi_s,
+        FU_BF16_ADD    = "bf16_add"     # Unit 3: add_bf, sub_bf, mul_bf
+        FU_SCALAR_MUL  = "scalar_mul"   # Unit 4: mul_s, muli_s
+        FU_SCALAR_LDST = "scalar_ldst"  # Unit 5: lw_s, sw_s, lhw_s, shw_s
+        FU_VEC_ALU     = "vec_alu"      # Vector ALU lane: add_vv, sub_vv, mul_vv,
+        FU_GSAU        = "gsau"         # GSAU lane: gemm_vv, lw_vi
+        FU_EXP         = "exp"          # EXP lane: expi_vi
+        FU_VLSU        = "vlsu"         # VLSU (4 units, one per scpad): vreg_ld, vreg_st
+        FU_SCPAD       = "scpad"        # Scpad (SDMA): scpad_ld, scpad_st
+
+        SCALAR_FUS = {FU_SCALAR_ALU, FU_SCALAR_DIV, FU_BF16_ADD,
+                      FU_SCALAR_MUL, FU_SCALAR_LDST}
+        VEC_LANE_FUS = {FU_VEC_ALU, FU_GSAU, FU_EXP}
+        MAX_VEC_LANES = 2
+        MAX_VLSU      = 4  # one per scpad SID
+
+        OP_TO_FU = {
+            # Unit 1 – Scalar ALU
+            "add_s":  FU_SCALAR_ALU, "sub_s":  FU_SCALAR_ALU,
+            "or_s":   FU_SCALAR_ALU, "and_s":  FU_SCALAR_ALU,
+            "xor_s":  FU_SCALAR_ALU, "sll_s":  FU_SCALAR_ALU,
+            "srl_s":  FU_SCALAR_ALU, "sra_s":  FU_SCALAR_ALU,
+            "lui_s":  FU_SCALAR_ALU, "li_s":   FU_SCALAR_ALU,
+            "addi_s": FU_SCALAR_ALU, "subi_s": FU_SCALAR_ALU,
+            "ori_s":  FU_SCALAR_ALU, "andi_s": FU_SCALAR_ALU,
+            "xori_s": FU_SCALAR_ALU, "slli_s": FU_SCALAR_ALU,
+            "srli_s": FU_SCALAR_ALU, "srai_s": FU_SCALAR_ALU,
+            "div_s":   FU_SCALAR_DIV, "mod_s":   FU_SCALAR_DIV,
+            "divi_s":  FU_SCALAR_DIV, "modi_s":  FU_SCALAR_DIV,
+            "bfts_s":  FU_SCALAR_DIV, "rcp_bf":  FU_SCALAR_DIV,
+            "sqrt_bf": FU_SCALAR_DIV, "stbf_s":  FU_SCALAR_DIV,
+            "add_bf": FU_BF16_ADD, "sub_bf": FU_BF16_ADD, "mul_bf": FU_BF16_ADD,
+            "mul_s": FU_SCALAR_MUL, "muli_s": FU_SCALAR_MUL,
+            "lw_s":  FU_SCALAR_LDST, "sw_s":  FU_SCALAR_LDST,
+            "lhw_s": FU_SCALAR_LDST, "shw_s": FU_SCALAR_LDST,
+            "add_vv":   FU_VEC_ALU, "sub_vv":   FU_VEC_ALU, "mul_vv":   FU_VEC_ALU,
+            "rsum_vi":  FU_VEC_ALU, "rmin_vi":  FU_VEC_ALU, "rmax_vi":  FU_VEC_ALU,
+            "mgt_mvv":  FU_VEC_ALU, "mlt_mvv":  FU_VEC_ALU,
+            "meq_mvv":  FU_VEC_ALU, "mneq_mvv": FU_VEC_ALU,
+            "mgt_mvs":  FU_VEC_ALU, "mlt_mvs":  FU_VEC_ALU,
+            "meq_mvs":  FU_VEC_ALU, "mneq_mvs": FU_VEC_ALU,
+            "add_vs":   FU_VEC_ALU, "sub_vs":   FU_VEC_ALU, "mul_vs":   FU_VEC_ALU,
+            "gemm_vv": FU_GSAU, "lw_vi": FU_GSAU,
+            "expi_vi": FU_EXP,
+            "vreg_ld": FU_VLSU, "vreg_st": FU_VLSU,
+            "scpad_ld": FU_SCPAD, "scpad_st": FU_SCPAD,
+        }
 
         def make_nop():
             return self.arch.make_nop()
@@ -433,11 +476,11 @@ class CodeGenerator:
             s = str(ins).strip()
             return s.split()[0] if s else ""
 
+        def get_fu(ins):
+            return OP_TO_FU.get(get_op(ins))
+
         def is_branch(ins):
             return getattr(ins, "is_jump", False) or isinstance(ins, (BranchBase, Jal, Jalr))
-
-        def is_vector(ins):
-            return isinstance(ins, _VECTOR_BASES)
 
         blocks = []
         current = []
@@ -457,27 +500,26 @@ class CodeGenerator:
         result = []
 
         for block in blocks:
-            labels    = [ins for ins in block if isinstance(ins, Label)]
+            labels     = [ins for ins in block if isinstance(ins, Label)]
             real_insts = [ins for ins in block if not isinstance(ins, (Label, VirtualInstruction))]
-            # real_insts = [ins for ins in block if not isinstance(ins, Label)]
             result.extend(labels)
 
             if not real_insts:
                 continue
 
-            last_write    = {}  # reg_num -> cycle value is available
+            last_write     = {}  # reg_num -> cycle value is available
             last_mem_cycle = -1
             last_store_at  = {}
-        # poor mans assembly api copied from api.py
-            ready_time = [0] * len(real_insts)
+            ready_time     = [0] * len(real_insts)
 
             for i, ins in enumerate(real_insts):
                 reads = list(getattr(ins, "used_registers", []))
                 curr_ready = max((last_write.get(r.num, 0) for r in reads), default=0)
 
                 op       = get_op(ins)
-                is_load  = op.startswith("lw")
-                is_store = op.startswith("sw") or op.startswith("sd")
+                fu       = get_fu(ins)
+                is_load  = fu == FU_SCALAR_LDST and op.startswith("lw")
+                is_store = fu == FU_SCALAR_LDST and op.startswith("sw")
                 is_mem   = is_load or is_store
 
                 mem_key = None
@@ -512,17 +554,19 @@ class CodeGenerator:
                 if all(scheduled):
                     break
 
-                packet_reads  = set()
-                packet_writes = set()
-                mem_in_packet = False
-                vec_in_packet = False
+                packet_reads   = set()
+                packet_writes  = set()
+                scalar_fu_used = set()   # scalar FUs committed in this packet
+                vec_lanes_used = set()   # vector lane FUs committed (max MAX_VEC_LANES)
+                vlsu_in_packet = 0       # VLSU instructions issued (max MAX_VLSU)
+                sdma_in_packet = False   # SCPAD instruction issued
                 count = 0
 
                 for i, ins in enumerate(real_insts):
                     if scheduled[i] or ready_time[i] > current_cycle:
                         continue
 
-                    op = get_op(ins)
+                    fu = get_fu(ins)
 
                     # Branches always go alone in slot 0
                     if is_branch(ins):
@@ -533,11 +577,19 @@ class CodeGenerator:
                             scheduled[i] = True
                         break
 
-                    is_mem = op.startswith("lw") or op.startswith("sw") or op.startswith("sd")
-                    if mem_in_packet and is_mem:
+                    if fu in SCALAR_FUS and fu in scalar_fu_used:
                         continue
 
-                    if vec_in_packet and is_vector(ins):
+                    if fu in VEC_LANE_FUS:
+                        if fu in vec_lanes_used:
+                            continue
+                        if len(vec_lanes_used) >= MAX_VEC_LANES:
+                            continue
+
+                    if fu == FU_VLSU and vlsu_in_packet >= MAX_VLSU:
+                        continue
+
+                    if fu == FU_SCPAD and sdma_in_packet:
                         continue
 
                     hazard = any(
@@ -555,10 +607,17 @@ class CodeGenerator:
                         packet_reads.add(r.num)
                     for d in getattr(ins, "defined_registers", []):
                         packet_writes.add(d.num)
-                    if is_mem:
-                        mem_in_packet = True
-                    if is_vector(ins):
-                        vec_in_packet = True
+
+                    # Update FU occupancy tracking
+                    if fu in SCALAR_FUS:
+                        scalar_fu_used.add(fu)
+                    elif fu in VEC_LANE_FUS:
+                        vec_lanes_used.add(fu)
+                    elif fu == FU_VLSU:
+                        vlsu_in_packet += 1
+                    elif fu == FU_SCPAD:
+                        sdma_in_packet = True
+
                     scheduled[i] = True
                     count += 1
                     if count == max_width:
