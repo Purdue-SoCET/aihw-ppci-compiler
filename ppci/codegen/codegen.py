@@ -568,9 +568,14 @@ class CodeGenerator:
 
                     fu = get_fu(ins)
 
-                    # Branches always go alone in slot 0
+                    # Branches go alone in slot 0, but only after all
+                    # non-branch instructions in the block are scheduled.
                     if is_branch(ins):
-                        if count == 0:
+                        all_others_done = all(
+                            scheduled[j] for j, ins2 in enumerate(real_insts)
+                            if not is_branch(ins2)
+                        )
+                        if count == 0 and all_others_done:
                             result.append(ins)
                             for _ in range(max_width - 1):
                                 result.append(make_nop())
@@ -625,6 +630,10 @@ class CodeGenerator:
 
                 if 0 < count < max_width:
                     for _ in range(max_width - count):
+                        result.append(make_nop())
+                elif count == 0 and not all(scheduled):
+                    # Stall cycle: latency prevents any instruction from issuing.
+                    for _ in range(max_width):
                         result.append(make_nop())
 
                 current_cycle += 1
