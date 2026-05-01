@@ -137,8 +137,11 @@ def _match_softmax() -> MatchResult:
 
 def _match_maxpool() -> MatchResult:
     from kernels.maxpool import maxpool_c
+
     gen = maxpool_c(H=8, W=8, C=1, pool=2, stride=2)
-    ref = (SCRIPT_DIR / "maxpool_8x8_pool2_stride2.c").read_text()
+    atalla_models = SCRIPT_DIR.parent.parent.parent
+    ref_path = atalla_models / "functional_sim" / "kernels" / "maxpool_8x8_pool2_stride2.c"
+    ref = ref_path.read_text()
     return _structural_compare("maxpool", gen, ref)
 
 

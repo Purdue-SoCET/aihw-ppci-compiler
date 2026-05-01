@@ -1,13 +1,3 @@
-/* 2x2 maxpool, stride 2, on an 8x8 BF16 tile (one channel).
- *
- * Vertical pass: same masked add idiom as maxpool.c (two rows -> one).
- * Horizontal pass: four masked RMAX ops (masks 0x3, 0xC, 0x30, 0xC0) take
- * max over lane pairs (0,1),(2,3),(4,5),(6,7) without vmov.vts or scalar
- * compares — AtallaC bf16 branches / float ? : are currently miscompiled for
- * phi merge (see compiler IR for simple if (a>b)).
- *
- * Output layout: 4 scratchpad rows x 4 active BF16 columns (num_cols_m1 = 3).
- */
 #define CFG_BASE      0x3C
 #define WIDTH_M1      7
 #define OUT_WIDTH_M1  3
