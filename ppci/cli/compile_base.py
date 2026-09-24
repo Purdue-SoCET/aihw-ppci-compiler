@@ -44,6 +44,13 @@ compile_parser.add_argument(
     action="store_true",
     default=False,
 )
+compile_parser.add_argument(
+    "-p",
+    "--packetize",
+    help="Enable VLIW packetization (Atalla only)",
+    action="store_true",
+    default=False,
+)
 
 
 def do_compile(ir_modules, march, reporter, args):
@@ -69,7 +76,7 @@ def do_compile(ir_modules, march, reporter, args):
         with open(args.output, "w") as output:
             stream = TextOutputStream(printer=march.asm_printer, f=output)
             for ir_module in ir_modules:
-                api.ir_to_stream(ir_module, march, stream, reporter=reporter)
+                api.ir_to_stream(ir_module, march, stream, reporter=reporter, packetize=args.packetize)
     elif args.wasm:  # Output web-assembly code
         assert len(ir_modules) == 1
         ir_module = ir_modules[0]
@@ -81,7 +88,8 @@ def do_compile(ir_modules, march, reporter, args):
             api.ir_to_python(ir_modules, output, reporter=reporter)
     else:  # Full object output
         obj = api.ir_to_object(
-            ir_modules, march, reporter=reporter, debug=args.g
+            ir_modules, march, reporter=reporter, debug=args.g,
+            packetize=args.packetize,
         )
         with open(args.output, "w") as output:
             obj.save(output)
