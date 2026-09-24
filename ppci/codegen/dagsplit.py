@@ -126,6 +126,7 @@ class DagSplitter:
                     reg  = Tree(self.make_op("REG", typ), value=vreg)
                     self._register_tree_owners(owner_map, node, reg)
                     tree = reg
+                # elif node.volatile and not data_output.users:
                 elif node.volatile:
                     trees.append(tree)
 
