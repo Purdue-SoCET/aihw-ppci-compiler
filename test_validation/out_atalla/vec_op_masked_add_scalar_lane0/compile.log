@@ -1,0 +1,136 @@
+<class 'ppci.arch.atalla.arch.AtallaArch'>
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    blob<2:2> alloca_25 = alloc 2 bytes aligned at 2;
+    ptr alloca_addr_26 = &alloca_25;
+    blob<2:2> alloca_27 = alloc 2 bytes aligned at 2;
+    ptr alloca_addr_28 = &alloca_27;
+    blob<2:2> alloca_29 = alloc 2 bytes aligned at 2;
+    ptr alloca_addr_30 = &alloca_29;
+    blob<64:64> alloca_31 = alloc 64 bytes aligned at 64;
+    ptr alloca_addr_32 = &alloca_31;
+    blob<64:64> alloca_33 = alloc 64 bytes aligned at 64;
+    ptr alloca_addr_34 = &alloca_33;
+    jmp main_block1;
+  }
+
+  main_block1: {
+    i32 num = 4096;
+    store num, alloca_addr;
+    ptr num_0 = 4;
+    ptr tmp = alloca_addr + num_0;
+    bf16 num_1 = 1.0;
+    store num_1, alloca_addr_26;
+    ptr num_2 = 2;
+    ptr tmp_3 = alloca_addr_26 + num_2;
+    bf16 num_4 = 2.0;
+    store num_4, alloca_addr_28;
+    ptr num_5 = 2;
+    ptr tmp_6 = alloca_addr_28 + num_5;
+    bf16 tmp_load = load alloca_addr_26;
+    bf16 tmp_load_7 = load alloca_addr_28;
+    bf16 tmp_8 = tmp_load + tmp_load_7;
+    store tmp_8, alloca_addr_30;
+    ptr num_9 = 2;
+    ptr tmp_10 = alloca_addr_30 + num_9;
+    i32 tmp_load_11 = load alloca_addr;
+    i32 num_12 = 1;
+    i32 num_13 = 31;
+    i32 num_14 = 1;
+    vector_load tmp_load_11, num_12, num_13, num_14;
+    store tmp_vload, alloca_addr_32;
+    ptr num_15 = 64;
+    ptr tmp_16 = alloca_addr_32 + num_15;
+    vec tmp_load_17 = load alloca_addr_32;
+    bf16 tmp_load_18 = load alloca_addr_30;
+    i32 num_19 = 1;
+    i32 unop = - num_19;
+    vecop_masked + tmp_load_17, tmp_load_18, unop;
+    store tmp_vec_op_masked, alloca_addr_34;
+    ptr num_20 = 64;
+    ptr tmp_21 = alloca_addr_34 + num_20;
+    vec tmp_load_22 = load alloca_addr_34;
+    i32 num_23 = 0;
+    vec_index tmp_load_22, num_23;
+    i32 typecast = cast tmp_vec_index;
+    return typecast;
+  }
+
+}
+main_block0:
+main_block1:
+
+===== Selection DAG for function main =====
+main_block0:
+JMP[main_block1:]
+main_block1:
+STRI32(FPRELU32[NORMAL[4 bytes at -4]], CONSTI32[4096])
+STRBF16(FPRELU32[NORMAL[2 bytes at -6]], CONSTBF16[1.0])
+STRBF16(FPRELU32[NORMAL[2 bytes at -8]], CONSTBF16[2.0])
+MOVBF16[vreg2tmp_load](LDRBF16(FPRELU32[NORMAL[2 bytes at -6]]))
+MOVBF16[vreg3tmp_load_7](LDRBF16(FPRELU32[NORMAL[2 bytes at -8]]))
+STRBF16(FPRELU32[NORMAL[2 bytes at -10]], ADDBF16(REGBF16[vreg2tmp_load], REGBF16[vreg3tmp_load_7]))
+MOVI32[vreg4tmp_load_11](LDRI32(FPRELU32[NORMAL[4 bytes at -4]]))
+MOVVEC[vreg5tmp_vload](VLOADVEC(REGI32[vreg4tmp_load_11], CONSTI32[1], CONSTI32[31], CONSTI32[1]))
+STRVEC(SCPADRELU32[SCPAD[64 bytes at -64]], REGVEC[vreg5tmp_vload])
+MOVVEC[vreg6tmp_load_17](LDRVEC(SCPADRELU32[SCPAD[64 bytes at -64]]))
+MOVBF16[vreg7tmp_load_18](LDRBF16(FPRELU32[NORMAL[2 bytes at -10]]))
+STRVEC(SCPADRELU32[SCPAD[64 bytes at -128]], ADDVEC(REGVEC[vreg6tmp_load_17], REGBF16[vreg7tmp_load_18], MVSTMMASK[vreg1](NEGI32(CONSTI32[1]))))
+MOVVEC[vreg8tmp_load_22](LDRVEC(SCPADRELU32[SCPAD[64 bytes at -128]]))
+MOVI32[vreg0retval](BF16TOI32(VECIDXBF16(REGVEC[vreg8tmp_load_22], CONSTI32[0])))
+JMP[main_epilog:]
+main_epilog:
+[emit] mapped jal x0, main_block1 to JMP
+[emit] mapped li_s vreg9, 4096 to STRI32
+[emit] mapped sw_s vreg9, -4(x8) to STRI32
+[emit] mapped li_s vreg10, 16256 to STRBF16
+[emit] mapped sw_s vreg10, -6(x8) to STRBF16
+[emit] mapped li_s vreg11, 16384 to STRBF16
+[emit] mapped sw_s vreg11, -8(x8) to STRBF16
+[emit] mapped lw_s vreg12, -6(x8) to LDRBF16
+[emit] mapped addi_s vreg2tmp_load, vreg12, 0 to LDRBF16
+[emit] mapped lw_s vreg13, -8(x8) to LDRBF16
+[emit] mapped addi_s vreg3tmp_load_7, vreg13, 0 to LDRBF16
+[emit] mapped add_bf vreg14, vreg2tmp_load, vreg3tmp_load_7 to STRBF16
+[emit] mapped sw_s vreg14, -10(x8) to STRBF16
+[emit] mapped lw_s vreg15, -4(x8) to LDRI32
+[emit] mapped addi_s vreg4tmp_load_11, vreg15, 0 to LDRI32
+[emit] mapped li_s vreg16, 1 to VLOADVEC
+[emit] mapped vreg_ld vreg17, vreg4tmp_load_11, vreg16, 31, 1 to VLOADVEC
+[emit] mapped add_vv vreg5tmp_vload, vreg17, v0, m0 to VLOADVEC
+[emit] mapped addi_s vreg18, x33, -64 to STRVEC
+[emit] mapped li_s vreg19, 1 to STRVEC
+[emit] mapped vreg_st vreg5tmp_vload, vreg18, vreg19, 31, 3 to STRVEC
+[emit] mapped addi_s vreg20, x33, -64 to LDRVEC
+[emit] mapped li_s vreg22, 1 to LDRVEC
+[emit] mapped vreg_ld vreg21, vreg20, vreg22, 31, 3 to LDRVEC
+[emit] mapped add_vv vreg6tmp_load_17, vreg21, v0, m0 to LDRVEC
+[emit] mapped lw_s vreg23, -10(x8) to LDRBF16
+[emit] mapped addi_s vreg7tmp_load_18, vreg23, 0 to LDRBF16
+[emit] mapped addi_s vreg24, x33, -128 to STRVEC
+[emit] mapped li_s vreg25, 1 to STRVEC
+[emit] mapped sub_s vreg25, x0, vreg25 to STRVEC
+[emit] mapped mv_stm vreg26, vreg25 to STRVEC
+[emit] mapped add_vs vreg27, vreg6tmp_load_17, vreg7tmp_load_18, vreg26 to STRVEC
+[emit] mapped li_s vreg28, 1 to STRVEC
+[emit] mapped vreg_st vreg27, vreg24, vreg28, 31, 3 to STRVEC
+[emit] mapped addi_s vreg29, x33, -128 to LDRVEC
+[emit] mapped li_s vreg31, 1 to LDRVEC
+[emit] mapped vreg_ld vreg30, vreg29, vreg31, 31, 3 to LDRVEC
+[emit] mapped add_vv vreg8tmp_load_22, vreg30, v0, m0 to LDRVEC
+[emit] mapped vmov_vts vreg32, vreg8tmp_load_22, 0 to MOVI32
+[emit] mapped bfts_s vreg33, vreg32, x0 to MOVI32
+[emit] mapped addi_s vreg0retval, vreg33, 0 to MOVI32
+[emit] mapped jal x0, main_epilog to JMP
+2026-04-29 19:29:56,829 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-29 19:29:56,831 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-29 19:29:56,832 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-29 19:29:56,833 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-29 19:29:56,833 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-29 19:29:56,833 |     INFO |   optimize | Optimizing module main level 0
+2026-04-29 19:29:56,834 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-29 19:29:56,834 |     INFO |    codegen | Generating atalla-arch code for function main

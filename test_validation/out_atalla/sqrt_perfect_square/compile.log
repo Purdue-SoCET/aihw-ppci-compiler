@@ -1,0 +1,79 @@
+<class 'ppci.arch.atalla.arch.AtallaArch'>
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<2:2> alloca = alloc 2 bytes aligned at 2;
+    ptr alloca_addr = &alloca;
+    blob<2:2> alloca_10 = alloc 2 bytes aligned at 2;
+    ptr alloca_addr_11 = &alloca_10;
+    blob<2:2> alloca_12 = alloc 2 bytes aligned at 2;
+    ptr alloca_addr_13 = &alloca_12;
+    jmp main_block1;
+  }
+
+  main_block1: {
+    bf16 num = 3.0;
+    store num, alloca_addr;
+    ptr num_0 = 2;
+    ptr tmp = alloca_addr + num_0;
+    bf16 tmp_load = load alloca_addr;
+    bf16 tmp_load_1 = load alloca_addr;
+    bf16 tmp_2 = tmp_load * tmp_load_1;
+    store tmp_2, alloca_addr_11;
+    ptr num_3 = 2;
+    ptr tmp_4 = alloca_addr_11 + num_3;
+    bf16 tmp_load_5 = load alloca_addr_11;
+    sqrt_bf tmp_load_5;
+    store tmp_sqrt_bf, alloca_addr_13;
+    ptr num_6 = 2;
+    ptr tmp_7 = alloca_addr_13 + num_6;
+    bf16 tmp_load_8 = load alloca_addr_13;
+    i32 typecast = cast tmp_load_8;
+    return typecast;
+  }
+
+}
+main_block0:
+main_block1:
+
+===== Selection DAG for function main =====
+main_block0:
+JMP[main_block1:]
+main_block1:
+STRBF16(FPRELU32[NORMAL[2 bytes at -2]], CONSTBF16[3.0])
+MOVBF16[vreg1tmp_load](LDRBF16(FPRELU32[NORMAL[2 bytes at -2]]))
+MOVBF16[vreg2tmp_load_1](LDRBF16(FPRELU32[NORMAL[2 bytes at -2]]))
+STRBF16(FPRELU32[NORMAL[2 bytes at -4]], MULBF16(REGBF16[vreg1tmp_load], REGBF16[vreg2tmp_load_1]))
+MOVBF16[vreg3tmp_load_5](LDRBF16(FPRELU32[NORMAL[2 bytes at -4]]))
+STRBF16(FPRELU32[NORMAL[2 bytes at -6]], SQRTBF16(REGBF16[vreg3tmp_load_5]))
+MOVBF16[vreg4tmp_load_8](LDRBF16(FPRELU32[NORMAL[2 bytes at -6]]))
+MOVI32[vreg0retval](BF16TOI32(REGBF16[vreg4tmp_load_8]))
+JMP[main_epilog:]
+main_epilog:
+[emit] mapped jal x0, main_block1 to JMP
+[emit] mapped li_s vreg5, 16448 to STRBF16
+[emit] mapped sw_s vreg5, -2(x8) to STRBF16
+[emit] mapped lw_s vreg6, -2(x8) to LDRBF16
+[emit] mapped addi_s vreg1tmp_load, vreg6, 0 to LDRBF16
+[emit] mapped lw_s vreg7, -2(x8) to LDRBF16
+[emit] mapped addi_s vreg2tmp_load_1, vreg7, 0 to LDRBF16
+[emit] mapped mul_bf vreg8, vreg1tmp_load, vreg2tmp_load_1 to STRBF16
+[emit] mapped sw_s vreg8, -4(x8) to STRBF16
+[emit] mapped lw_s vreg9, -4(x8) to LDRBF16
+[emit] mapped addi_s vreg3tmp_load_5, vreg9, 0 to LDRBF16
+[emit] mapped sqrt_bf vreg10, vreg3tmp_load_5, x0 to STRBF16
+[emit] mapped sw_s vreg10, -6(x8) to STRBF16
+[emit] mapped lw_s vreg11, -6(x8) to LDRBF16
+[emit] mapped addi_s vreg4tmp_load_8, vreg11, 0 to LDRBF16
+[emit] mapped bfts_s vreg12, vreg4tmp_load_8, x0 to MOVI32
+[emit] mapped addi_s vreg0retval, vreg12, 0 to MOVI32
+[emit] mapped jal x0, main_epilog to JMP
+2026-04-29 19:29:56,499 |     INFO |       root | ppci 0.5.9 on CPython 3.13.9 on macOS-26.3.1-arm64-arm-64bit-Mach-O
+2026-04-29 19:29:56,501 |     INFO |   cbuilder | Starting C compilation (c99)
+2026-04-29 19:29:56,502 |     INFO |    cparser | Parsing finished
+[1;35m2026-04-29 19:29:56,502 |  WARNING |   ccodegen | Function does not return a value[0m
+2026-04-29 19:29:56,502 |     INFO |   ccodegen | Finished IR-code generation
+2026-04-29 19:29:56,502 |     INFO |   optimize | Optimizing module main level 0
+2026-04-29 19:29:56,503 |     INFO |    codegen | Generating atalla-arch code for module main
+2026-04-29 19:29:56,503 |     INFO |    codegen | Generating atalla-arch code for function main
