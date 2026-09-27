@@ -21,6 +21,7 @@ from ..generic_instructions import (
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
 from .asm_printer import AtallaAsmPrinter
+from .relocations import ATALLA_INSN_ALIGNMENT
 from .instructions import (
     #R-types
     Adds,
@@ -331,7 +332,7 @@ class AtallaArch(Architecture):
         """
         # Keep code section alignment consistent with the 5-byte ISA width.
         # This prevents the linker from inserting 4-byte section merge padding.
-        yield Align(5)
+        yield Align(ATALLA_INSN_ALIGNMENT)
 
         # Label indication function:
         yield Label(frame.name)
