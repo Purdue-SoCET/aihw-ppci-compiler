@@ -1,17 +1,31 @@
 name: compiler_validation
 
+# Compile the validation C tests and kernels with this branch's atalla_cc, run them on
+# the functional simulator pinned by the functional_sim submodule, and compare each
+# kernel against the matching handwritten kernel. Fails only on accuracy.
 on:
+  push:
+    branches:
+      - atalla-arch
+  # `branches` filters on the PR's target branch, so this runs for a PR from any
+  # branch into atalla-arch (or master).
   pull_request:
     branches:
-      - "**"
+      - atalla-arch
+      - master
     types:
       - opened
       - reopened
       - synchronize
       - ready_for_review
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: compiler-validation-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compiler_validation:
@@ -19,8 +33,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout code
+      - name: Checkout code and functional_sim submodule
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,17 +50,37 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . numpy pydot
 
-      - name: Run test_validation
-        run: python test_validation/run_all_validation.py
+      - name: Unit tests (x10 checks)
+        id: unit
+        continue-on-error: true
+        run: python test_validation/run_all_validation.py --json validation_results/unit.json
 
-      - name: Run test_validation_kernals
-        run: python test_validation_kernals/run_kernel_validation.py
+      - name: Kernels (numeric goldens + handwritten comparison)
+        id: kernels
+        continue-on-error: true
+        run: python test_validation_kernels/run_kernel_validation.py --json validation_results/kernel.json
 
-      - name: Upload validation artifacts on failure
-        if: failure()
+      - name: Write report
+        if: always()
+        run: |
+          python ci/validation_report.py \
+            --unit validation_results/unit.json \
+            --kernel validation_results/kernel.json \
+            --out validation_results/report.md
+
+      - name: Upload report and per-kernel artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: compiler_validation_artifacts
+          name: compiler-validation-${{ github.run_number }}
+          retention-days: 14
           path: |
-            test_validation/out
-            test_validation_kernals/out
+            validation_results/
+            test_validation/out/
+            test_validation_kernels/out/
+
+      - name: Accuracy gate
+        if: always()
+        run: |
+          echo "unit: ${{ steps.unit.outcome }}, kernels: ${{ steps.kernels.outcome }}"
+          test "${{ steps.unit.outcome }}" = "success" && test "${{ steps.kernels.outcome }}" = "success"

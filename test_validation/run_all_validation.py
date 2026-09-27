@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import struct
@@ -44,6 +45,21 @@ def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Pat
             f"Command failed with exit code {proc.returncode}: {' '.join(cmd)}\n"
             f"See {log_path}"
         )
+
+
+def read_perf(perf_path: Path) -> dict[str, float] | None:
+    if not perf_path.exists():
+        return None
+    perf: dict[str, float] = {}
+    for line in perf_path.read_text().splitlines():
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        try:
+            perf[key.strip()] = float(value)
+        except ValueError:
+            continue
+    return perf
 
 
 def parse_x10(sreg_path: Path) -> int:
@@ -220,6 +236,12 @@ def main() -> int:
         default="*.c",
         help="Glob used to select validation C files (default: *.c)",
     )
+    ap.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Write per-test results (status, error, perf counters) to this JSON file",
+    )
     args = ap.parse_args()
 
     tests = sorted(
@@ -229,7 +251,9 @@ def main() -> int:
         raise RuntimeError(f"No validation tests matched {args.match!r} in {script_dir}")
 
     failures: list[tuple[Path, str]] = []
+    results: list[dict[str, object]] = []
     for test_path in tests:
+        error: str | None = None
         try:
             out_dir = validate_test(
                 test_path.resolve(),
@@ -239,8 +263,21 @@ def main() -> int:
             )
             print(f"PASS {test_path.name} -> {out_dir}")
         except Exception as exc:
-            failures.append((test_path, str(exc)))
+            error = str(exc)
+            failures.append((test_path, error))
             print(f"FAIL {test_path.name}")
+        results.append(
+            {
+                "test": test_path.stem,
+                "status": "fail" if error else "pass",
+                "error": error,
+                "perf": read_perf(out_root / test_path.stem / "output_perf.out"),
+            }
+        )
+
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps({"suite": "unit", "results": results}, indent=2) + "\n")
 
     if failures:
         print()
