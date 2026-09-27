@@ -16,3 +16,6 @@ venv/
 *.txt
 *.o
 !requirements.txt
+.DS_Store
+results/
+

@@ -1,0 +1,4 @@
+[submodule "atalla-functional-sim"]
+	path = atalla-functional-sim
+	url = https://github.com/Purdue-SoCET/atalla-functional-sim.git
+	branch = vecreg-spill-seth
