@@ -12,7 +12,12 @@ from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..data_instructions import DByte, DZero, data_isa
-from ..generic_instructions import Label, RegisterUseDef
+from ..generic_instructions import (
+    InlineAssembly,
+    Label,
+    RegisterUseDef,
+    VirtualInstruction,
+)
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
 from .asm_printer import AtallaAsmPrinter
@@ -50,6 +55,8 @@ from .instructions import (
     Bnes,
     Blts,
     Bges,
+    Bgts,
+    Bles,
     # Load, store
     Lws,
     Sws,
@@ -479,12 +486,82 @@ class AtallaArch(Architecture):
                     removed.add(ins)
                     continue  # identity move, drop instruction
             newinstructions.append(ins)
+        newinstructions = self._branch_cleanup(newinstructions, removed)
         # Atalla emits from frame.buckets_by_block, so drop removed instructions there too
         if removed and getattr(frame, "buckets_by_block", None):
             for depth_list in frame.buckets_by_block.values():
                 for i, chunk in enumerate(depth_list):
                     depth_list[i] = [inst for inst in chunk if inst not in removed]
         return newinstructions
+
+    def _branch_cleanup(self, instrs, removed):
+        """Remove jumps made redundant by block layout.
+
+        Instruction selection emits every block exit as an explicit jump
+        (and every conditional as a bxx + jal pair) because it does not
+        know the block order. Now that the order is fixed:
+
+            jal x0, L        ->   L:
+            L:
+
+            bxx a, b, L1     ->   b!xx a, b, L2
+            jal x0, L2            L1:
+            L1:
+
+        Only the inversion changes a branch target. The conditional branch
+        has a 10 bit offset versus 25 bits for jal, so the inversion is
+        skipped unless L2 is within MAX_INVERTED_BRANCH_DISTANCE
+        instructions. Inline assembly has unknown size, so no inversion is
+        done in functions that contain it.
+        """
+        can_invert = not any(isinstance(i, InlineAssembly) for i in instrs)
+        changed = True
+        while changed:
+            changed = False
+            code = [k for k, ins in enumerate(instrs) if _emits_code(ins)]
+            # Position of each code item counted in real instructions:
+            pos, labels, count = [], {}, 0
+            for k in code:
+                pos.append(count)
+                if isinstance(instrs[k], Label):
+                    labels[instrs[k].name] = count
+                else:
+                    count += 1
+            drop = set()
+            for n in range(len(code) - 1):
+                k = code[n]
+                if k in drop:
+                    continue
+                ins, nxt = instrs[k], instrs[code[n + 1]]
+                if _is_jump(ins) and _is_label(nxt, ins.imm25):
+                    drop.add(k)
+                elif (
+                    can_invert
+                    and type(ins) in _INVERTED_BRANCH
+                    and _is_jump(nxt)
+                    and n + 2 < len(code)
+                    and _is_label(instrs[code[n + 2]], ins.imm10)
+                    and nxt.imm25 in labels
+                    and abs(labels[nxt.imm25] - pos[n])
+                    <= MAX_INVERTED_BRANCH_DISTANCE
+                ):
+                    # Like pattern_cjmpi, list the fall through as a jump
+                    # so a FlowGraph built from this code stays correct.
+                    inv = _INVERTED_BRANCH[type(ins)]
+                    fall_through = instrs[code[n + 2]]
+                    instrs[k] = inv(
+                        ins.rs1_rd,
+                        ins.rs2,
+                        nxt.imm25,
+                        jumps=list(nxt.jumps) + [fall_through],
+                    )
+                    removed.add(ins)
+                    drop.add(code[n + 1])
+            if drop:
+                removed.update(instrs[k] for k in drop)
+                instrs = [ins for k, ins in enumerate(instrs) if k not in drop]
+                changed = True
+        return instrs
 
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
@@ -672,3 +749,34 @@ class AtallaArch(Architecture):
 
 def round_up(s):
     return s + (16 - s % 16)
+
+
+# Branch cleanup helpers used by AtallaArch._branch_cleanup.
+_INVERTED_BRANCH = {
+    Blts: Bges,
+    Bges: Blts,
+    Beqs: Bnes,
+    Bnes: Beqs,
+    Bgts: Bles,
+    Bles: Bgts,
+}
+
+# The conditional branch imm10 reaches -512..511 instructions. Stay well
+# inside that, since a later VLIW packetizer may pad the code with nops.
+MAX_INVERTED_BRANCH_DISTANCE = 128
+
+
+def _emits_code(ins):
+    """Labels and real instructions; skips RegisterUseDef and friends."""
+    if isinstance(ins, (Label, InlineAssembly)):
+        return True
+    return not isinstance(ins, VirtualInstruction)
+
+
+def _is_jump(ins):
+    """Unconditional jump: jal x0, label"""
+    return isinstance(ins, Jal) and ins.rd is R0 and isinstance(ins.imm25, str)
+
+
+def _is_label(ins, name):
+    return isinstance(ins, Label) and ins.name == name
