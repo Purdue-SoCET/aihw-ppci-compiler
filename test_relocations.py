@@ -74,7 +74,7 @@ def test_control_flow(instructions, symbols, code_base, code_end):
     PASS = WARN = FAIL = 0
 
     for offset, line in instructions:
-        if re.search(r"\b(jal|bgt_s|blt_s|beq_s|bne_s)\b", line):
+        if re.search(r"\b(jal|bgt_s|blt_s|bge_s|ble_s|beq_s|bne_s)\b", line):
             target = extract_target(line)
             if target is None:
                 continue
