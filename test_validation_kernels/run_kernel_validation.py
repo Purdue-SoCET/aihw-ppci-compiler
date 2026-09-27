@@ -9,6 +9,7 @@ Failures are not skipped—compile/build/sim errors propagate.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import struct
 import subprocess
@@ -74,6 +75,21 @@ DEFAULT_TESTS = (
     "relu.c",
     "softmax.c",
 )
+
+
+def read_perf(perf_path: Path) -> dict[str, float] | None:
+    if not perf_path.exists():
+        return None
+    perf: dict[str, float] = {}
+    for line in perf_path.read_text().splitlines():
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        try:
+            perf[key.strip()] = float(value)
+        except ValueError:
+            continue
+    return perf
 
 
 def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> None:
@@ -429,36 +445,22 @@ def compare_gemm_tiled_matrix_outputs(script_dir: Path) -> None:
         assert_close_bf16(m, ref_m, name=f"gemm_tiled {name} vs {ref_s}", atol=0.0, rtol=0.0)
 
 
-def run_one(
-    test_path: Path,
-    *,
-    script_dir: Path,
-    repo_root: Path,
-    sim_root: Path,
-    env: dict[str, str],
-) -> None:
-    stem = test_path.stem
-    if stem not in KERNEL_REGISTRY:
-        raise KeyError(f"No kernel spec for {stem!r}; known: {sorted(KERNEL_REGISTRY)}")
+# Handwritten (systems-team) generator in functional_sim/kernels that matches each C kernel's
+# shape and cfg layout, so both run on the same seeded image and the same checker.
+# Not paired yet, because the generator's memory layout doesn't match the C kernel's:
+#   layernorm   build_layernorm_param.py assumes an N-wide GMEM tile; C uses a 4x32 tile.
+#   gemm_tiled  build_gemm_tiled.py --tile 4 writes nothing to C on this image.
+# maxpool has no --emit-asm-only generator.
+HANDWRITTEN_KERNELS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "add": ("build_add.py", ("--rows", "4", "--width", "32")),
+    "relu": ("build_relu.py", ("--rows", "4", "--width", "32")),
+    "softmax": ("build_softmax_row32.py", ()),
+    "conv_baseline": ("build_conv.py", ("--H", "4", "--W", "4")),
+    "conv_pipelined": ("build_conv_pipelined.py", ("--H", "4", "--W", "4")),
+}
 
-    seed_fn, check_fn = KERNEL_REGISTRY[stem]
-    out_dir = script_dir / "out" / stem
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    asm_path = out_dir / f"{stem}.s"
-    image_path = out_dir / f"{stem}.in"
-    compile_log = out_dir / "compile.log"
-    build_log = out_dir / "build.log"
-    run_log = out_dir / "run.log"
-
-    output_mem = out_dir / "output_mem.out"
-    output_sregs = out_dir / "output_sregs.out"
-    output_vregs = out_dir / "output_vregs.out"
-    output_mregs = out_dir / "output_mregs.out"
-    output_scpad0 = out_dir / "output_scpad0.out"
-    output_scpad1 = out_dir / "output_scpad1.out"
-    output_perf = out_dir / "output_perf.out"
-
+def compile_c(test_path: Path, asm_path: Path, *, repo_root: Path, env: dict[str, str]) -> None:
     cc = [
         sys.executable,
         "-m",
@@ -472,7 +474,63 @@ def run_one(
         "-o",
         str(asm_path),
     ]
-    run_and_log(cc, cwd=repo_root, env=env, log_path=compile_log)
+    run_and_log(cc, cwd=repo_root, env=env, log_path=asm_path.parent / "compile.log")
+
+
+def emit_handwritten(stem: str, asm_path: Path, *, sim_root: Path, env: dict[str, str]) -> None:
+    script, args = HANDWRITTEN_KERNELS[stem]
+    gen = [
+        sys.executable,
+        str(sim_root / "kernels" / script),
+        "--emit-asm-only",
+        "-o",
+        str(asm_path),
+        *args,
+    ]
+    run_and_log(gen, cwd=sim_root, env=env, log_path=asm_path.parent / "generate.log")
+
+
+def run_one(
+    test_path: Path,
+    *,
+    script_dir: Path,
+    repo_root: Path,
+    sim_root: Path,
+    env: dict[str, str],
+    handwritten: bool = False,
+) -> Path:
+    """Build + seed + simulate + check one kernel; return its output directory.
+
+    The asm comes from atalla_cc, or from the matching handwritten generator when
+    ``handwritten`` is set (output under ``out/<stem>/handwritten``).
+    """
+    stem = test_path.stem
+    if stem not in KERNEL_REGISTRY:
+        raise KeyError(f"No kernel spec for {stem!r}; known: {sorted(KERNEL_REGISTRY)}")
+
+    seed_fn, check_fn = KERNEL_REGISTRY[stem]
+    out_dir = script_dir / "out" / stem
+    if handwritten:
+        out_dir = out_dir / "handwritten"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    asm_path = out_dir / f"{stem}.s"
+    image_path = out_dir / f"{stem}.in"
+    build_log = out_dir / "build.log"
+    run_log = out_dir / "run.log"
+
+    output_mem = out_dir / "output_mem.out"
+    output_sregs = out_dir / "output_sregs.out"
+    output_vregs = out_dir / "output_vregs.out"
+    output_mregs = out_dir / "output_mregs.out"
+    output_scpad0 = out_dir / "output_scpad0.out"
+    output_scpad1 = out_dir / "output_scpad1.out"
+    output_perf = out_dir / "output_perf.out"
+
+    if handwritten:
+        emit_handwritten(stem, asm_path, sim_root=sim_root, env=env)
+    else:
+        compile_c(test_path, asm_path, repo_root=repo_root, env=env)
 
     bc = [
         sys.executable,
@@ -516,7 +574,9 @@ def run_one(
 
     if check_fn is not None:
         check_fn(output_mem)
-    print(f"OK {test_path.name}  artifacts: {out_dir}")
+    kind = "handwritten" if handwritten else "compiled"
+    print(f"OK {test_path.name} ({kind})  artifacts: {out_dir}")
+    return out_dir
 
 
 def main() -> int:
@@ -548,6 +608,18 @@ def main() -> int:
         action="store_true",
         help=f"Run all default tests (same as default): {', '.join(DEFAULT_TESTS)}",
     )
+    ap.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Write per-test results (status, error, perf counters) to this JSON file",
+    )
+    ap.add_argument(
+        "--no-handwritten",
+        dest="handwritten",
+        action="store_false",
+        help="Skip running the matching handwritten functional_sim kernels for comparison",
+    )
     args = ap.parse_args()
 
     if args.test is not None:
@@ -556,21 +628,74 @@ def main() -> int:
         tests = [script_dir / t for t in DEFAULT_TESTS]
 
     failed: list[str] = []
+    results: list[dict[str, object]] = []
+
+    def status_of(error: str | None, checked: bool) -> str:
+        # "unchecked": ran to completion but has no numeric golden, so correctness is unknown.
+        if error:
+            return "fail"
+        return "pass" if checked else "unchecked"
+
+    def record(
+        name: str, error: str | None, perf: dict[str, float] | None = None, checked: bool = True
+    ) -> dict:
+        result = {"test": name, "status": status_of(error, checked), "error": error, "perf": perf}
+        results.append(result)
+        return result
+
     for t in tests:
+        error: str | None = None
         if not t.exists():
-            failed.append(f"missing {t}")
-            continue
-        try:
-            run_one(t, script_dir=script_dir, repo_root=repo_root, sim_root=sim_root, env=env)
-        except Exception as e:
-            failed.append(f"{t.name}: {e}")
+            error = f"missing {t}"
+        else:
+            try:
+                run_one(t, script_dir=script_dir, repo_root=repo_root, sim_root=sim_root, env=env)
+            except Exception as e:
+                error = str(e)
+        if error:
+            failed.append(f"{t.name}: {error}")
+        checked = KERNEL_REGISTRY.get(t.stem, (None, None))[1] is not None
+        result = record(
+            t.stem, error, read_perf(script_dir / "out" / t.stem / "output_perf.out"), checked
+        )
+
+        # Handwritten comparison is informational: it never fails the run.
+        if args.handwritten and t.stem in HANDWRITTEN_KERNELS:
+            hw_error: str | None = None
+            try:
+                run_one(
+                    t,
+                    script_dir=script_dir,
+                    repo_root=repo_root,
+                    sim_root=sim_root,
+                    env=env,
+                    handwritten=True,
+                )
+            except Exception as e:
+                hw_error = str(e)
+                print(f"HANDWRITTEN FAIL {t.name}: {hw_error.splitlines()[0]}")
+            script, gen_args = HANDWRITTEN_KERNELS[t.stem]
+            result["handwritten"] = {
+                "generator": " ".join((script, *gen_args)),
+                "status": status_of(hw_error, checked),
+                "error": hw_error,
+                "perf": read_perf(script_dir / "out" / t.stem / "handwritten" / "output_perf.out"),
+            }
 
     if args.test is None:
+        error = None
         try:
             compare_gemm_tiled_matrix_outputs(script_dir)
             print("OK gemm_tiled cross-check: outputs match across built variants.")
         except Exception as e:
+            error = str(e)
             failed.append(f"gemm_tiled cross-check: {e}")
+        # Only proves the variants agree with each other, not that any of them is right.
+        record("gemm_tiled_crosscheck", error, checked=False)
+
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps({"suite": "kernel", "results": results}, indent=2) + "\n")
 
     if failed:
         print("FAILURES:\n" + "\n".join(failed), file=sys.stderr)
