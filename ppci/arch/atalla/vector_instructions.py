@@ -403,10 +403,14 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
 #     ctx.emit(XorVv(d, v0, v1, mask))
 #     return d
 
-@isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=2)
+@isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=4)
 def patt_gemm_vv(ctx, tree, v0, v1, mask):
+    # gemm.vv is matmul-only (vd = vs1 @ W); vs2 is ignored by hardware.
+    # gemm(a, acc, mask) therefore needs an explicit add for the accumulator.
+    prod = _new_v(ctx)
+    ctx.emit(GemmVv(prod, v0, V0, mask))
     d = _new_v(ctx)
-    ctx.emit(GemmVv(d, v0, v1, mask))
+    ctx.emit(AddVv(d, prod, v1, mask))
     return d
 
 # ---------- VI (vector-immediate) ----------
