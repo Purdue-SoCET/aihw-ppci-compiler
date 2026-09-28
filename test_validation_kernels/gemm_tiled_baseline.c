@@ -22,10 +22,12 @@ int main() {
 
     int all_mask = -1;
     int sp_base = 0;
+    /* SDMA ctl: [31:30] sid, [29:25] rows-1, [24:20] cols-1, [19:0] DRAM row stride-1.
+       4x4 tile out of 8-wide A/W/C matrices => stride field 7 (sid 0 / sid 1). */
     int sdma_ctl_sp0;
-    asm("li_s %0, 103809027" : "=r"(sdma_ctl_sp0));
+    asm("li_s %0, 103809031" : "=r"(sdma_ctl_sp0));
     int sdma_ctl_sp1;
-    asm("li_s %0, 1177550851" : "=r"(sdma_ctl_sp1));
+    asm("li_s %0, 1177550855" : "=r"(sdma_ctl_sp1));
 
     int mi = 0;
     while (mi < M_tiles) {
