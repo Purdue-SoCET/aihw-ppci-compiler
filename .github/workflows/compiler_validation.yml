@@ -1,8 +1,9 @@
 name: compiler_validation
 
 # Compile the validation C tests and kernels with this branch's atalla_cc, run them on
-# the functional simulator pinned by the functional_sim submodule, and compare each
-# kernel against the matching handwritten kernel. Fails only on accuracy.
+# the latest functional simulator from the branch named in .gitmodules
+# (submodule.functional_sim.branch), and compare each kernel against the matching
+# handwritten kernel. Fails only on accuracy.
 on:
   push:
     branches:
@@ -33,10 +34,51 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout code and functional_sim submodule
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # atalla-functional-sim is private, so GITHUB_TOKEN can't clone the submodule.
+      # A read-only deploy key on that repo (secret FUNCTIONAL_SIM_DEPLOY_KEY) is used
+      # to check out the tip of the sim branch named in .gitmodules.
+      - name: Resolve functional_sim branch
+        id: sim
+        env:
+          DEPLOY_KEY: ${{ secrets.FUNCTIONAL_SIM_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::Secret FUNCTIONAL_SIM_DEPLOY_KEY is not available (missing, or a PR from a fork)."
+            exit 1
+          fi
+          branch=$(git config -f .gitmodules submodule.functional_sim.branch)
+          if [ -z "$branch" ]; then
+            echo "::error::.gitmodules has no branch for submodule functional_sim."
+            exit 1
+          fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout functional_sim branch
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          repository: Purdue-SoCET/atalla-functional-sim
+          ref: ${{ steps.sim.outputs.branch }}
+          path: functional_sim
+          ssh-key: ${{ secrets.FUNCTIONAL_SIM_DEPLOY_KEY }}
+          persist-credentials: false
+
+      # The branch tip moves independently of this repo, so record which sim commit
+      # these results came from.
+      - name: Record functional_sim commit
+        run: |
+          sim_sha=$(git -C functional_sim rev-parse HEAD)
+          pinned=$(git rev-parse HEAD:functional_sim)
+          echo "functional_sim ${{ steps.sim.outputs.branch }} @ $sim_sha (submodule pointer: $pinned)"
+          {
+            echo "functional_sim: \`${{ steps.sim.outputs.branch }}\` at \`${sim_sha:0:8}\`"
+            if [ "$sim_sha" != "$pinned" ]; then
+              echo "(submodule pointer in this commit is \`${pinned:0:8}\`)"
+            fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -74,10 +116,13 @@ jobs:
         with:
           name: compiler-validation-${{ github.run_number }}
           retention-days: 14
+          # This repo is public but functional_sim is private: don't publish the
+          # handwritten kernels' generated asm/images.
           path: |
             validation_results/
             test_validation/out/
             test_validation_kernels/out/
+            !test_validation_kernels/out/*/handwritten/
 
       - name: Accuracy gate
         if: always()
