@@ -11,7 +11,12 @@ import json
 import os
 from pathlib import Path
 
-STATUS_LABEL = {"pass": "PASS", "fail": "FAIL", "unchecked": "UNCHECKED"}
+STATUS_LABEL = {
+    "pass": "PASS",
+    "fail": "FAIL",
+    "xfail": "KNOWN BUG",  # fails its golden because of a listed compiler bug
+    "xpass": "FIXED?",  # listed as a known bug but passes now
+}
 
 
 def load(path: Path | None) -> list[dict]:
@@ -42,7 +47,7 @@ def fmt_ratio(compiled: float | None, handwritten: float | None) -> str:
 
 def counts(results: list[dict]) -> str:
     parts = []
-    for status in ("pass", "unchecked", "fail"):
+    for status in ("pass", "fail", "xfail", "xpass"):
         n = sum(1 for r in results if r["status"] == status)
         if n:
             parts.append(f"{n} {status}")
@@ -61,7 +66,16 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         lines += [f"Branch `{ref}` at `{sha}`", ""]
 
     failed = [r for r in unit + kernel if r["status"] == "fail"]
-    verdict = "**Accuracy gate: FAILED**" if failed else "**Accuracy gate: PASSED**"
+    missing = [name for name, res in (("unit", unit), ("kernel", kernel)) if not res]
+    if missing:
+        verdict = (
+            f"**Accuracy gate: FAILED** (no {' or '.join(missing)} results; "
+            "the suite did not run, see the job log)"
+        )
+    elif failed:
+        verdict = "**Accuracy gate: FAILED**"
+    else:
+        verdict = "**Accuracy gate: PASSED**"
     lines += [
         verdict,
         "",
@@ -72,9 +86,11 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         "",
         "## Kernels: compiled vs handwritten",
         "",
-        "Both versions run on the same seeded memory image and are checked by the same "
-        "golden. Packet ratio = compiled / handwritten packets executed (lower is better "
-        "for the compiler). `UNCHECKED` means the kernel ran but has no numeric golden yet.",
+        "Every kernel is checked against a numpy golden; the handwritten version runs on "
+        "the same seeded memory image with the same golden. Packet ratio = compiled / "
+        "handwritten packets executed (lower is better for the compiler), shown only when "
+        "both pass. `KNOWN BUG` fails its golden because of a listed compiler bug and does "
+        "not fail the gate; `FIXED?` is listed as a known bug but passes now.",
         "",
         "| Kernel | Compiled | Handwritten | Packets executed (C / HW) | Ratio "
         "| Instructions (C / HW) | Slot util (C / HW) |",
@@ -110,6 +126,12 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
             f"| {fmt_int(perf_value(r, 'packets_executed'))} "
             f"| {fmt_int(perf_value(r, 'instructions_executed'))} |"
         )
+
+    known = [r for r in kernel if r.get("known_bug")]
+    if known:
+        lines += ["", "## Known compiler bugs", "", "| Kernel | Status | Cause |", "|---|---|---|"]
+        for r in known:
+            lines.append(f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {r['known_bug']} |")
 
     problems = [(r["test"], "compiled", r["error"]) for r in unit + kernel if r["error"]]
     problems += [

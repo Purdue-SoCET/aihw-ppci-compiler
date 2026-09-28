@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Kernel C validation: atalla_cc -> build_compiler -> seed .data -> functional_sim/run.py.
 
-add/relu: BF16 goldens. softmax: sum≈1, non-negative. maxpool/maxpool_2x2: finite outputs
-(SDMA layout ≠ dense seed for 2x1; 2x2 checks 4×4 out tile). layernorm: BF16 golden vs numpy
-on the 4×4 active mask. conv_*: systolic GEMM golden + bias (W DRAM K×N). gemm_tiled: cross-variant C match.
-Failures are not skipped—compile/build/sim errors propagate.
+Every kernel is checked against a numpy golden computed from the same seeded inputs:
+add/relu/maxpool/maxpool_2x2: exact BF16. softmax: numpy softmax. layernorm: numpy on the
+4×4 active mask. conv_*: systolic GEMM + bias. gemm_tiled_*: A @ W.
+Kernels in EXPECTED_FAILURES are known compiler bugs: they are reported but don't fail the run.
 """
 from __future__ import annotations
 
@@ -58,8 +58,29 @@ GEMM_TILED_STEMS = (
     "gemm_tiled_pipelined",
     "gemm_tiled_pipelined_unrolled",
 )
-C_BASE_GEMM = 0x2400
-GEMM_GMN = 8
+GEMM_TILE = 4
+
+# Compiled kernels whose golden currently fails because of a known compiler bug. They are
+# reported as "xfail" and don't fail the run; one that starts passing is reported "xpass"
+# so it can be removed from this list.
+EXPECTED_FAILURES: dict[str, str] = {
+    "softmax": (
+        "RMAX/RSUM lowering turns the float argument into the reduction mode immediate; "
+        "0.0 gives mode 0 (result in lane 0 only) instead of broadcast (mode 64). "
+        "Patching the emitted reductions to mode 64 makes it pass."
+    ),
+    "layernorm": (
+        "Same reduction-mode bug as softmax (8 RSUMs). Error 0.22 vs <=0.016 when the "
+        "emitted reductions are patched to mode 64."
+    ),
+    "maxpool": (
+        "x = vec_op_masked(...) writes a fresh register, so lanes outside the mask are not "
+        "x's previous value (masked-op merge semantics undefined)."
+    ),
+    "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
+    "gemm_tiled_pipelined": "Wrong in every output tile; baseline with the same data passes. Not diagnosed.",
+    "gemm_tiled_pipelined_unrolled": "Same as gemm_tiled_pipelined. Not diagnosed.",
+}
 
 DEFAULT_TESTS = (
     "add.c",
@@ -218,23 +239,27 @@ def validate_add(out_mem: Path) -> None:
     assert_close_bf16(got, exp, name="add C")
 
 
+def _maxpool_input(seed: int) -> np.ndarray:
+    """8×8 BF16 tile shared by the maxpool seeds and goldens."""
+    rng = np.random.default_rng(seed)
+    return (rng.random(size=(8, 8)) * 2.0 - 0.5).astype(np.float32)
+
+
 def validate_maxpool(out_mem: Path) -> None:
-    """SDMA tile geometry (sdma_in) does not match dense row-major 8×8 seeding; sanity-check only."""
-    h_out, w = 4, 8
-    out_base = 0x1800
-    mem = parse_data_mem(out_mem)
-    got = read_bf16_matrix(mem, out_base, h_out, w)
-    if not np.all(np.isfinite(got)):
-        raise RuntimeError("maxpool: non-finite outputs")
+    """Vertical 2x1 pool, stride 2: out[r] = max(in[2r], in[2r+1]) → 4×8."""
+    inp = to_bf16(_maxpool_input(3))
+    exp = np.maximum(inp[0::2], inp[1::2])
+    got = read_bf16_matrix(parse_data_mem(out_mem), 0x1800, 4, 8)
+    assert_close_bf16(got, exp, name="maxpool out")
 
 
 def validate_maxpool_2x2(out_mem: Path) -> None:
-    h_out, w = 4, 4
-    out_base = 0x1800
-    mem = parse_data_mem(out_mem)
-    got = read_bf16_matrix(mem, out_base, h_out, w)
-    if not np.all(np.isfinite(got)):
-        raise RuntimeError("maxpool_2x2: non-finite outputs")
+    """2×2 pool, stride 2 → 4×4."""
+    inp = to_bf16(_maxpool_input(7))
+    rows = np.maximum(inp[0::2], inp[1::2])
+    exp = np.maximum(rows[:, 0::2], rows[:, 1::2])
+    got = read_bf16_matrix(parse_data_mem(out_mem), 0x1800, 4, 4)
+    assert_close_bf16(got, exp, name="maxpool_2x2 out")
 
 
 def validate_layernorm(out_mem: Path) -> None:
@@ -252,7 +277,8 @@ def validate_layernorm(out_mem: Path) -> None:
     mem = parse_data_mem(out_mem)
     got_full = read_bf16_matrix(mem, in_base, rows, 32)
     got = got_full[:, :active]
-    assert_close_bf16(got, exp, name="layernorm out (4×4 active)", atol=0.08, rtol=0.12)
+    # Rounding every step to BF16 lands within 0.016 of exact (1 ULP at |y|≈2); allow 2 ULP.
+    assert_close_bf16(got, exp, name="layernorm out (4×4 active)", atol=0.03)
 
 
 def validate_relu(out_mem: Path) -> None:
@@ -267,16 +293,13 @@ def validate_relu(out_mem: Path) -> None:
 
 
 def validate_softmax(out_mem: Path) -> None:
-    """RMAX/RSUM/EXP path differs from a naive numpy softmax; check normalization + non-negativity."""
-    rows, cols = 1, 32
-    in_base = 0x1000
-    mem = parse_data_mem(out_mem)
-    got = read_bf16_matrix(mem, in_base, rows, cols)
-    s = float(np.sum(got))
-    if abs(s - 1.0) > 0.2:
-        raise RuntimeError(f"softmax: sum(got)={s}, expected ~1.0")
-    if float(np.min(got)) < -1e-5:
-        raise RuntimeError("softmax: negative output")
+    """In-place softmax over one 32-lane row (outputs ~0.03; handwritten is within 2e-4)."""
+    rng = np.random.default_rng(5)
+    x = to_bf16((rng.normal(size=(1, 32)) * 0.3).astype(np.float32)).astype(np.float64)
+    e = np.exp(x - x.max())
+    exp = to_bf16((e / e.sum()).astype(np.float32))
+    got = read_bf16_matrix(parse_data_mem(out_mem), 0x1000, 1, 32)
+    assert_close_bf16(got, exp, name="softmax out", atol=1e-3)
 
 
 def seed_add(words: dict[int, int]) -> None:
@@ -331,14 +354,40 @@ def validate_conv(out_mem: Path) -> None:
     assert_close_bf16(got, exp, name="conv-as-GEMM C", atol=0.002, rtol=0.0)
 
 
+def _gemm_tiled_tensors() -> tuple[np.ndarray, np.ndarray]:
+    """A (8×8) and W (8×8) shared by seed_gemm_tiled and validate_gemm_tiled."""
+    rng = np.random.default_rng(2)
+    a = (rng.normal(size=(8, 8)) * 0.08).astype(np.float32)
+    w = (rng.normal(size=(8, 8)) * 0.08).astype(np.float32)
+    return a, w
+
+
+def _transpose_blocks(mat: np.ndarray, tile: int) -> np.ndarray:
+    out = mat.copy()
+    for i in range(0, mat.shape[0], tile):
+        for j in range(0, mat.shape[1], tile):
+            out[i : i + tile, j : j + tile] = mat[i : i + tile, j : j + tile].T
+    return out
+
+
+def validate_gemm_tiled(out_mem: Path) -> None:
+    """C = A @ W (8×8×8, 4×4 tiles, C starts at zero)."""
+    a, w = _gemm_tiled_tensors()
+    exp = to_bf16(to_bf16(a) @ to_bf16(w))
+    got = read_bf16_matrix(parse_data_mem(out_mem), 0x2400, 8, 8)
+    assert_close_bf16(got, exp, name="gemm_tiled C", atol=0.002)
+
+
 def seed_gemm_tiled(words: dict[int, int]) -> None:
+    """W is stored with each tile transposed: lw.vi loads a scratchpad row as a *column*
+    of the weight buffer, so row i of a stored tile must be column i of the logical W tile.
+    """
     g_m = g_n = g_k = 8
-    tile_sz = 4
+    tile_sz = GEMM_TILE
     m_tiles = n_tiles = k_tiles = 2
     a_base, w_base, c_base = 0x2000, 0x2200, 0x2400
-    rng = np.random.default_rng(2)
-    a_full = (rng.normal(size=(g_m, g_k)) * 0.08).astype(np.float32)
-    w_full = (rng.normal(size=(g_k, g_n)) * 0.08).astype(np.float32)
+    a_full, w_logical = _gemm_tiled_tensors()
+    w_full = _transpose_blocks(w_logical, tile_sz)
     c0 = np.zeros((g_m, g_n), dtype=np.float32)
     write_u32_words(
         words,
@@ -362,20 +411,17 @@ def seed_gemm_tiled(words: dict[int, int]) -> None:
 
 
 def seed_maxpool(words: dict[int, int]) -> None:
-    h_in, w = 8, 8
+    w = 8
     in_base, out_base = 0x1000, 0x1800
-    rng = np.random.default_rng(3)
-    inp = (rng.random(size=(h_in, w)) * 2.0 - 0.5).astype(np.float32)
+    inp = _maxpool_input(3)
     write_u32_words(words, CFG, [in_base, out_base])
     write_bf16_matrix(words, in_base, inp)
     write_bf16_matrix(words, out_base, np.zeros((4, w), dtype=np.float32))
 
 
 def seed_maxpool_2x2(words: dict[int, int]) -> None:
-    h_in, w = 8, 8
     in_base, out_base = 0x1000, 0x1800
-    rng = np.random.default_rng(7)
-    inp = (rng.random(size=(h_in, w)) * 2.0 - 0.5).astype(np.float32)
+    inp = _maxpool_input(7)
     write_u32_words(words, CFG, [in_base, out_base])
     write_bf16_matrix(words, in_base, inp)
     write_bf16_matrix(words, out_base, np.zeros((4, 4), dtype=np.float32))
@@ -412,37 +458,22 @@ def seed_softmax(words: dict[int, int]) -> None:
     write_bf16_matrix(words, in_base, inp)
 
 
-KernelSpec = tuple[Callable[[dict[int, int]], None], Callable[[Path], None] | None]
+KernelSpec = tuple[Callable[[dict[int, int]], None], Callable[[Path], None]]
 
 KERNEL_REGISTRY: dict[str, KernelSpec] = {
     "add": (seed_add, validate_add),
     "conv_baseline": (seed_conv, validate_conv),
     "conv_pipelined": (seed_conv, validate_conv),
     "conv_pipelined_unrolled": (seed_conv, validate_conv),
-    "gemm_tiled_baseline": (seed_gemm_tiled, None),
-    "gemm_tiled_pipelined": (seed_gemm_tiled, None),
-    "gemm_tiled_pipelined_unrolled": (seed_gemm_tiled, None),
+    "gemm_tiled_baseline": (seed_gemm_tiled, validate_gemm_tiled),
+    "gemm_tiled_pipelined": (seed_gemm_tiled, validate_gemm_tiled),
+    "gemm_tiled_pipelined_unrolled": (seed_gemm_tiled, validate_gemm_tiled),
     "layernorm": (seed_layernorm, validate_layernorm),
     "maxpool": (seed_maxpool, validate_maxpool),
     "maxpool_2x2": (seed_maxpool_2x2, validate_maxpool_2x2),
     "relu": (seed_relu, validate_relu),
     "softmax": (seed_softmax, validate_softmax),
 }
-
-
-def compare_gemm_tiled_matrix_outputs(script_dir: Path) -> None:
-    mats: list[tuple[str, np.ndarray]] = []
-    for s in GEMM_TILED_STEMS:
-        p = script_dir / "out" / s / "output_mem.out"
-        if not p.exists():
-            continue
-        mem = parse_data_mem(p)
-        mats.append((s, read_bf16_matrix(mem, C_BASE_GEMM, GEMM_GMN, GEMM_GMN)))
-    if len(mats) < 2:
-        return
-    ref_s, ref_m = mats[0]
-    for name, m in mats[1:]:
-        assert_close_bf16(m, ref_m, name=f"gemm_tiled {name} vs {ref_s}", atol=0.0, rtol=0.0)
 
 
 # Handwritten (systems-team) generator in functional_sim/kernels that matches each C kernel's
@@ -509,6 +540,10 @@ def run_one(
         raise KeyError(f"No kernel spec for {stem!r}; known: {sorted(KERNEL_REGISTRY)}")
 
     seed_fn, check_fn = KERNEL_REGISTRY[stem]
+    if stem in GEMM_TILED_STEMS:
+        # Refill the weight buffer from column 0 every GEMM_TILE lw.vi (one K tile)
+        # instead of appending columns across K tiles.
+        env = {**env, "FUNCTIONAL_SIM_GEMM_WEIGHT_TILE": str(GEMM_TILE)}
     out_dir = script_dir / "out" / stem
     if handwritten:
         out_dir = out_dir / "handwritten"
@@ -572,8 +607,7 @@ def run_one(
         log_path=run_log,
     )
 
-    if check_fn is not None:
-        check_fn(output_mem)
+    check_fn(output_mem)
     kind = "handwritten" if handwritten else "compiled"
     print(f"OK {test_path.name} ({kind})  artifacts: {out_dir}")
     return out_dir
@@ -591,10 +625,9 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(
         description=(
-            "Validate kernel C tests: compile, seed .data (cfg + tensors), run functional_sim. "
-            "add/relu/layernorm/conv use numeric goldens (conv: systolic GEMM ref + bias); "
-            "maxpool variants sanity-check outputs; softmax checks normalization; "
-            "gemm_tiled variants are cross-checked when all ran."
+            "Validate kernel C tests: compile, seed .data (cfg + tensors), run functional_sim, "
+            "and check every output against a numpy golden. Kernels in EXPECTED_FAILURES "
+            "are reported but don't fail the run."
         )
     )
     ap.add_argument(
@@ -630,19 +663,6 @@ def main() -> int:
     failed: list[str] = []
     results: list[dict[str, object]] = []
 
-    def status_of(error: str | None, checked: bool) -> str:
-        # "unchecked": ran to completion but has no numeric golden, so correctness is unknown.
-        if error:
-            return "fail"
-        return "pass" if checked else "unchecked"
-
-    def record(
-        name: str, error: str | None, perf: dict[str, float] | None = None, checked: bool = True
-    ) -> dict:
-        result = {"test": name, "status": status_of(error, checked), "error": error, "perf": perf}
-        results.append(result)
-        return result
-
     for t in tests:
         error: str | None = None
         if not t.exists():
@@ -652,12 +672,26 @@ def main() -> int:
                 run_one(t, script_dir=script_dir, repo_root=repo_root, sim_root=sim_root, env=env)
             except Exception as e:
                 error = str(e)
-        if error:
-            failed.append(f"{t.name}: {error}")
-        checked = KERNEL_REGISTRY.get(t.stem, (None, None))[1] is not None
-        result = record(
-            t.stem, error, read_perf(script_dir / "out" / t.stem / "output_perf.out"), checked
-        )
+
+        known_bug = EXPECTED_FAILURES.get(t.stem)
+        if known_bug is None:
+            status = "fail" if error else "pass"
+            if error:
+                failed.append(f"{t.name}: {error}")
+        elif error:
+            status = "xfail"
+            print(f"XFAIL {t.name} (known: {known_bug})")
+        else:
+            status = "xpass"
+            print(f"XPASS {t.name}: passes now; remove it from EXPECTED_FAILURES")
+        result = {
+            "test": t.stem,
+            "status": status,
+            "error": error,
+            "known_bug": known_bug,
+            "perf": read_perf(script_dir / "out" / t.stem / "output_perf.out"),
+        }
+        results.append(result)
 
         # Handwritten comparison is informational: it never fails the run.
         if args.handwritten and t.stem in HANDWRITTEN_KERNELS:
@@ -677,21 +711,10 @@ def main() -> int:
             script, gen_args = HANDWRITTEN_KERNELS[t.stem]
             result["handwritten"] = {
                 "generator": " ".join((script, *gen_args)),
-                "status": status_of(hw_error, checked),
+                "status": "fail" if hw_error else "pass",
                 "error": hw_error,
                 "perf": read_perf(script_dir / "out" / t.stem / "handwritten" / "output_perf.out"),
             }
-
-    if args.test is None:
-        error = None
-        try:
-            compare_gemm_tiled_matrix_outputs(script_dir)
-            print("OK gemm_tiled cross-check: outputs match across built variants.")
-        except Exception as e:
-            error = str(e)
-            failed.append(f"gemm_tiled cross-check: {e}")
-        # Only proves the variants agree with each other, not that any of them is right.
-        record("gemm_tiled_crosscheck", error, checked=False)
 
     if args.json is not None:
         args.json.parent.mkdir(parents=True, exist_ok=True)
