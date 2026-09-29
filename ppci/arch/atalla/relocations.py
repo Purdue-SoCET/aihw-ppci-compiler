@@ -5,13 +5,30 @@ from .tokens import *
 # 6 byte aligned means 48 bits, 5 means 40 bits
 ATALLA_INSN_ALIGNMENT = 5
 
+
+def pc_rel_offset(name, sym_value, reloc_value, bits):
+    """Encode a signed pc-relative offset in instruction words.
+
+    The hardware sign extends the field (see disassemble.py), so only
+    -2**(bits-1) .. 2**(bits-1)-1 is reachable. wrap_negative alone
+    accepts up to 2**bits-1, which would silently turn a far forward
+    branch into a backward one.
+    """
+    offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
+    limit = 1 << (bits - 1)
+    if not -limit <= offset < limit:
+        raise ValueError(
+            f"{name}: target is {offset} instructions away, "
+            f"outside the {bits} bit signed range [{-limit},{limit - 1}]"
+        )
+    return wrap_negative(offset, bits)
+
 class AtallaBR_Imm10_Relocation(Relocation):
     name = "BR_i10"
     token = AtallaBRToken
 
     def calc(self, sym_value, reloc_value):
-        offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
-        return wrap_negative(offset, 10)
+        return pc_rel_offset(self.name, sym_value, reloc_value, 10)
 
     # def calc(self, sym_value, reloc_value):
     #     pc_next = reloc_value + ATALLA_INSN_ALIGNMENT
@@ -30,8 +47,7 @@ class AtallaMI_JAL_Imm25_Relocation(Relocation):
     field = "imm25"
 
     def calc(self, sym_value, reloc_value):
-        offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
-        return wrap_negative(offset, 25)
+        return pc_rel_offset(self.name, sym_value, reloc_value, 25)
 
 # For if lui uses or loads symbol addresses
 class AtallaMI_Abs_Imm25_Relocation(Relocation):
