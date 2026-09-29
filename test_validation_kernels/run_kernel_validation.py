@@ -78,8 +78,6 @@ EXPECTED_FAILURES: dict[str, str] = {
         "x's previous value (masked-op merge semantics undefined)."
     ),
     "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
-    "gemm_tiled_pipelined": "Wrong in every output tile; baseline with the same data passes. Not diagnosed.",
-    "gemm_tiled_pipelined_unrolled": "Same as gemm_tiled_pipelined. Not diagnosed.",
 }
 
 DEFAULT_TESTS = (
