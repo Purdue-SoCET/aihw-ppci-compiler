@@ -12,10 +12,16 @@ from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..data_instructions import DByte, DZero, data_isa
-from ..generic_instructions import Label, RegisterUseDef
+from ..generic_instructions import (
+    InlineAssembly,
+    Label,
+    RegisterUseDef,
+    VirtualInstruction,
+)
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
 from .asm_printer import AtallaAsmPrinter
+from .relocations import ATALLA_INSN_ALIGNMENT
 from .instructions import (
     #R-types
     Adds,
@@ -50,6 +56,8 @@ from .instructions import (
     Bnes,
     Blts,
     Bges,
+    Bgts,
+    Bles,
     # Load, store
     Lws,
     Sws,
@@ -58,6 +66,7 @@ from .instructions import (
     Jalr,
     #isa
     isa,
+    Luis,
     Align,
     Section,
     dcd,
@@ -145,6 +154,8 @@ from .registers import (
     R29,
     R30,
     R31,
+    SCPADSP,
+    SCPADFP,
     Register,
     #AtallaFRegister,
     AtallaRegister as AtallaRegister,
@@ -203,6 +214,7 @@ class AtallaArch(Architecture):
         self.regclass = register_classes_swfp + vector_register_classes + mask_register_classes
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
+        self.scpad_fp_start = 2000000
         # self.isa.sectinst = Section
         # self.isa.dbinst = DByte
         # self.isa.dsinst = DZero
@@ -300,8 +312,8 @@ class AtallaArch(Architecture):
         """Generate a move from src to dst"""
         #no MOV function in ISA so we use a existing custom instruction addis to move
         if V0 in src.registers or V0 in dst.registers:
-            return AddVv(dst, src, V0, M0)
-        return Addis(dst, src, 0)
+            return AddVv(dst, src, V0, M0, ismove=True)
+        return Addis(dst, src, 0, ismove=True)
 
     # don't need until implement memory
     def gen_Atalla_memcpy(self, dst, src, tmp, size):
@@ -318,8 +330,19 @@ class AtallaArch(Architecture):
         We will impliment load/store/stack later
         when we have the MEM operations.
         """
+        # Keep code section alignment consistent with the 5-byte ISA width.
+        # This prevents the linker from inserting 4-byte section merge padding.
+        yield Align(ATALLA_INSN_ALIGNMENT)
+
         # Label indication function:
         yield Label(frame.name)
+
+        # Program entry setup: initialize scratchpad SP/FP to start address.
+        if frame.name == "main":
+            yield Luis(SCPADSP, self.scpad_fp_start >> 7)
+            yield Addis(SCPADSP, SCPADSP, self.scpad_fp_start & 0x7F)
+            yield Addis(SCPADFP, SCPADSP, 0)
+
         ssize = round_up(frame.stacksize + 8)
         # if self.has_option("rvc") and isinsrange(10, -ssize):
         #     yield CAddi16sp(-ssize)  # Reserve stack space
@@ -332,6 +355,8 @@ class AtallaArch(Architecture):
         # else:
         yield Sws(LR, 4, SP)
         yield Sws(FP, 0, SP)
+        if frame.scpad_stacksize:
+            yield Sws(SCPADFP, 8, SP)
 
         # if self.has_option("rvc"):
         #     yield CAddi4spn(FP, 8)  # Setup frame pointer
@@ -365,6 +390,11 @@ class AtallaArch(Architecture):
             # else:
             yield Addis(SP, SP, -ssize)  # Reserve stack space
 
+        # Scratchpad frame: x33 is frame base, x32 is moving stack pointer.
+        if frame.scpad_stacksize:
+            yield Addis(SCPADFP, SCPADSP, 0)
+            yield Addis(SCPADSP, SCPADSP, -frame.scpad_stacksize)
+
     def gen_epilogue(self, frame):
         """
         later we restore callee-saves, reload LR and FP, deallocate the stack
@@ -376,6 +406,10 @@ class AtallaArch(Architecture):
             #     yield CAddi16sp(ssize)  # Reserve stack space
             # else:
             yield Addis(SP, SP, ssize)  # Reserve stack space
+
+        if frame.scpad_stacksize:
+            # Drop this function's scratchpad frame.
+            yield Addis(SCPADSP, SCPADFP, 0)
 
         # Callee saved registers:
         saved_registers = self.get_callee_saved(frame)
@@ -399,6 +433,8 @@ class AtallaArch(Architecture):
         #     yield CLwsp(LR, 4)
         #     yield CLwsp(FP, 0)
         # else:
+        if frame.scpad_stacksize:
+            yield Lws(SCPADFP, 8, SP)
         yield Lws(LR, 4, SP)
         yield Lws(FP, 0, SP)
 
@@ -416,7 +452,6 @@ class AtallaArch(Architecture):
 
         # Add final literal pool:
         yield from self.litpool(frame)
-        yield Align(4)  # Align at 4 bytes
 
     def peephole(self, frame):
         removed = set()
@@ -424,7 +459,12 @@ class AtallaArch(Architecture):
         for ins in frame.instructions:
             # idk if this causes a problem with vreg ld/st TODO: investigate
             # identify during testing phase and fix if needed
-            if hasattr(ins, "fprel") and ins.fprel and not isinstance(ins, (VregLd, VregSt)):
+            if (
+                hasattr(ins, "fprel")
+                and ins.fprel
+                and not getattr(ins, "scpadfprel", False)
+                and not isinstance(ins, (VregLd, VregSt))
+            ):
                 ins.imm12 += round_up(frame.stacksize + 8) - 8
             # Remove redundant addi_s rd, rs, 0 when rd == rs (no MOV in ISA)
             if isinstance(ins, instructions.Addis) and ins.imm12 == 0:
@@ -447,12 +487,82 @@ class AtallaArch(Architecture):
                     removed.add(ins)
                     continue  # identity move, drop instruction
             newinstructions.append(ins)
+        newinstructions = self._branch_cleanup(newinstructions, removed)
         # Atalla emits from frame.buckets_by_block, so drop removed instructions there too
         if removed and getattr(frame, "buckets_by_block", None):
             for depth_list in frame.buckets_by_block.values():
                 for i, chunk in enumerate(depth_list):
                     depth_list[i] = [inst for inst in chunk if inst not in removed]
         return newinstructions
+
+    def _branch_cleanup(self, instrs, removed):
+        """Remove jumps made redundant by block layout.
+
+        Instruction selection emits every block exit as an explicit jump
+        (and every conditional as a bxx + jal pair) because it does not
+        know the block order. Now that the order is fixed:
+
+            jal x0, L        ->   L:
+            L:
+
+            bxx a, b, L1     ->   b!xx a, b, L2
+            jal x0, L2            L1:
+            L1:
+
+        Only the inversion changes a branch target. The conditional branch
+        has a 10 bit offset versus 25 bits for jal, so the inversion is
+        skipped unless L2 is within MAX_INVERTED_BRANCH_DISTANCE
+        instructions. Inline assembly has unknown size, so no inversion is
+        done in functions that contain it.
+        """
+        can_invert = not any(isinstance(i, InlineAssembly) for i in instrs)
+        changed = True
+        while changed:
+            changed = False
+            code = [k for k, ins in enumerate(instrs) if _emits_code(ins)]
+            # Position of each code item counted in real instructions:
+            pos, labels, count = [], {}, 0
+            for k in code:
+                pos.append(count)
+                if isinstance(instrs[k], Label):
+                    labels[instrs[k].name] = count
+                else:
+                    count += 1
+            drop = set()
+            for n in range(len(code) - 1):
+                k = code[n]
+                if k in drop:
+                    continue
+                ins, nxt = instrs[k], instrs[code[n + 1]]
+                if _is_jump(ins) and _is_label(nxt, ins.imm25):
+                    drop.add(k)
+                elif (
+                    can_invert
+                    and type(ins) in _INVERTED_BRANCH
+                    and _is_jump(nxt)
+                    and n + 2 < len(code)
+                    and _is_label(instrs[code[n + 2]], ins.imm10)
+                    and nxt.imm25 in labels
+                    and abs(labels[nxt.imm25] - pos[n])
+                    <= MAX_INVERTED_BRANCH_DISTANCE
+                ):
+                    # Like pattern_cjmpi, list the fall through as a jump
+                    # so a FlowGraph built from this code stays correct.
+                    inv = _INVERTED_BRANCH[type(ins)]
+                    fall_through = instrs[code[n + 2]]
+                    instrs[k] = inv(
+                        ins.rs1_rd,
+                        ins.rs2,
+                        nxt.imm25,
+                        jumps=list(nxt.jumps) + [fall_through],
+                    )
+                    removed.add(ins)
+                    drop.add(code[n + 1])
+            if drop:
+                removed.update(instrs[k] for k in drop)
+                instrs = [ins for k, ins in enumerate(instrs) if k not in drop]
+                changed = True
+        return instrs
 
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
@@ -620,6 +730,7 @@ class AtallaArch(Architecture):
             "MI_abs_i25": 3,       # Absolute upper 25 bits
             "M_i12": 4,            # Memory 12-bit
             "I_i12": 5,            # I-type 12-bit (JALR)
+            "abs_imm7": 6,
         }
         
         # Get the relocation name from the relocation type
@@ -639,3 +750,34 @@ class AtallaArch(Architecture):
 
 def round_up(s):
     return s + (16 - s % 16)
+
+
+# Branch cleanup helpers used by AtallaArch._branch_cleanup.
+_INVERTED_BRANCH = {
+    Blts: Bges,
+    Bges: Blts,
+    Beqs: Bnes,
+    Bnes: Beqs,
+    Bgts: Bles,
+    Bles: Bgts,
+}
+
+# The conditional branch imm10 reaches -512..511 instructions. Stay well
+# inside that, since a later VLIW packetizer may pad the code with nops.
+MAX_INVERTED_BRANCH_DISTANCE = 128
+
+
+def _emits_code(ins):
+    """Labels and real instructions; skips RegisterUseDef and friends."""
+    if isinstance(ins, (Label, InlineAssembly)):
+        return True
+    return not isinstance(ins, VirtualInstruction)
+
+
+def _is_jump(ins):
+    """Unconditional jump: jal x0, label"""
+    return isinstance(ins, Jal) and ins.rd is R0 and isinstance(ins.imm25, str)
+
+
+def _is_label(ins, name):
+    return isinstance(ins, Label) and ins.name == name

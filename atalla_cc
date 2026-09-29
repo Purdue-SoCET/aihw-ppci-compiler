@@ -141,12 +141,30 @@ def compile_to_objects(args: argparse.Namespace) -> List[str]:
 		object_files.append(output_file)
 	return object_files
 
-
 def link_objects(args: argparse.Namespace, object_files: List[str]) -> None:
-	output_elf = args.output or "output.elf"
-	cmd = [PYTHON, "-m", "ppci", "ld", *object_files, "-o", output_elf, *args.ld_flags]
-	run_cmd(cmd, args.verbose)
-
+    output_elf = args.output or "output.elf"
+    layout_flags = []
+    has_layout = any(
+        (flag in ("-L", "--layout"))
+        or flag.startswith("-L")
+        or flag.startswith("--layout=")
+        for flag in args.ld_flags
+    )
+    if not has_layout:
+        default_layout = pathlib.Path(__file__).resolve().with_name("atalla_layout.mmap")
+        layout_flags = ["-L", str(default_layout)]
+    cmd = [
+        PYTHON,
+        "-m",
+        "ppci",
+        "ld",
+        *object_files,
+        "-o",
+        output_elf,
+        *layout_flags,
+        *args.ld_flags,
+    ]
+    run_cmd(cmd, args.verbose)
 
 def run_post_steps(args: argparse.Namespace) -> None:
 	if args.run_dump_dis:

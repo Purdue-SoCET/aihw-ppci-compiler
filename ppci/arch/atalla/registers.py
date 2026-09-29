@@ -2,7 +2,7 @@ from ... import ir
 from ..registers import Register, RegisterClass
 
 class AtallaRegister(Register):
-    bitsize = 64
+    bitsize = 32
 
     def __repr__(self):
         if self.is_colored:

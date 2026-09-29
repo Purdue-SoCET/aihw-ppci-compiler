@@ -161,12 +161,12 @@ float sqrt(float x);
 
 Below is a list of what is currently not supported by the compiler, but is planned to be added in future releases.
 
-* Global variables
+* ~~Global variables~~ FIXED in release v0.9.2
 * Function inlining
 * ~~Void return functions broken~~ FIXED in release: v0.9.1
 * Passing non-scalar values to functions by value, such as `vec` datatype values
     * **Workaround**: pass vectors by address, not by value
-* Linking files with multiple functions in 1 file (works with -S flag)
+* ~~Linking files with multiple functions in 1 file (works with -S flag)~~ FIXED in release v0.9.2
 * ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: v0.9.1
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
 

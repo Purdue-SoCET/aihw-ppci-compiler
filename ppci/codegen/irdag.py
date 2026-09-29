@@ -322,7 +322,16 @@ class SelectionGraphBuilder:
         arg4 = self.get_value(node.arg4)
         sgnode = self.new_node("VLOAD", node.ty, addr, arg2, arg3, arg4)
         self.debug_db.map(node, sgnode)
+        
+        # REPLACE WITH COMMENT
         self.add_map(node, sgnode.new_output(node.name))
+        
+        # # self.add_map(node, sgnode.new_output(node.name))
+        # output = sgnode.new_output(node.name)
+        # # Keep VLOAD as a first-class producer so the splitter does not
+        # # force a MOVVEC vreg copy purely because the node is chained.
+        # output.wants_vreg = False
+        # self.add_map(node, output)
         self.chain(sgnode)
 
     def do_vector_store(self, node):
