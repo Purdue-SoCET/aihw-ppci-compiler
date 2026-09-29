@@ -16,3 +16,9 @@ venv/
 *.txt
 *.o
 !requirements.txt
+.DS_Store
+results/
+
+
+# CI validation report output
+validation_results/
