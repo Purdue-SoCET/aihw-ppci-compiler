@@ -989,6 +989,19 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
+    def on_atalla_scalar_intrinsic(self, name, args, location):
+        expected = 0 if name == "atalla_halt" else 1
+        if len(args) != expected:
+            self.error(f"{name} expects {expected} arguments, got {len(args)}", location)
+        if args:
+            self.ensure_integer(args[0])
+        if name == "atalla_const_u32":
+            self.ensure_constant(args[0], "atalla_const_u32 value")
+        typ = (self.get_type(["void"]) if name == "atalla_halt" else
+               self.get_type(["float"]) if name == "atalla_load_bf16_word" else
+               self.get_type(["int"]))
+        return expressions.AtallaScalarIntrinsic(name, args, typ, location)
+
     def on_gemm(self, a, b, mask, location):
         expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr

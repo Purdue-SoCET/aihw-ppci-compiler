@@ -8,13 +8,13 @@ int main() {
     int cfg = CFG_BASE;
     int IN_GMEM;
     int dummy;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_GMEM) : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(dummy)   : "r"(cfg));
+    IN_GMEM = atalla_load_u32(cfg + 0);
+    dummy = atalla_load_u32(cfg + 4);
 
     int sp = 0;
     int mask_val = MASK_VAL;
     int sdma_ctl;
-    asm("li_s %0, 32505887" : "=r"(sdma_ctl));
+    sdma_ctl = atalla_const_u32(32505887u);
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -40,6 +40,6 @@ int main() {
 
     scpad_store(sp, IN_GMEM, sdma_ctl);
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }
