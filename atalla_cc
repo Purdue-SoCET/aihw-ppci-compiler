@@ -82,6 +82,14 @@ def parse_args() -> argparse.Namespace:
 		help="Print commands before running",
 	)
 	parser.add_argument(
+		"-p",
+		"--packetize",
+		dest="packetize",
+		action="store_true",
+		default=False,
+		help="Enable VLIW packetization",
+	)
+	parser.add_argument(
 		"--cc-flag",
 		dest="cc_flags",
 		action="append",
@@ -116,6 +124,8 @@ def compiler_base(args: argparse.Namespace) -> List[str]:
 	]
 	if args.super_verbose:
 		base.append("--super-verbose")
+	if args.packetize:
+		base.append("-p")
 	base.extend(args.cc_flags)
 	return base
 

@@ -254,7 +254,8 @@ def optimize(ir_module, level=0, reporter=None):
 
 
 def ir_to_stream(
-    ir_module, march, output_stream, reporter=None, debug=False, opt="speed"
+    ir_module, march, output_stream, reporter=None, debug=False, opt="speed",
+    packetize=False,
 ):
     """Translate IR module to output stream."""
     march = get_arch(march)
@@ -262,7 +263,7 @@ def ir_to_stream(
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    code_generator = CodeGenerator(march, reporter, optimize_for=opt)
+    code_generator = CodeGenerator(march, reporter, optimize_for=opt, packetize=packetize)
     verify_module(ir_module)
 
     # Code generation:
@@ -282,7 +283,8 @@ def ir_to_assembly(ir_modules, march, add_binary=False):
 
 
 def ir_to_object(
-    ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None
+    ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None,
+    packetize=False,
 ):
     """Translate IR-modules into code for the given architecture.
 
@@ -328,6 +330,7 @@ def ir_to_object(
             reporter=reporter,
             debug=debug,
             opt=opt,
+            packetize=packetize,
         )
 
     reporter.message("All modules generated!")
