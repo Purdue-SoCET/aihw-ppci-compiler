@@ -318,6 +318,10 @@ class Jalr(AtallaIInstruction):
 Halt = make_nop("halt", 0b0110010)
 Nop = make_nop("nop", 0b0110001)
 
+@isa.pattern("stm", "HALT", size=1)
+def pattern_halt(context, tree):
+    context.emit(Halt())
+
 # Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
     if type(v) is int:
@@ -542,12 +546,12 @@ def pattern_32_to_8_16(context, tree, c0):
     return c0
 
 
+@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: not (-2**25 <= t.value < 2**25))
 @isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value >= 2**25)
 def pattern_const_i32_large(context, tree):
     d = context.new_reg(AtallaRegister)
-    c0 = tree.value
-    context.emit(Luis(d, c0 >> 7))
-    context.emit(Addis(d, d, c0 & 0x7F))
+    c0 = tree.value & 0xFFFFFFFF
+    context.emit(Lis(d, c0))
     return d
 
 @isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)

@@ -12,19 +12,19 @@ int main() {
 
     int a_gmem; int a_sp; int w_gmem; int w_sp; int c_gmem; int c_sp;
 
-    asm("lw_s %0, 0(%1)"  : "=r"(a_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 4(%1)"  : "=r"(a_sp)   : "r"(cfg_ptr));
-    asm("lw_s %0, 8(%1)"  : "=r"(w_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 12(%1)" : "=r"(w_sp)   : "r"(cfg_ptr));
-    asm("lw_s %0, 16(%1)" : "=r"(c_gmem) : "r"(cfg_ptr));
-    asm("lw_s %0, 20(%1)" : "=r"(c_sp)   : "r"(cfg_ptr));
+    a_gmem = atalla_load_u32(cfg_ptr + 0);
+    a_sp = atalla_load_u32(cfg_ptr + 4);
+    w_gmem = atalla_load_u32(cfg_ptr + 8);
+    w_sp = atalla_load_u32(cfg_ptr + 12);
+    c_gmem = atalla_load_u32(cfg_ptr + 16);
+    c_sp = atalla_load_u32(cfg_ptr + 20);
 
     int sdma_ctl_a;
     int sdma_ctl_w;
     int sdma_ctl_c;
-    asm("li_s %0, 127926298" : "=r"(sdma_ctl_a));
-    asm("li_s %0, 1949302787" : "=r"(sdma_ctl_w));
-    asm("li_s %0, 1177550851" : "=r"(sdma_ctl_c));
+    sdma_ctl_a = atalla_const_u32(127926298u);
+    sdma_ctl_w = atalla_const_u32(1949302787u);
+    sdma_ctl_c = atalla_const_u32(1177550851u);
 
     scpad_load(a_sp, a_gmem, sdma_ctl_a);
     scpad_load(w_sp, w_gmem, sdma_ctl_w);
@@ -69,6 +69,6 @@ int main() {
 
     scpad_store(c_sp, c_gmem, sdma_ctl_c);
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }

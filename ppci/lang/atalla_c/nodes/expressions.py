@@ -215,6 +215,18 @@ class LoadWeights(CExpression):
         return f"LoadWeights({self.arg})"
 
 
+class AtallaScalarIntrinsic(CExpression):
+    """Atalla scalar operation with a value result, or a void side effect."""
+
+    def __init__(self, name, args, typ, location):
+        super().__init__(typ, False, location)
+        self.name = name
+        self.args = args
+
+    def __repr__(self):
+        return f"{self.name}({', '.join(map(str, self.args))})"
+
+
 class ScpadLoad(CExpression):
     def __init__(self, x, y, z, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
