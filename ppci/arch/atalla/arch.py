@@ -304,8 +304,8 @@ class AtallaArch(Architecture):
         """Generate a move from src to dst"""
         #no MOV function in ISA so we use a existing custom instruction addis to move
         if V0 in src.registers or V0 in dst.registers:
-            return AddVv(dst, src, V0, M0)
-        return Addis(dst, src, 0)
+            return AddVv(dst, src, V0, M0, ismove=True)
+        return Addis(dst, src, 0, ismove=True)
 
     # don't need until implement memory
     def gen_Atalla_memcpy(self, dst, src, tmp, size):
