@@ -142,6 +142,7 @@ class SelectionGraphBuilder:
 
         Selection graph is divided into groups for each basic block.
         """
+        self.ir_function = ir_function
         self.debug_db = debug_db
         self.sgraph = SelectionGraph()
         self.function_info = function_info
@@ -506,6 +507,26 @@ class SelectionGraphBuilder:
             sgnode = self.new_node("STR", node.value.ty, address, value)
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
+        
+    def _can_skip_stack_store(self, addr, node):
+        """Check if an inline asm output address can safely live purely in a register without being stored to the stack."""
+        if not (isinstance(addr, ir.AddressOf) and isinstance(addr.src, ir.Alloc)):
+            return False
+
+        alloc = addr.src
+        if len(alloc.used_by) != 1:
+            return False
+
+        for user in addr.used_by:
+            if user is node:
+                continue
+            if not isinstance(user, ir.Load):
+                return False
+            if user.block is not node.block:
+                if node.block not in (self.ir_function.entry, alloc.block):
+                    return False
+
+        return True
 
     def do_inline_asm(self, node):
         input_registers = []
@@ -572,7 +593,12 @@ class SelectionGraphBuilder:
             output.wants_vreg = True
             output.vreg = reg
             self.chain(param_node)
-            self.mem_map[addr] = output
+
+            if self._can_skip_stack_store(addr, node):
+                self.mem_map[addr] = output
+            else:
+                store_node = self.new_node("STR", ty, address, output)
+                self.chain(store_node)
 
     def do_const(self, node):
         """Process constant instruction"""
