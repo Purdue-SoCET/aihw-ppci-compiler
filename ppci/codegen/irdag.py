@@ -148,6 +148,9 @@ class SelectionGraphBuilder:
 
         # TODO: fix this total mess with vreg, block and chains:
         self.current_block = None
+        
+        # { Address : Register holding value (SGValue) }
+        self.mem_map = {}
 
         # Create maps for global variables:
         for variable in itertools.chain(
@@ -478,6 +481,10 @@ class SelectionGraphBuilder:
 
     def do_load(self, node):
         """Create dag node for load operation"""
+        if node.address in self.mem_map:
+            self.add_map(node, self.mem_map[node.address])
+            return
+        
         address = self.get_address(node.address)
         sgnode = self.new_node("LDR", node.ty, address)
         # Make sure a data dependence is added to this node
@@ -487,6 +494,9 @@ class SelectionGraphBuilder:
 
     def do_store(self, node):
         """Create a DAG node for the store operation"""
+        if node.address in self.mem_map:
+            del self.mem_map[node.address]
+        
         address = self.get_address(node.address)
         value = self.get_value(node.value)
         if node.value.ty.is_blob:
@@ -498,7 +508,6 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -560,10 +569,10 @@ class SelectionGraphBuilder:
 
             param_node = self.new_node("REG", ty, value=reg)
             output = param_node.new_output(f"ret_{i}")
-            output.wants_vreg = False
-
-            store_node = self.new_node("STR", ty, address, output)
-            self.chain(store_node)
+            output.wants_vreg = True
+            output.vreg = reg
+            self.chain(param_node)
+            self.mem_map[addr] = output
 
     def do_const(self, node):
         """Process constant instruction"""
