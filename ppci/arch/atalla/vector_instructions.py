@@ -531,24 +531,24 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
 @isa.pattern("vecreg", "RSUMVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    val = tree.children[1].value
+    imm = 64 if val == 0.0 else int(val)
     ctx.emit(RsumVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "RMINVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    val = tree.children[1].value
+    imm = 64 if val == 0.0 else int(val)
     ctx.emit(RminVi(d, vsrc, imm, mask))
     return d
 
 @isa.pattern("vecreg", "RMAXVEC(vecreg, CONSTBF16, maskreg)", size=2)
 def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
+    val = tree.children[1].value
+    imm = 64 if val == 0.0 else int(val)
     ctx.emit(RmaxVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------

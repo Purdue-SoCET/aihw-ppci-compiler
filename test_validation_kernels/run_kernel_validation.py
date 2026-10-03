@@ -64,20 +64,7 @@ GEMM_TILE = 4
 # reported as "xfail" and don't fail the run; one that starts passing is reported "xpass"
 # so it can be removed from this list.
 EXPECTED_FAILURES: dict[str, str] = {
-    "softmax": (
-        "RMAX/RSUM lowering turns the float argument into the reduction mode immediate; "
-        "0.0 gives mode 0 (result in lane 0 only) instead of broadcast (mode 64). "
-        "Patching the emitted reductions to mode 64 makes it pass."
-    ),
-    "layernorm": (
-        "Same reduction-mode bug as softmax (8 RSUMs). Error 0.22 vs <=0.016 when the "
-        "emitted reductions are patched to mode 64."
-    ),
-    "maxpool": (
-        "x = vec_op_masked(...) writes a fresh register, so lanes outside the mask are not "
-        "x's previous value (masked-op merge semantics undefined)."
-    ),
-    "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
+    "maxpool_2x2": "Masked-op merge semantics: unmasked lanes in multi-step pooling require accumulator preservation.",
 }
 
 DEFAULT_TESTS = (

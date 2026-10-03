@@ -40,10 +40,10 @@ summary.
 | gemm_tiled_baseline | PASS | not paired | handwritten pairing (see E) |
 | gemm_tiled_pipelined | PASS | not paired | none |
 | gemm_tiled_pipelined_unrolled | PASS | not paired | none |
-| softmax | KNOWN BUG | PASS | A (reduction mode) |
-| layernorm | KNOWN BUG | not paired | A (reduction mode) |
-| maxpool | XPASS | not paired | B (masked-op merge) |
-| maxpool_2x2 | KNOWN BUG | not paired | A and B |
+| softmax | PASS | PASS | none |
+| layernorm | PASS | not paired | none |
+| maxpool | PASS | not paired | none |
+| maxpool_2x2 | KNOWN BUG | not paired | B (masked-op merge) |
 | All 12 unit tests | PASS | n/a | none |
 
 ## Open issues

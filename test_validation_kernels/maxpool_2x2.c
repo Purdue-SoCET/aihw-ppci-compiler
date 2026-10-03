@@ -73,13 +73,13 @@ int main() {
             vec acc = vec_op_masked("+", zero_vec, p01, 0x1);
 
             vec p23 = vec_op_masked("RMAX", r, 0.0, M23);
-            acc = vec_op_masked("+", zero_vec, p23, 0x2);
+            acc = vec_op_masked("+", acc, p23, 0x2);
 
             vec p45 = vec_op_masked("RMAX", r, 0.0, M45);
-            acc = vec_op_masked("+", zero_vec, p45, 0x4);
+            acc = vec_op_masked("+", acc, p45, 0x4);
 
             vec p67 = vec_op_masked("RMAX", r, 0.0, M67);
-            acc = vec_op_masked("+", zero_vec, p67, 0x8);
+            acc = vec_op_masked("+", acc, p67, 0x8);
 
             vector_store(acc, 0, row, OUT_WIDTH_M1, 0);
             row = row + 1;
