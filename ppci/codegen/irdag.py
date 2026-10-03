@@ -297,6 +297,11 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
+    def do_halt(self, node):
+        sgnode = self.new_node("HALT", None)
+        self.debug_db.map(node, sgnode)
+        self.chain(sgnode)
+
     def do_load_weights(self, node):
         vec_arg = self.get_value(node.arg)
         sgnode = self.new_node("LOADWEIGHTS", None, vec_arg)

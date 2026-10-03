@@ -1031,6 +1031,8 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
+            elif isinstance(expr, expressions.AtallaScalarIntrinsic):
+                value = self.gen_atalla_scalar_intrinsic(expr)
             elif isinstance(expr, expressions.Gemm):
                 value = self.gen_gemm(expr)
             elif isinstance(expr, expressions.VecOpMasked):
@@ -1574,6 +1576,17 @@ class CCodeGenerator:
 
         value = self.builder.emit_vec_index(base, index, ir_typ)
         return value
+
+    def gen_atalla_scalar_intrinsic(self, expr):
+        if expr.name == "atalla_halt":
+            self.emit(ir.Halt())
+            return None
+        arg = self.gen_expr(expr.args[0], rvalue=True)
+        if expr.name == "atalla_const_u32":
+            return self.builder.emit_cast(arg, ir.i32)
+        address = self.builder.emit_cast(arg, ir.ptr)
+        typ = ir.bf16 if expr.name == "atalla_load_bf16_word" else ir.i32
+        return self.builder.emit_load(address, typ, volatile=True)
 
     def gen_gemm(self, expr: expressions.Gemm):
         arg1 = self.gen_expr(expr.arg1, rvalue=True)

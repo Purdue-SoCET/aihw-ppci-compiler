@@ -9,25 +9,25 @@ int main() {
     int gM; int gN; int gK;
     int M_tiles; int N_tiles; int K_tiles; int tile_sz;
 
-    asm("lw_s %0, 0(%1)"  : "=r"(A_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 4(%1)"  : "=r"(W_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 8(%1)"  : "=r"(C_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 12(%1)" : "=r"(gM)      : "r"(cfg));
-    asm("lw_s %0, 16(%1)" : "=r"(gN)      : "r"(cfg));
-    asm("lw_s %0, 20(%1)" : "=r"(gK)      : "r"(cfg));
-    asm("lw_s %0, 24(%1)" : "=r"(M_tiles) : "r"(cfg));
-    asm("lw_s %0, 28(%1)" : "=r"(N_tiles) : "r"(cfg));
-    asm("lw_s %0, 32(%1)" : "=r"(K_tiles) : "r"(cfg));
-    asm("lw_s %0, 36(%1)" : "=r"(tile_sz) : "r"(cfg));
+    A_GMEM = atalla_load_u32(cfg + 0);
+    W_GMEM = atalla_load_u32(cfg + 4);
+    C_GMEM = atalla_load_u32(cfg + 8);
+    gM = atalla_load_u32(cfg + 12);
+    gN = atalla_load_u32(cfg + 16);
+    gK = atalla_load_u32(cfg + 20);
+    M_tiles = atalla_load_u32(cfg + 24);
+    N_tiles = atalla_load_u32(cfg + 28);
+    K_tiles = atalla_load_u32(cfg + 32);
+    tile_sz = atalla_load_u32(cfg + 36);
 
     int all_mask = -1;
     int sp_base = 0;
     /* SDMA ctl: [31:30] sid, [29:25] rows-1, [24:20] cols-1, [19:0] DRAM row stride-1.
        4x4 tile out of 8-wide A/W/C matrices => stride field 7 (sid 0 / sid 1). */
     int sdma_ctl_sp0;
-    asm("li_s %0, 103809031" : "=r"(sdma_ctl_sp0));
+    sdma_ctl_sp0 = atalla_const_u32(103809031u);
     int sdma_ctl_sp1;
-    asm("li_s %0, 1177550855" : "=r"(sdma_ctl_sp1));
+    sdma_ctl_sp1 = atalla_const_u32(1177550855u);
 
     int mi = 0;
     while (mi < M_tiles) {
@@ -93,6 +93,6 @@ int main() {
         mi = mi + 1;
     }
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }

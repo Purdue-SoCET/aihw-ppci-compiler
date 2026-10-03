@@ -1202,6 +1202,13 @@ class Store(Instruction):
         return f"store {val}, {address}"
 
 
+class Halt(Instruction):
+    """Atalla machine halt, with a side effect that must be emitted."""
+
+    def __str__(self):
+        return "halt"
+
+
 class InlineAsm(Instruction):
     """Inline assembly code."""
 
