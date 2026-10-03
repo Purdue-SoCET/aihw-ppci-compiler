@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -96,6 +97,28 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
         except ValueError:
             continue
     return perf
+
+
+def read_stack_stats(asm_path: Path) -> dict[str, int]:
+    if not asm_path.exists():
+        return {"total_stack": 0, "frame_ops": 0, "loop_spills": 0}
+    content = asm_path.read_text().splitlines()
+    stack_ops = [
+        line.strip()
+        for line in content
+        if re.search(r"\b(sw_s|lw_s|sd|ld|sw|lw)\b.*(\((?:x2|sp|x8|fp)\))", line)
+    ]
+    frame_ops = [
+        line
+        for line in stack_ops
+        if re.search(r"\b(sw_s|lw_s)\s+(x1|x8|ra|fp),\s*[04]\((?:x2|sp)\)", line)
+    ]
+    loop_spills = len(stack_ops) - len(frame_ops)
+    return {
+        "total_stack": len(stack_ops),
+        "frame_ops": len(frame_ops),
+        "loop_spills": loop_spills,
+    }
 
 
 def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> None:
@@ -676,6 +699,7 @@ def main() -> int:
             "error": error,
             "known_bug": known_bug,
             "perf": read_perf(script_dir / "out" / t.stem / "output_perf.out"),
+            "stack": read_stack_stats(script_dir / "out" / t.stem / f"{t.stem}.s"),
         }
         results.append(result)
 
@@ -700,6 +724,7 @@ def main() -> int:
                 "status": "fail" if hw_error else "pass",
                 "error": hw_error,
                 "perf": read_perf(script_dir / "out" / t.stem / "handwritten" / "output_perf.out"),
+                "stack": read_stack_stats(script_dir / "out" / t.stem / "handwritten" / f"{t.stem}.s"),
             }
 
     if args.json is not None:
