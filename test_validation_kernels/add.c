@@ -7,17 +7,17 @@ int main() {
     int A_GMEM;
     int B_GMEM;
     int C_GMEM;
-    A_GMEM = atalla_load_u32(cfg + 0);
-    B_GMEM = atalla_load_u32(cfg + 4);
-    C_GMEM = atalla_load_u32(cfg + 8);
+    A_GMEM = *(volatile int *)(cfg + 0);
+    B_GMEM = *(volatile int *)(cfg + 4);
+    C_GMEM = *(volatile int *)(cfg + 8);
 
     int sp = 0;
     int all_mask = ALL_MASK;
 
     int sdma_ctl_sp0;
-    sdma_ctl_sp0 = atalla_const_u32(133169183u);
+    sdma_ctl_sp0 = 133169183u;
     int sdma_ctl_sp1;
-    sdma_ctl_sp1 = atalla_const_u32(1206911007u);
+    sdma_ctl_sp1 = 1206911007u;
 
     scpad_load(sp, A_GMEM, sdma_ctl_sp0);
     scpad_load(sp, B_GMEM, sdma_ctl_sp1);

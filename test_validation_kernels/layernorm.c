@@ -7,8 +7,8 @@ int main() {
     int cfg = CFG_BASE;
     int IN_GMEM;
     int SCPAD_BASE;
-    IN_GMEM = atalla_load_u32(cfg + 0);
-    SCPAD_BASE = atalla_load_u32(cfg + 4);
+    IN_GMEM = *(volatile int *)(cfg + 0);
+    SCPAD_BASE = *(volatile int *)(cfg + 4);
 
     int eps_addr = EPS_ADDR;
     int inv_addr = INV_N2_ADDR;
@@ -16,7 +16,7 @@ int main() {
     int sp = 0;
     int mask_val = MASK_ALL;
     int sdma_ctl;
-    sdma_ctl = atalla_const_u32(133169183u);
+    sdma_ctl = 133169183u;
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -35,7 +35,7 @@ int main() {
     vec sum_rows = vec_op_masked("+", vec_op_masked("+", s0, s1, mask_val), vec_op_masked("+", s2, s3, mask_val), mask_val);
 
     float inv_mean;
-    inv_mean = atalla_load_bf16_word(inv_addr + 0);
+    inv_mean = *(volatile float *)(inv_addr + 0);
     vec mean = vec_op_masked("*", sum_rows, inv_mean, mask_val);
 
     vec c0 = vec_op_masked("-", r0, mean, mask_val);
@@ -54,11 +54,11 @@ int main() {
     vec sum_sq = vec_op_masked("+", vec_op_masked("+", t0, t1, mask_val), vec_op_masked("+", t2, t3, mask_val), mask_val);
 
     float inv_var;
-    inv_var = atalla_load_bf16_word(inv_addr + 0);
+    inv_var = *(volatile float *)(inv_addr + 0);
     vec variance = vec_op_masked("*", sum_sq, inv_var, mask_val);
 
     float eps_den;
-    eps_den = atalla_load_bf16_word(eps_addr + 0);
+    eps_den = *(volatile float *)(eps_addr + 0);
     vec denom_seed = vec_op_masked("+", variance, eps_den, mask_val);
     float var_eps = denom_seed[0];
     float denom_f = sqrt(var_eps);

@@ -99,9 +99,6 @@ class CParser(RecursiveDescentParser):
             "vector_load",
             "vector_store",
             "sqrt",
-            "atalla_load_u32",
-            "atalla_load_bf16_word",
-            "atalla_const_u32",
             "atalla_halt",
             "struct",
             "union",
@@ -1183,18 +1180,11 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
-        elif self.peek in ("atalla_load_u32", "atalla_load_bf16_word", "atalla_const_u32", "atalla_halt"):
-            token = self.next_token()
-            name = token.val
-            location = token.loc
+        elif self.peek == "atalla_halt":
+            location = self.consume("atalla_halt").loc
             self.consume("(")
-            args = []
-            while self.peek != ")":
-                args.append(self.parse_assignment_expression())
-                if self.peek != ")":
-                    self.consume(",")
             self.consume(")")
-            expr = self.semantics.on_atalla_scalar_intrinsic(name, args, location)
+            expr = self.semantics.on_atalla_halt(location)
         elif self.peek == "gemm":
             location = self.consume("gemm").loc
             self.consume("(")

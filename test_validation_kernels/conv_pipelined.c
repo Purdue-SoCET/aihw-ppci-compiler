@@ -16,19 +16,19 @@ int main() {
 
     int a_gmem; int a_sp; int w_gmem; int w_sp; int c_gmem; int c_sp;
 
-    a_gmem = atalla_load_u32(cfg_ptr + 0);
-    a_sp = atalla_load_u32(cfg_ptr + 4);
-    w_gmem = atalla_load_u32(cfg_ptr + 8);
-    w_sp = atalla_load_u32(cfg_ptr + 12);
-    c_gmem = atalla_load_u32(cfg_ptr + 16);
-    c_sp = atalla_load_u32(cfg_ptr + 20);
+    a_gmem = *(volatile int *)(cfg_ptr + 0);
+    a_sp = *(volatile int *)(cfg_ptr + 4);
+    w_gmem = *(volatile int *)(cfg_ptr + 8);
+    w_sp = *(volatile int *)(cfg_ptr + 12);
+    c_gmem = *(volatile int *)(cfg_ptr + 16);
+    c_sp = *(volatile int *)(cfg_ptr + 20);
 
     int sdma_ctl_a;
     int sdma_ctl_w;
     int sdma_ctl_c;
-    sdma_ctl_a = atalla_const_u32(127926298u);
-    sdma_ctl_w = atalla_const_u32(1949302787u);
-    sdma_ctl_c = atalla_const_u32(1177550851u);
+    sdma_ctl_a = 127926298u;
+    sdma_ctl_w = 1949302787u;
+    sdma_ctl_c = 1177550851u;
 
     scpad_load(a_sp, a_gmem, sdma_ctl_a);
     scpad_load(w_sp, w_gmem, sdma_ctl_w);

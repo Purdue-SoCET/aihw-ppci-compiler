@@ -1218,6 +1218,7 @@ class InlineAsm(Instruction):
         self.clobbers = clobbers
         self.input_values = []
         self.output_values = []
+        self.output_operands = []
 
     def add_input_variable(self, value):
         """Add an value as input to this assembly stuff."""
@@ -1226,7 +1227,11 @@ class InlineAsm(Instruction):
 
     def add_output_variable(self, value):
         self.output_values.append(value)
+        self.output_operands.append(("address", value))
         self.add_use(value)
+
+    def add_output_result(self, result):
+        self.output_operands.append(("result", result))
 
     def replace_use(self, old, new):
         super().replace_use(old, new)
@@ -1238,6 +1243,11 @@ class InlineAsm(Instruction):
 
     def __str__(self):
         return f"asm ({self.template})"
+
+
+class InlineAsmResult(LocalValue):
+    def __str__(self):
+        return f"{self.ty} {self.name} = asm result"
 
 
 class FinalInstruction(Instruction):
