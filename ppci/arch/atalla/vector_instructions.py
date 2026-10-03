@@ -533,6 +533,7 @@ def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     val = tree.children[1].value
     imm = 64 if val == 0.0 else int(val)
+    assert 0 <= imm <= 255, f"Reduction mode immediate out of range (0-255): {imm}"
     ctx.emit(RsumVi(d, vsrc, imm, mask))
     return d
 
@@ -541,6 +542,7 @@ def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     val = tree.children[1].value
     imm = 64 if val == 0.0 else int(val)
+    assert 0 <= imm <= 255, f"Reduction mode immediate out of range (0-255): {imm}"
     ctx.emit(RminVi(d, vsrc, imm, mask))
     return d
 
@@ -549,6 +551,7 @@ def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
     val = tree.children[1].value
     imm = 64 if val == 0.0 else int(val)
+    assert 0 <= imm <= 255, f"Reduction mode immediate out of range (0-255): {imm}"
     ctx.emit(RmaxVi(d, vsrc, imm, mask))
     return d
 # # ---------- VS (vector-scalar) ----------
