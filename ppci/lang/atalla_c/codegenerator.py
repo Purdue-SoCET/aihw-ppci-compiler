@@ -812,12 +812,22 @@ class CCodeGenerator:
             asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
             inline_asm.add_input_variable(asm_input_ir)
 
-        for _, asm_output_expr in stmt.output_operands:
+        register_results = []
+        for constraint, asm_output_expr in stmt.output_operands:
             asm_output_ir = self.gen_expr(asm_output_expr)
-            inline_asm.add_output_variable(asm_output_ir)
+            ir_typ = self.get_ir_type(asm_output_expr.typ)
+            if constraint == "=r" and ir_typ in (ir.i32, ir.u32, ir.bf16):
+                result = ir.InlineAsmResult("asm_result", ir_typ)
+                inline_asm.add_output_result(result)
+                register_results.append((result, asm_output_ir))
+            else:
+                inline_asm.add_output_variable(asm_output_ir)
 
         # Emit inline assembly:
         self.emit(inline_asm)
+        for result, address in register_results:
+            self.emit(result)
+            self.emit(ir.Store(result, address))
 
     def gen_condition(self, condition, yes_block, no_block):
         """Generate switch based on condition."""
@@ -1031,6 +1041,9 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
+            elif isinstance(expr, expressions.AtallaHalt):
+                self.emit(ir.Halt())
+                value = None
             elif isinstance(expr, expressions.Gemm):
                 value = self.gen_gemm(expr)
             elif isinstance(expr, expressions.VecOpMasked):

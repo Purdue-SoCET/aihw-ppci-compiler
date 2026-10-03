@@ -78,8 +78,6 @@ EXPECTED_FAILURES: dict[str, str] = {
         "x's previous value (masked-op merge semantics undefined)."
     ),
     "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
-    "gemm_tiled_pipelined": "Wrong in every output tile; baseline with the same data passes. Not diagnosed.",
-    "gemm_tiled_pipelined_unrolled": "Same as gemm_tiled_pipelined. Not diagnosed.",
 }
 
 DEFAULT_TESTS = (
@@ -114,7 +112,7 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
 
 
 def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> None:
-    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True)
+    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True, timeout=30)
     log_path.write_text(proc.stdout + proc.stderr)
     if proc.returncode != 0:
         raise RuntimeError(
@@ -561,6 +559,7 @@ def run_one(
     output_scpad0 = out_dir / "output_scpad0.out"
     output_scpad1 = out_dir / "output_scpad1.out"
     output_perf = out_dir / "output_perf.out"
+    output_perf.unlink(missing_ok=True)
 
     if handwritten:
         emit_handwritten(stem, asm_path, sim_root=sim_root, env=env)

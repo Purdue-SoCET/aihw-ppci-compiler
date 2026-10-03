@@ -8,13 +8,13 @@ int main() {
     int cfg = CFG_BASE;
     int IN_GMEM;
     int OUT_GMEM;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_GMEM)  : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(OUT_GMEM) : "r"(cfg));
+    IN_GMEM = *(volatile int *)(cfg + 0);
+    OUT_GMEM = *(volatile int *)(cfg + 4);
 
     int sp = 0;
     int all_mask = ALL_MASK;
     int sdma_ctl;
-    asm("li_s %0, 133169183" : "=r"(sdma_ctl));
+    sdma_ctl = 133169183u;
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -35,6 +35,6 @@ int main() {
 
     scpad_store(sp, OUT_GMEM, sdma_ctl);
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }

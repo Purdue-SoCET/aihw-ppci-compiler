@@ -989,6 +989,10 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
+    def on_atalla_halt(self, location):
+        typ = self.get_type(["void"])
+        return expressions.AtallaHalt(typ, location)
+
     def on_gemm(self, a, b, mask, location):
         expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr

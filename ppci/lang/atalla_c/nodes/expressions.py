@@ -215,6 +215,14 @@ class LoadWeights(CExpression):
         return f"LoadWeights({self.arg})"
 
 
+class AtallaHalt(CExpression):
+    def __init__(self, typ, location):
+        super().__init__(typ, False, location)
+
+    def __repr__(self):
+        return "atalla_halt()"
+
+
 class ScpadLoad(CExpression):
     def __init__(self, x, y, z, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
