@@ -163,9 +163,8 @@ class Visitor:
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)
-        elif isinstance(node, expressions.AtallaScalarIntrinsic):
-            for arg in node.args:
-                self.visit(arg)
+        elif isinstance(node, expressions.AtallaHalt):
+            pass
         elif isinstance(node, expressions.LoadWeights):
             self.visit(node.arg)
         elif isinstance(node, expressions.ScpadLoad):

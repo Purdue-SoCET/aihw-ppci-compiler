@@ -16,17 +16,17 @@ int main() {
     int cfg = CFG_BASE;
     int IN_BASE;
     int OUT_BASE;
-    IN_BASE = atalla_load_u32(cfg + 0);
-    OUT_BASE = atalla_load_u32(cfg + 4);
+    IN_BASE = *(volatile int *)(cfg + 0);
+    OUT_BASE = *(volatile int *)(cfg + 4);
 
     int sp = 0;
     int lane_mask = LANE_MASK;
 
     int sdma_in;
-    sdma_in = atalla_const_u32(242221063u);
+    sdma_in = 242221063u;
 
     int sdma_out;
-    sdma_out = atalla_const_u32(108003335u);
+    sdma_out = 108003335u;
 
     vec zero_vec = vector_load(0, 0, WIDTH_M1, 0);
     zero_vec = vec_op_masked("*", zero_vec, 0.0, lane_mask);

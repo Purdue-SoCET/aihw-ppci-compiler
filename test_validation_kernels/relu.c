@@ -8,13 +8,13 @@ int main() {
     int cfg = CFG_BASE;
     int IN_GMEM;
     int OUT_GMEM;
-    IN_GMEM = atalla_load_u32(cfg + 0);
-    OUT_GMEM = atalla_load_u32(cfg + 4);
+    IN_GMEM = *(volatile int *)(cfg + 0);
+    OUT_GMEM = *(volatile int *)(cfg + 4);
 
     int sp = 0;
     int all_mask = ALL_MASK;
     int sdma_ctl;
-    sdma_ctl = atalla_const_u32(133169183u);
+    sdma_ctl = 133169183u;
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 

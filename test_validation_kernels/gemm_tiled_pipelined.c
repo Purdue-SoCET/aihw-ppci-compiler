@@ -9,25 +9,25 @@ int main() {
     int gM; int gN; int gK;
     int M_tiles; int N_tiles; int K_tiles; int tile_sz;
 
-    A_GMEM = atalla_load_u32(cfg + 0);
-    W_GMEM = atalla_load_u32(cfg + 4);
-    C_GMEM = atalla_load_u32(cfg + 8);
-    gM = atalla_load_u32(cfg + 12);
-    gN = atalla_load_u32(cfg + 16);
-    gK = atalla_load_u32(cfg + 20);
-    M_tiles = atalla_load_u32(cfg + 24);
-    N_tiles = atalla_load_u32(cfg + 28);
-    K_tiles = atalla_load_u32(cfg + 32);
-    tile_sz = atalla_load_u32(cfg + 36);
+    A_GMEM = *(volatile int *)(cfg + 0);
+    W_GMEM = *(volatile int *)(cfg + 4);
+    C_GMEM = *(volatile int *)(cfg + 8);
+    gM = *(volatile int *)(cfg + 12);
+    gN = *(volatile int *)(cfg + 16);
+    gK = *(volatile int *)(cfg + 20);
+    M_tiles = *(volatile int *)(cfg + 24);
+    N_tiles = *(volatile int *)(cfg + 28);
+    K_tiles = *(volatile int *)(cfg + 32);
+    tile_sz = *(volatile int *)(cfg + 36);
 
     int all_mask = -1;
     int sp_base = 0;
     /* SDMA ctl: [31:30] sid, [29:25] rows-1, [24:20] cols-1, [19:0] DRAM row stride-1.
        4x4 tile out of 8-wide A/W/C matrices => stride field 7 (sid 0 / sid 1). */
     int sdma_ctl_sp0;
-    sdma_ctl_sp0 = atalla_const_u32(103809031u);
+    sdma_ctl_sp0 = 103809031u;
     int sdma_ctl_sp1;
-    sdma_ctl_sp1 = atalla_const_u32(1177550855u);
+    sdma_ctl_sp1 = 1177550855u;
 
     int mi = 0;
     while (mi < M_tiles) {

@@ -546,7 +546,10 @@ class SelectionGraphBuilder:
             input_registers.append(reg_loc)
 
         output_registers = []
-        for out_val in node.output_values:
+        for kind, out_val in node.output_operands:
+            if kind == "result":
+                output_registers.append(self.new_vreg(out_val.ty))
+                continue
             # Determine the amount based on the type of out_val
             # AddressOf has .src.amount, while GlobalValue has .amount directly
             amount = None
@@ -575,9 +578,15 @@ class SelectionGraphBuilder:
         self.chain(asm_node)
         self.debug_db.map(node, asm_node)
 
-        for i, (reg, addr) in enumerate(
-            zip(output_registers, node.output_values)
+        for i, (reg, (kind, addr)) in enumerate(
+            zip(output_registers, node.output_operands)
         ):
+            if kind == "result":
+                result_node = self.new_node("REG", addr.ty, value=reg)
+                output = result_node.new_output(addr.name)
+                output.vreg = reg
+                self.add_map(addr, output)
+                continue
             address = self.get_address(addr)
             # Determine the amount based on the type of addr
             # AddressOf has .src.amount, while GlobalValue has .amount directly
@@ -604,6 +613,9 @@ class SelectionGraphBuilder:
             else:
                 store_node = self.new_node("STR", ty, address, output)
                 self.chain(store_node)
+
+    def do_inline_asm_result(self, node):
+        assert node in self.function_info.value_map
 
     def do_const(self, node):
         """Process constant instruction"""
