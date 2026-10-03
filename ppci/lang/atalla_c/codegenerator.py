@@ -868,7 +868,14 @@ class CCodeGenerator:
         self.ir_var_map[variable] = ir_addr
         if variable.initial_value:
             # Initialize local variable by a sequence of assignments.
-            self.gen_local_init(ir_addr, variable.typ, variable.initial_value)
+            if not isinstance(
+                variable.typ,
+                (types.ArrayType, types.StructType, types.UnionType),
+            ):
+                value = self.gen_expr(variable.initial_value, rvalue=True)
+                self._store_value(value, ir_addr)
+            else:
+                self.gen_local_init(ir_addr, variable.typ, variable.initial_value)
 
     def gen_local_init(self, ptr, typ, expr):
         """Initialize a local slab of memory with an initial value"""
