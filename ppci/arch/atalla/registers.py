@@ -148,6 +148,9 @@ register_classes_swfp = [
         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.bf16],
         AtallaRegister,
         [
+            R5,
+            R6,
+            R7,
             R9,
             R10,
             R11,
@@ -167,6 +170,10 @@ register_classes_swfp = [
             R25,
             R26,
             R27,
+            R28,
+            R29,
+            R30,
+            R31,
         ],
     )
 ]
