@@ -55,9 +55,9 @@ def fmt_ratio(compiled: float | None, handwritten: float | None) -> str:
     ratio = compiled / handwritten
     if ratio < 0.95:
         pct_faster = (1.0 - ratio) * 100
-        return f"**{ratio:.2f}x** 🚀 *(-{pct_faster:.0f}%)*"
+        return f"**{ratio:.2f}x** *(-{pct_faster:.0f}%)*"
     elif ratio <= 1.05:
-        return f"**{ratio:.2f}x** ✨ *(parity)*"
+        return f"**{ratio:.2f}x** *(parity)*"
     else:
         pct_slower = (ratio - 1.0) * 100
         return f"{ratio:.2f}x *(+{pct_slower:.0f}%)*"
@@ -67,8 +67,8 @@ def fmt_spills(spills: int | None) -> str:
     if spills is None:
         return "-"
     if spills == 0:
-        return "0 ✅"
-    return f"**{spills}** ⚠️"
+        return "0"
+    return f"**{spills}**"
 
 
 def counts(results: list[dict]) -> str:
@@ -95,13 +95,13 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
     missing = [name for name, res in (("unit", unit), ("kernel", kernel)) if not res]
     if missing:
         verdict = (
-            f"### ❌ Accuracy Gate: FAILED (missing {' or '.join(missing)} results; "
+            f"### Accuracy Gate: FAILED (missing {' or '.join(missing)} results; "
             "see job log)"
         )
     elif failed:
-        verdict = "### ❌ Accuracy Gate: FAILED"
+        verdict = "### Accuracy Gate: FAILED"
     else:
-        verdict = "### ✅ Accuracy Gate: PASSED"
+        verdict = "### Accuracy Gate: PASSED"
     lines += [
         verdict,
         "",
