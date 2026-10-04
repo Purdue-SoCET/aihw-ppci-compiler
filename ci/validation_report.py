@@ -546,15 +546,22 @@ def render(
         "",
         f"## {sec_num}. Unit Feature Tests",
         "",
-        "| Test | Status | Packets Executed | Total Instructions |",
-        "|---|---|---|---|",
     ]
-    for r in unit:
-        pk = perf_value(r, "packets_executed")
-        tot = perf_value(r, "instructions_executed")
-        lines.append(
-            f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {fmt_int(pk)} | {fmt_int(tot)} |"
-        )
+    if unit:
+        lines += [
+            "| Test | Status | Packets Executed | Total Instructions |",
+            "|---|---|---|---|",
+        ]
+        for r in unit:
+            pk = perf_value(r, "packets_executed")
+            tot = perf_value(r, "instructions_executed")
+            lines.append(
+                f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {fmt_int(pk)} | {fmt_int(tot)} |"
+            )
+    else:
+        lines += [
+            "*Unit feature tests were not run in this execution (run `./run_test.sh --unit` or `./run_test.sh --all`).*",
+        ]
 
     known_bugs = [r for r in unit + kernel if r.get("known_bug")]
     if known_bugs:
@@ -644,6 +651,16 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True, help="Markdown report path")
     args = ap.parse_args()
 
+    unit_path = args.unit
+    if unit_path is None:
+        default_unit = Path("validation_results/unit.json")
+        if default_unit.exists():
+            unit_path = default_unit
+        elif args.kernel:
+            candidate = args.kernel.parent / "unit.json"
+            if candidate.exists():
+                unit_path = candidate
+
     baseline_path = args.baseline
     if baseline_path is None:
         default_baseline = Path("validation_results/previous.json")
@@ -651,12 +668,12 @@ def main() -> int:
             baseline_path = default_baseline
 
     baseline_payload = load_payload(baseline_path) if baseline_path else {"git": {}, "results": []}
-    kernel_payload = load_payload(args.kernel)
+    kernel_payload = load_payload(args.kernel) if args.kernel else {"git": {}, "results": []}
 
     report = render(
-        unit=load(args.unit),
-        kernel=kernel_payload["results"],
-        baseline=baseline_payload["results"] if baseline_path else None,
+        unit=load(unit_path),
+        kernel=kernel_payload.get("results", []),
+        baseline=baseline_payload.get("results", []) if baseline_path else None,
         current_git=kernel_payload.get("git"),
         baseline_git=baseline_payload.get("git"),
     )
