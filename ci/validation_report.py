@@ -56,10 +56,44 @@ CSV_FIELDS = [
 ]
 
 
-def load(path: Path | None) -> list[dict]:
+def get_local_git_info() -> dict[str, str]:
+    info = {"commit": "", "branch": "", "message": ""}
+    try:
+        import subprocess
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        msg = subprocess.check_output(
+            ["git", "log", "-1", "--format=%s"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        info = {"commit": commit, "branch": branch, "message": msg}
+    except Exception:
+        pass
+    return info
+
+
+def load_payload(path: Path | None) -> dict:
     if path is None or not path.exists():
-        return []
-    return json.loads(path.read_text())["results"]
+        return {"git": {}, "results": []}
+    try:
+        content = json.loads(path.read_text())
+        if isinstance(content, dict):
+            return {
+                "git": content.get("git", {}),
+                "results": content.get("results", []),
+            }
+        elif isinstance(content, list):
+            return {"git": {}, "results": content}
+    except Exception:
+        pass
+    return {"git": {}, "results": []}
+
+
+def load(path: Path | None) -> list[dict]:
+    return load_payload(path)["results"]
 
 
 def perf_value(result: dict | None, key: str) -> float | None:
@@ -162,19 +196,49 @@ def first_line(text: str | None) -> str:
     return (text or "").strip().splitlines()[0] if text else ""
 
 
-def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> list[str]:
+def render_baseline_comparison(
+    current: list[dict],
+    baseline: list[dict],
+    current_git: dict | None = None,
+    baseline_git: dict | None = None,
+) -> list[str]:
     if not baseline:
         return []
 
     base_map = {r["test"]: r for r in baseline}
+    c_g = current_git or {}
+    b_g = baseline_git or {}
+
     lines = [
         "",
         "---",
         "",
         "## 2. Commit Delta & Improvements (vs Previous Commit)",
         "",
-        "Comparison of compilation and performance metrics against the previous commit or baseline branch.",
-        "",
+    ]
+
+    base_desc = []
+    if b_g.get("commit"):
+        br = f"`{b_g['branch']}` @ " if b_g.get("branch") else ""
+        msg = f" (*{b_g['message']}*)" if b_g.get("message") else ""
+        base_desc.append(f"**Baseline:** {br}`{b_g['commit']}`{msg}")
+    if c_g.get("commit"):
+        br = f"`{c_g['branch']}` @ " if c_g.get("branch") else ""
+        msg = f" (*{c_g['message']}*)" if c_g.get("message") else ""
+        base_desc.append(f"**Current:** {br}`{c_g['commit']}`{msg}")
+
+    if base_desc:
+        lines.append("Comparing compilation and performance metrics against baseline:")
+        for d in base_desc:
+            lines.append(f"- {d}")
+        lines.append("")
+    else:
+        lines += [
+            "Comparison of compilation and performance metrics against the previous commit or baseline branch.",
+            "",
+        ]
+
+    lines += [
         "| Kernel | Status (Prev -> Now) | Cycles (Prev -> Now) | Cycle Delta | Ops Retired (Prev -> Now) | Ops Delta | VLIW Density (Prev -> Now) | Scalar Mem (Prev -> Now) | Mem Delta | Stack Spills (Prev -> Now) |",
         "|---|---|---|---|---|---|---|---|---|---|",
     ]
@@ -277,12 +341,40 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
     return lines
 
 
-def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = None) -> str:
+def render(
+    unit: list[dict],
+    kernel: list[dict],
+    baseline: list[dict] | None = None,
+    current_git: dict | None = None,
+    baseline_git: dict | None = None,
+) -> str:
     lines: list[str] = ["# Compiler Validation & Performance Report", ""]
-    ref = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
-    sha = os.environ.get("GITHUB_SHA", "")[:8]
-    if ref or sha:
-        lines += [f"**Branch:** `{ref}` | **Commit:** `{sha}`", ""]
+
+    local_git = get_local_git_info()
+    c_g = current_git or {}
+    c_ref = c_g.get("branch") or os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME") or local_git.get("branch")
+    c_sha = c_g.get("commit") or os.environ.get("GITHUB_SHA", "")[:8] or local_git.get("commit")
+    c_msg = c_g.get("message") or local_git.get("message")
+
+    b_g = baseline_git or {}
+    b_ref = b_g.get("branch") or os.environ.get("GITHUB_BASE_REF")
+    b_sha = b_g.get("commit")
+    b_msg = b_g.get("message")
+
+    header_parts = []
+    if c_ref or c_sha:
+        desc = f"**Current:** `{c_ref}` @ `{c_sha}`" if c_ref and c_sha else f"**Current:** `{c_ref or c_sha}`"
+        if c_msg:
+            desc += f" (*{c_msg}*)"
+        header_parts.append(desc)
+    if b_ref or b_sha:
+        desc = f"**Baseline:** `{b_ref}` @ `{b_sha}`" if b_ref and b_sha else f"**Baseline:** `{b_ref or b_sha}`"
+        if b_msg:
+            desc += f" (*{b_msg}*)"
+        header_parts.append(desc)
+
+    if header_parts:
+        lines += [" | ".join(header_parts), ""]
 
     failed = [r for r in unit + kernel if r["status"] == "fail"]
     if not (unit or kernel):
@@ -334,7 +426,7 @@ def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = N
         )
 
     if baseline:
-        lines += render_baseline_comparison(kernel, baseline)
+        lines += render_baseline_comparison(kernel, baseline, current_git=c_g, baseline_git=b_g)
 
     sec_num = 3 if baseline else 2
 
@@ -558,15 +650,21 @@ def main() -> int:
         if default_baseline.exists():
             baseline_path = default_baseline
 
-    baseline_results = load(baseline_path) if baseline_path else None
-    kernel_results = load(args.kernel)
+    baseline_payload = load_payload(baseline_path) if baseline_path else {"git": {}, "results": []}
+    kernel_payload = load_payload(args.kernel)
 
-    report = render(load(args.unit), kernel_results, baseline_results)
+    report = render(
+        unit=load(args.unit),
+        kernel=kernel_payload["results"],
+        baseline=baseline_payload["results"] if baseline_path else None,
+        current_git=kernel_payload.get("git"),
+        baseline_git=baseline_payload.get("git"),
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report)
 
     if args.csv:
-        export_csv(kernel_results, args.csv)
+        export_csv(kernel_payload["results"], args.csv)
 
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

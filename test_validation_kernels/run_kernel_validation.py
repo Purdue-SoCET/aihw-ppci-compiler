@@ -84,6 +84,24 @@ DEFAULT_TESTS = (
 )
 
 
+def get_git_info(repo_root: Path) -> dict[str, str]:
+    info = {"commit": "", "branch": "", "message": ""}
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        msg = subprocess.check_output(
+            ["git", "log", "-1", "--format=%s"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        info = {"commit": commit, "branch": branch, "message": msg}
+    except Exception:
+        pass
+    return info
+
+
 def read_perf(perf_path: Path) -> dict[str, float] | None:
     if not perf_path.exists():
         return None
@@ -729,7 +747,9 @@ def main() -> int:
 
     if args.json is not None:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps({"suite": "kernel", "results": results}, indent=2) + "\n")
+        git_info = get_git_info(repo_root)
+        data = {"suite": "kernel", "git": git_info, "results": results}
+        args.json.write_text(json.dumps(data, indent=2) + "\n")
 
     if failed:
         print("FAILURES:\n" + "\n".join(failed), file=sys.stderr)
