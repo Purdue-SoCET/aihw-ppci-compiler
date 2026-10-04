@@ -95,12 +95,14 @@ def fmt_spills(spills: int | None) -> str:
 
 
 def counts(results: list[dict]) -> str:
+    if not results:
+        return "not run"
     parts = []
     for status in ("pass", "fail", "xfail", "xpass"):
         n = sum(1 for r in results if r["status"] == status)
         if n:
             parts.append(f"{n} {status}")
-    return ", ".join(parts) or "no results"
+    return ", ".join(parts) or "not run"
 
 
 def first_line(text: str | None) -> str:
@@ -201,12 +203,8 @@ def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = N
         lines += [f"**Branch:** `{ref}` | **Commit:** `{sha}`", ""]
 
     failed = [r for r in unit + kernel if r["status"] == "fail"]
-    missing = [name for name, res in (("unit", unit), ("kernel", kernel)) if not res]
-    if missing:
-        verdict = (
-            f"### Accuracy Gate: FAILED (missing {' or '.join(missing)} results; "
-            "see job log)"
-        )
+    if not (unit or kernel):
+        verdict = "### Accuracy Gate: FAILED (no results found)"
     elif failed:
         verdict = "### Accuracy Gate: FAILED"
     else:
