@@ -748,10 +748,15 @@ class Instruction:
         """
         # TODO: update reference
         # assert old in self._var_map.values()
+        replaced = False
         for name in self._var_map:
             if self._var_map[name] is old:
-                self.del_use(old)
                 self._var_map[name] = new
+                replaced = True
+        if replaced:
+            if old in self.uses:
+                self.del_use(old)
+            if new not in self.uses:
                 self.add_use(new)
 
     def remove_from_block(self):
@@ -894,11 +899,16 @@ class FunctionCall(LocalValue):
 
     def replace_use(self, old, new):
         super().replace_use(old, new)
-        if old in self.arguments:
-            idx = self.arguments.index(old)
-            self.del_use(old)
-            self.arguments[idx] = new
-            self.add_use(new)
+        replaced = False
+        for idx, arg in enumerate(self.arguments):
+            if arg is old:
+                self.arguments[idx] = new
+                replaced = True
+        if replaced:
+            if old in self.uses and not (self.callee is old):
+                self.del_use(old)
+            if new not in self.uses:
+                self.add_use(new)
 
     def __str__(self):
         args = ", ".join(arg.name for arg in self.arguments)
@@ -925,11 +935,16 @@ class ProcedureCall(Instruction):
 
     def replace_use(self, old, new):
         super().replace_use(old, new)
-        if old in self.arguments:
-            idx = self.arguments.index(old)
-            self.del_use(old)
-            self.arguments[idx] = new
-            self.add_use(new)
+        replaced = False
+        for idx, arg in enumerate(self.arguments):
+            if arg is old:
+                self.arguments[idx] = new
+                replaced = True
+        if replaced:
+            if old in self.uses and not (self.callee is old):
+                self.del_use(old)
+            if new not in self.uses:
+                self.add_use(new)
 
     def __str__(self):
         args = ", ".join(arg.name for arg in self.arguments)
@@ -1038,9 +1053,11 @@ class Phi(LocalValue):
         assert old in self.inputs.values()
         for inp in self.inputs:
             if self.inputs[inp] == old:
-                self.del_use(old)
                 self.inputs[inp] = new
-                self.add_use(new)
+        if old in self.uses:
+            self.del_use(old)
+        if new not in self.uses:
+            self.add_use(new)
 
     def set_incoming(self, block, value):
         """Set the value for the phi node when entering through block"""
