@@ -418,7 +418,7 @@ class CodeGenerator:
             latency_map = {}
 
         from ..arch.generic_instructions import Label, VirtualInstruction
-        from ..arch.atalla.instructions import BranchBase, Jal, Jalr
+        from ..arch.atalla.instructions import BranchBase, Halt, Jal, Jalr
 
         FU_SCALAR_ALU  = "scalar_alu"   # Unit 1: add_s, sub_s, or_s, and_s, xor_s,
         FU_SCALAR_DIV  = "scalar_div"   # Unit 2: div_s, mod_s, divi_s, modi_s,
@@ -480,7 +480,9 @@ class CodeGenerator:
             return OP_TO_FU.get(get_op(ins))
 
         def is_branch(ins):
-            return getattr(ins, "is_jump", False) or isinstance(ins, (BranchBase, Jal, Jalr))
+            return getattr(ins, "is_jump", False) or isinstance(
+                ins, (BranchBase, Halt, Jal, Jalr)
+            )
 
         blocks = []
         current = []
