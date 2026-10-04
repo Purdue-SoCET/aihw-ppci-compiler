@@ -118,6 +118,7 @@ jobs:
             --unit validation_results/unit.json \
             --kernel validation_results/kernel.json \
             --baseline validation_results/previous.json \
+            --csv validation_results/kernel_metrics.csv \
             --out validation_results/report.md
 
       - name: Prepare benchmark cache for next run

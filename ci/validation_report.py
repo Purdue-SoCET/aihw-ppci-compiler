@@ -3,10 +3,13 @@
 
 Writes the report to ``--out`` and, when running in GitHub Actions, appends it to
 the job summary. This script only reports; the runners' exit codes are the gate.
+Also optionally exports a comprehensive kernel metrics CSV (matching
+``functional_sim/collect_kernel_metrics.py``) via ``--csv``.
 """
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 from pathlib import Path
@@ -17,6 +20,40 @@ STATUS_LABEL = {
     "xfail": "KNOWN BUG",  # fails its golden because of a listed compiler bug
     "xpass": "FIXED?",  # listed as a known bug but passes now
 }
+
+# Mirror functional_sim/collect_kernel_metrics.py retired buckets
+_RETIRED_BUCKET_NAMES: tuple[str, ...] = (
+    "branch_control",
+    "sdma",
+    "scalar_mem",
+    "scalar_alu",
+    "vector_mem",
+    "vector_alu",
+    "gemm_systolic",
+    "move_convert",
+)
+
+CSV_FIELDS = [
+    "Kernel",
+    "FLOPs (total)",
+    "FLOPs matmul",
+    "Static slots filled (non-NOP)",
+    "Bytes Loaded",
+    "Bytes Loaded SP0",
+    "Bytes Loaded SP1",
+    "Bytes Written",
+    "Bytes Stored SP0",
+    "Bytes Stored SP1",
+    "Static packet rows",
+    "Slots",
+    "Packet Slot Util. %",
+    "Packets executed",
+    "Ops executed (dynamic)",
+    *[f"dyn_retired_{n}" for n in _RETIRED_BUCKET_NAMES],
+    *[f"pct_dyn_retired_{n}" for n in _RETIRED_BUCKET_NAMES],
+    "Arithmetic Intensity",
+    "AI (load+store)",
+]
 
 
 def load(path: Path | None) -> list[dict]:
@@ -50,7 +87,7 @@ def fmt_float(value: float | None, precision: int = 1) -> str:
 
 
 def fmt_diff(current: float | None, baseline: float | None, unit: str = "", invert: bool = False) -> str:
-    """Format difference between current and baseline.
+    """Format difference between current and baseline integer counts.
     By default (invert=False), lower is better (e.g. cycles, memory ops, spills).
     When invert=True, higher is better (e.g. slot density, throughput).
     """
@@ -70,6 +107,22 @@ def fmt_diff(current: float | None, baseline: float | None, unit: str = "", inve
         return f"{sign}{int(diff):,}{unit} ({sign}{pct:.1f}%) {tag}"
     else:
         return f"{sign}{int(diff):,}{unit} {tag}"
+
+
+def fmt_diff_pct(current: float | None, baseline: float | None, invert: bool = True) -> str:
+    """Format difference between percentage values (e.g. VLIW density).
+    Default invert=True (higher density is better).
+    """
+    if current is None or baseline is None:
+        return "-"
+    diff = current - baseline
+    if abs(diff) < 0.05:
+        return "0.0% (unchanged)"
+
+    sign = "+" if diff > 0 else ""
+    is_better = (diff > 0) if invert else (diff < 0)
+    tag = "[IMPROVED]" if is_better else "[REGRESSED]"
+    return f"{sign}{diff:.1f}% {tag}"
 
 
 def fmt_ratio(compiled: float | None, handwritten: float | None) -> str:
@@ -122,16 +175,20 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
         "",
         "Comparison of compilation and performance metrics against the previous commit or baseline branch.",
         "",
-        "| Kernel | Status (Prev -> Now) | Cycles (Prev -> Now) | Cycle Delta | Scalar Mem (Prev -> Now) | Mem Delta | Stack Spills (Prev -> Now) |",
-        "|---|---|---|---|---|---|---|",
+        "| Kernel | Status (Prev -> Now) | Cycles (Prev -> Now) | Cycle Delta | Ops Retired (Prev -> Now) | Ops Delta | VLIW Density (Prev -> Now) | Scalar Mem (Prev -> Now) | Mem Delta | Stack Spills (Prev -> Now) |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
 
     total_curr_cycles = 0
     total_base_cycles = 0
+    total_curr_ops = 0
+    total_base_ops = 0
     total_curr_mem = 0
     total_base_mem = 0
     total_curr_spills = 0
     total_base_spills = 0
+    curr_densities = []
+    base_densities = []
     count_compared = 0
     improved_count = 0
     regressed_count = 0
@@ -145,6 +202,12 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
         c_pk = perf_value(r, "packets_executed")
         b_pk = perf_value(base, "packets_executed")
 
+        c_ops = perf_value(r, "instructions_executed")
+        b_ops = perf_value(base, "instructions_executed")
+
+        c_den = perf_value(r, "packet_slot_utilization_executed_pct")
+        b_den = perf_value(base, "packet_slot_utilization_executed_pct")
+
         c_sm = perf_value(r, "dyn_retired_scalar_mem")
         b_sm = perf_value(base, "dyn_retired_scalar_mem")
 
@@ -156,13 +219,18 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
         cycle_str = f"{fmt_int(b_pk)} -> {fmt_int(c_pk)}"
         cycle_delta = fmt_diff(c_pk, b_pk)
 
+        ops_str = f"{fmt_int(b_ops)} -> {fmt_int(c_ops)}"
+        ops_delta = fmt_diff(c_ops, b_ops, unit=" ops")
+
+        den_str = f"{fmt_pct(b_den)} -> {fmt_pct(c_den)}"
+
         mem_str = f"{fmt_int(b_sm)} -> {fmt_int(c_sm)}"
         mem_delta = fmt_diff(c_sm, b_sm, unit=" ops")
 
         spill_str = f"{fmt_spills(b_spills)} -> {fmt_spills(c_spills)}"
 
         lines.append(
-            f"| `{test}` | {status_str} | {cycle_str} | {cycle_delta} | {mem_str} | {mem_delta} | {spill_str} |"
+            f"| `{test}` | {status_str} | {cycle_str} | {cycle_delta} | {ops_str} | {ops_delta} | {den_str} | {mem_str} | {mem_delta} | {spill_str} |"
         )
 
         if c_pk is not None and b_pk is not None:
@@ -174,6 +242,14 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
             elif c_pk > b_pk:
                 regressed_count += 1
 
+        if c_ops is not None and b_ops is not None:
+            total_curr_ops += c_ops
+            total_base_ops += b_ops
+
+        if c_den is not None and b_den is not None:
+            curr_densities.append(c_den)
+            base_densities.append(b_den)
+
         if c_sm is not None and b_sm is not None:
             total_curr_mem += c_sm
             total_base_mem += b_sm
@@ -183,11 +259,17 @@ def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> lis
             total_base_spills += b_spills
 
     if count_compared > 0:
+        avg_base_den = (sum(base_densities) / len(base_densities)) if base_densities else None
+        avg_curr_den = (sum(curr_densities) / len(curr_densities)) if curr_densities else None
+        den_summary = f"{fmt_pct(avg_base_den)} -> {fmt_pct(avg_curr_den)} ({fmt_diff_pct(avg_curr_den, avg_base_den)})" if avg_base_den else "n/a"
+
         lines += [
             "",
             "### Summary of Changes Across Suite:",
             f"- **Kernels Faster:** {improved_count} | **Kernels Regressed:** {regressed_count} | **Unchanged:** {count_compared - improved_count - regressed_count}",
             f"- **Total Suite Cycles:** {fmt_int(total_base_cycles)} -> {fmt_int(total_curr_cycles)} ({fmt_diff(total_curr_cycles, total_base_cycles)})",
+            f"- **Total Instructions Retired:** {fmt_int(total_base_ops)} -> {fmt_int(total_curr_ops)} ({fmt_diff(total_curr_ops, total_base_ops, unit=' ops')})",
+            f"- **Mean VLIW Slot Density:** {den_summary}",
             f"- **Total Dynamic Scalar Memory:** {fmt_int(total_base_mem)} -> {fmt_int(total_curr_mem)} ({fmt_diff(total_curr_mem, total_base_mem, unit=' ops')})",
             f"- **Total Stack Loop Spills:** {fmt_int(total_base_spills)} -> {fmt_int(total_curr_spills)} ({fmt_diff(total_curr_spills, total_base_spills, unit=' spills')})",
         ]
@@ -260,24 +342,66 @@ def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = N
         "",
         "---",
         "",
-        f"## {sec_num}. Memory Traffic & Bandwidth Analysis",
+        f"## {sec_num}. Compute, Bandwidth & Roofline Analysis",
         "",
-        "Monitors dynamic memory traffic (scratchpad / DRAM / scalar register accesses). Zero stack spills and low dynamic scalar memory instructions indicate optimal register allocation without memory thrashing.",
+        "Metrics aligned with ``functional_sim/collect_kernel_metrics.py``:",
+        "- **AI (Load):** $\\text{FLOPs}_{\\text{total}} / \\text{Bytes Loaded}$ (DMA read bytes only).",
+        "- **AI (Load+Store):** $\\text{FLOPs}_{\\text{total}} / (\\text{Bytes Loaded} + \\text{Bytes Written})$ (full DRAM traffic roofline).",
+        "- **SP0 / SP1:** Scratchpad bank breakdown (SP0≈activations, SP1≈weights/bias).",
         "",
-        "| Kernel | Dyn Scalar Mem | Dyn Vector Mem | SDMA Ops | Data Moved (Bytes) | Arithmetic Intensity (FLOP/B) |",
-        "|---|---|---|---|---|---|",
+        "| Kernel | Total FLOPs | Matmul FLOPs | Bytes Loaded (SP0 / SP1) | Bytes Written (SP0 / SP1) | AI (Load) | AI (Load+Store) | SDMA Ops |",
+        "|---|---|---|---|---|---|---|---|",
     ]
 
     for r in kernel:
-        sm = perf_value(r, "dyn_retired_scalar_mem")
-        vm = perf_value(r, "dyn_retired_vector_mem")
+        flops_tot = perf_value(r, "flops_total")
+        flops_mm = perf_value(r, "flops_matmul")
+        b_ld = perf_value(r, "bytes_loaded")
+        b_ld_sp0 = perf_value(r, "bytes_loaded_sp0")
+        b_ld_sp1 = perf_value(r, "bytes_loaded_sp1")
+        b_wr = perf_value(r, "bytes_written")
+        b_wr_sp0 = perf_value(r, "bytes_stored_sp0")
+        b_wr_sp1 = perf_value(r, "bytes_stored_sp1")
+        ai_ld = perf_value(r, "arithmetic_intensity_loads") or perf_value(r, "arithmetic_intensity")
+        ai_ls = perf_value(r, "arithmetic_intensity_load_store")
         sdma = perf_value(r, "dyn_retired_sdma")
-        bytes_moved = perf_value(r, "bytes_moved")
-        ai = perf_value(r, "arithmetic_intensity")
+
+        ld_str = f"{fmt_int(b_ld)} B ({fmt_int(b_ld_sp0)} / {fmt_int(b_ld_sp1)})"
+        wr_str = f"{fmt_int(b_wr)} B ({fmt_int(b_wr_sp0)} / {fmt_int(b_wr_sp1)})"
 
         lines.append(
-            f"| `{r['test']}` | {fmt_int(sm)} | {fmt_int(vm)} | {fmt_int(sdma)} "
-            f"| {fmt_int(bytes_moved)} B | {fmt_float(ai, 1)} |"
+            f"| `{r['test']}` | {fmt_int(flops_tot)} | {fmt_int(flops_mm)} | {ld_str} | {wr_str} | {fmt_float(ai_ld, 1)} | {fmt_float(ai_ls, 1)} | {fmt_int(sdma)} |"
+        )
+
+    sec_num += 1
+    lines += [
+        "",
+        "---",
+        "",
+        f"## {sec_num}. Static Code Size & VLIW Packing Density",
+        "",
+        "Static image dimensions and instruction-level parallelism metrics:",
+        "- **Static packet rows:** Number of 4-slot VLIW bundle rows scheduled in static memory.",
+        "- **Static slots filled:** Non-NOP operations packed across static packet rows.",
+        "- **Packets executed:** Dynamic packet fetch count (loop iterations and jumps scale this count).",
+        "",
+        "| Kernel | Static Rows | Slots (Filled / Total) | Static Slot Util % | Packets Executed | Dynamic Ops Retired | Dynamic Slot Util % |",
+        "|---|---|---|---|---|---|---|",
+    ]
+
+    for r in kernel:
+        st_rows = perf_value(r, "packets_static_total")
+        st_filled = perf_value(r, "packet_slots_filled")
+        st_slots = perf_value(r, "packet_slots_total")
+        st_util = perf_value(r, "packet_slot_utilization_pct")
+        pk_exec = perf_value(r, "packets_executed")
+        ops_exec = perf_value(r, "instructions_executed")
+        dyn_util = perf_value(r, "packet_slot_utilization_executed_pct")
+
+        slots_str = f"{fmt_int(st_filled)} / {fmt_int(st_slots)}"
+
+        lines.append(
+            f"| `{r['test']}` | {fmt_int(st_rows)} | {slots_str} | {fmt_pct(st_util)} | {fmt_int(pk_exec)} | {fmt_int(ops_exec)} | {fmt_pct(dyn_util)} |"
         )
 
     sec_num += 1
@@ -334,17 +458,25 @@ def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = N
         "|---|---|---|---|",
     ]
     for r in unit:
+        pk = perf_value(r, "packets_executed")
+        tot = perf_value(r, "instructions_executed")
         lines.append(
-            f"| `{r['test']}` | {STATUS_LABEL[r['status']]} "
-            f"| {fmt_int(perf_value(r, 'packets_executed'))} "
-            f"| {fmt_int(perf_value(r, 'instructions_executed'))} |"
+            f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {fmt_int(pk)} | {fmt_int(tot)} |"
         )
 
-    known = [r for r in kernel if r.get("known_bug")]
-    if known:
+    known_bugs = [r for r in unit + kernel if r.get("known_bug")]
+    if known_bugs:
         sec_num += 1
-        lines += ["", "---", "", f"## {sec_num}. Known Compiler Bugs", "", "| Kernel | Status | Root Cause / Note |", "|---|---|---|"]
-        for r in known:
+        lines += [
+            "",
+            "---",
+            "",
+            f"## {sec_num}. Known Compiler Bugs",
+            "",
+            "| Kernel | Status | Root Cause / Note |",
+            "|---|---|---|",
+        ]
+        for r in known_bugs:
             lines.append(f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {r['known_bug']} |")
 
     problems = [(r["test"], "compiled", r["error"]) for r in unit + kernel if r["error"]]
@@ -368,6 +500,45 @@ def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = N
     return "\n".join(lines) + "\n"
 
 
+def export_csv(kernel: list[dict], csv_path: Path) -> None:
+    """Export complete kernel metrics table matching collect_kernel_metrics.py."""
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(CSV_FIELDS)
+        for r in kernel:
+            p = r.get("perf") or {}
+            dyn_tot = p.get("instructions_executed") or 0.0
+            row = [
+                r["test"],
+                int(p.get("flops_total", 0)),
+                int(p.get("flops_matmul", 0)),
+                int(p.get("packet_slots_filled", 0)),
+                int(p.get("bytes_loaded", 0)),
+                int(p.get("bytes_loaded_sp0", 0)),
+                int(p.get("bytes_loaded_sp1", 0)),
+                int(p.get("bytes_written", 0)),
+                int(p.get("bytes_stored_sp0", 0)),
+                int(p.get("bytes_stored_sp1", 0)),
+                int(p.get("packets_static_total", 0)),
+                int(p.get("packet_slots_total", 0)),
+                round(p.get("packet_slot_utilization_pct", 0.0), 2),
+                int(p.get("packets_executed", 0)),
+                int(dyn_tot),
+            ]
+            for n in _RETIRED_BUCKET_NAMES:
+                row.append(int(p.get(f"dyn_retired_{n}", 0)))
+            for n in _RETIRED_BUCKET_NAMES:
+                val = p.get(f"dyn_retired_{n}", 0)
+                pct = (val / dyn_tot * 100.0) if dyn_tot > 0 else 0.0
+                row.append(round(pct, 2))
+            ai_ld = p.get("arithmetic_intensity_loads", p.get("arithmetic_intensity", 0.0))
+            ai_ls = p.get("arithmetic_intensity_load_store", 0.0)
+            row.append(round(ai_ld, 2))
+            row.append(round(ai_ls, 2))
+            writer.writerow(row)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--unit", type=Path, help="JSON from test_validation/run_all_validation.py")
@@ -377,6 +548,7 @@ def main() -> int:
     ap.add_argument(
         "--baseline", type=Path, help="Optional previous JSON to compare against for deltas/improvements"
     )
+    ap.add_argument("--csv", type=Path, help="Optional path to output collect_kernel_metrics.py CSV")
     ap.add_argument("--out", type=Path, required=True, help="Markdown report path")
     args = ap.parse_args()
 
@@ -387,10 +559,15 @@ def main() -> int:
             baseline_path = default_baseline
 
     baseline_results = load(baseline_path) if baseline_path else None
+    kernel_results = load(args.kernel)
 
-    report = render(load(args.unit), load(args.kernel), baseline_results)
+    report = render(load(args.unit), kernel_results, baseline_results)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report)
+
+    if args.csv:
+        export_csv(kernel_results, args.csv)
+
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as f:
