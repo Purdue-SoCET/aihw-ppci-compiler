@@ -45,6 +45,7 @@ from .opt import (
     CommonSubexpressionEliminationPass,
     ConstantFolder,
     LoadAfterStorePass,
+    LoopInvariantCodeMotionPass,
 )
 from .opt.cjmp import CJumpPass
 from .opt.mem2reg import Mem2RegPromotor
@@ -228,6 +229,7 @@ def optimize(ir_module, level=0, reporter=None):
         RemoveAddZeroPass(),
         ConstantFolder(),
         CommonSubexpressionEliminationPass(),
+        LoopInvariantCodeMotionPass(),
         TailCallOptimization(),
         LoadAfterStorePass(),
         DeleteUnusedInstructionsPass(),

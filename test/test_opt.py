@@ -206,6 +206,67 @@ class TailCallTestCase(unittest.TestCase):
         self.assertTrue(function.is_leaf())
 
 
+from ppci.opt.licm import LoopInvariantCodeMotionPass
+
+
+class LicmTestCase(unittest.TestCase):
+    """Test Loop Invariant Code Motion (LICM) pass."""
+
+    def test_licm_hoist_binary_op(self):
+        builder = irutils.Builder()
+        module = ir.Module("test_licm")
+        builder.set_module(module)
+        function = builder.new_function("test_func", ir.Binding.GLOBAL, ir.i32)
+        builder.set_function(function)
+        entry = builder.new_block("entry")
+        function.entry = entry
+        a = ir.Parameter("a", ir.i32)
+        b = ir.Parameter("b", ir.i32)
+        function.add_parameter(a)
+        function.add_parameter(b)
+
+        header = builder.new_block("header")
+        body = builder.new_block("body")
+        exit_block = builder.new_block("exit")
+
+        builder.set_block(entry)
+        zero = builder.emit(ir.Const(0, "zero", ir.i32))
+        builder.emit(ir.Jump(header))
+
+        builder.set_block(header)
+        phi_i = builder.emit(ir.Phi("i", ir.i32))
+        ten = builder.emit(ir.Const(10, "ten", ir.i32))
+        builder.emit(ir.CJump(phi_i, "<", ten, body, exit_block))
+
+        builder.set_block(body)
+        # Loop-invariant calculation: a * b
+        inv = builder.emit(ir.Binop(a, "*", b, "inv", ir.i32))
+        one = builder.emit(ir.Const(1, "one", ir.i32))
+        next_i = builder.emit(ir.Binop(phi_i, "+", one, "next_i", ir.i32))
+        builder.emit(ir.Jump(header))
+
+        phi_i.set_incoming(entry, zero)
+        phi_i.set_incoming(body, next_i)
+
+        builder.set_block(exit_block)
+        builder.emit(ir.Return(phi_i))
+
+        verify_module(module)
+
+        # Before LICM, 'inv' is in body
+        self.assertIn(inv, body.instructions)
+        self.assertNotIn(inv, entry.instructions)
+
+        # Run LICM
+        licm = LoopInvariantCodeMotionPass()
+        licm.run(module)
+        verify_module(module)
+
+        # After LICM, 'inv' must be hoisted to entry (preheader)
+        self.assertNotIn(inv, body.instructions)
+        self.assertIn(inv, entry.instructions)
+
+
 if __name__ == "__main__":
     unittest.main()
     sys.exit()
