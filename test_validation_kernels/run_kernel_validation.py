@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kernel C validation: atalla_cc -> build_compiler -> seed .data -> functional_sim/run.py.
+"""Kernel C validation: atalla_cc -p -> build_compiler --prepacked -> functional_sim/run.py.
 
 Every kernel is checked against a numpy golden computed from the same seeded inputs:
 add/relu/maxpool/maxpool_2x2: exact BF16. softmax: numpy softmax. layernorm: numpy on the
@@ -73,13 +73,7 @@ EXPECTED_FAILURES: dict[str, str] = {
         "Same reduction-mode bug as softmax (8 RSUMs). Error 0.22 vs <=0.016 when the "
         "emitted reductions are patched to mode 64."
     ),
-    "maxpool": (
-        "x = vec_op_masked(...) writes a fresh register, so lanes outside the mask are not "
-        "x's previous value (masked-op merge semantics undefined)."
-    ),
     "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
-    "gemm_tiled_pipelined": "Wrong in every output tile; baseline with the same data passes. Not diagnosed.",
-    "gemm_tiled_pipelined_unrolled": "Same as gemm_tiled_pipelined. Not diagnosed.",
 }
 
 DEFAULT_TESTS = (
@@ -500,6 +494,7 @@ def compile_c(test_path: Path, asm_path: Path, *, repo_root: Path, env: dict[str
         "atalla",
         "-O",
         "2",
+        "-p",
         "-S",
         str(test_path),
         "-o",
@@ -575,6 +570,8 @@ def run_one(
         "-o",
         str(image_path),
     ]
+    if not handwritten:
+        bc.append("--prepacked")
     run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}
@@ -619,6 +616,9 @@ def main() -> int:
     sim_root = repo_root / "functional_sim"
     env = os.environ.copy()
     env["PYTHONPATH"] = build_pythonpath(sim_root, repo_root)
+    # Compiler packetization owns latency stalls. Preserve its all-NOP packet
+    # rows when build_compiler encodes --prepacked assembly.
+    env["ATALLA_STRIP_NOP_PACKET_ROWS"] = "0"
     # functional_sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
     # past BEQ/BNE range (see instruction_latency scpad.ld/st).
     env["ATALLA_FUNCTIONAL_SCHED_LATENCY"] = "1"

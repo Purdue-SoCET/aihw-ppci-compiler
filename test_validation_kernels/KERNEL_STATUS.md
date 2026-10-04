@@ -2,14 +2,15 @@
 
 Status of every test run by the `compiler_validation` CI workflow
 (`.github/workflows/compiler_validation.yml`), what was wrong with it, what was
-fixed, and what is still broken. Last updated 2026-09-28.
+fixed, and what is still broken. Last updated 2026-10-03.
 
 ## How the checks work
 
-Each kernel is compiled with this branch's `atalla_cc`, packetized and encoded by
-`functional_sim/build_compiler.py`, run on the functional simulator, and its
-output memory is compared against a **golden**: the expected result computed
-with numpy from the same seeded inputs.
+Each compiled kernel is packetized by this branch's `atalla_cc -p`, encoded
+without rescheduling by `functional_sim/build_compiler.py --prepacked`, run on
+the functional simulator, and compared against a **golden** computed with numpy
+from the same seeded inputs. Handwritten kernels continue to use the simulator's
+scheduler because they are not emitted as padded four-slot packets.
 
 - `test_validation/*.c` (unit tests): each checks one feature; the expected
   result is in register `x10` (`EXPECT_X10` in the file header).
@@ -37,12 +38,12 @@ summary.
 | conv_baseline | PASS | PASS | none |
 | conv_pipelined | PASS | PASS | none |
 | conv_pipelined_unrolled | PASS | not paired | no handwritten equivalent |
-| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see F) |
-| gemm_tiled_pipelined | KNOWN BUG | not paired | C (undiagnosed) |
-| gemm_tiled_pipelined_unrolled | KNOWN BUG | not paired | C (undiagnosed) |
+| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see D) |
+| gemm_tiled_pipelined | PASS | not paired | none |
+| gemm_tiled_pipelined_unrolled | PASS | not paired | none |
 | softmax | KNOWN BUG | PASS | A (reduction mode) |
 | layernorm | KNOWN BUG | not paired | A (reduction mode) |
-| maxpool | KNOWN BUG | not paired | B (masked-op merge) |
+| maxpool | PASS | not paired | none in current kernel |
 | maxpool_2x2 | KNOWN BUG | not paired | A and B |
 | All 12 unit tests | PASS | n/a | none |
 
@@ -71,10 +72,11 @@ BF16 implementation is 0.016; the golden allows 0.03). The fix is to emit mode 6
 for these patterns, and decide what, if anything, the float argument should mean
 for reductions.
 
-### B. Masked ops don't preserve the destination's old lanes (maxpool, maxpool_2x2)
+### B. Masked-op merge semantics remain undefined (maxpool_2x2)
 
-**Symptom.** maxpool output is off by up to 1.04: lanes where the second row is
-not larger come out as the second row instead of the first.
+The original `maxpool` kernel now passes exactly with compiler-owned
+packetization. `maxpool_2x2` still fails, although its reduction-mode bug is
+intertwined with the masked-lane behavior described below.
 
 **Cause.** The kernels rely on
 `best = vec_op_masked("+", zero_vec, v1, mask)` leaving `best` unchanged in lanes
@@ -88,42 +90,18 @@ merges into `x`'s previous value (the compiler must then use `x`'s register as
 the destination), or define unmasked lanes as coming from the first operand and
 rewrite these kernels accordingly.
 
-### C. gemm_tiled_pipelined and gemm_tiled_pipelined_unrolled are wrong
-
-**Symptom.** Every 4x4 output tile is wrong (max error about 0.037), while
-gemm_tiled_baseline, run on the same data, matches `A @ W` to 0.0002.
-
-**Cause.** Not diagnosed. The C source is logically equivalent to the baseline
-(it only moves the W tile load to before the K loop and prefetches the next one),
-and the output does not match simple hypotheses such as "only one K tile
-counted". Suspects: miscompiled loop around the prefetch, or instruction
-reordering around `scpad_ld` / `lw_vi`.
-
-### D. The simulator's packetizer is too permissive (affects efficiency numbers)
+### C. The simulator's packetizer is too permissive for handwritten kernels
 
 `schedule_program` in `functional_sim/build_compiler.py` allows up to four scalar
 ALU ops in one packet and has no functional-unit model, which the hardware does
-not support. Correctness results are unaffected, but packet counts and slot
-utilization for both compiled and handwritten kernels are optimistic. Planned fix:
-make its algorithm match Shaunak's packetizer (branch `atalla-shaunak`) after that
-packetizer's own bugs are fixed:
+not support. Compiled kernels now bypass this scheduler, but handwritten-kernel
+packet counts and slot utilization remain optimistic.
 
-- `halt` is not treated as control and gets hoisted to the top of its block.
-- WAR tracking only remembers the most recent reader of a register.
-- Registers are keyed by number only, so `x1`, `v1` and `m1` create false
-  dependencies.
+Shaunak's compiler packetizer now isolates `halt`, but still needs stronger WAR
+tracking and register keys that distinguish `x1`, `v1`, and `m1` before its
+efficiency numbers should be treated as hardware-final.
 
-`build_compiler.py --prepacked` already exists to encode compiler-made packets
-as-is once the compiler owns packetization.
-
-### E. Compiled output varies between runs
-
-Packet counts for the gemm_tiled kernels differ slightly from run to run
-(for example 1,252 vs 1,244 for gemm_tiled_pipelined) with identical inputs.
-Harmless for the accuracy gate, but it must be made deterministic before gating
-on efficiency.
-
-### F. Kernels without a handwritten comparison
+### D. Kernels without a handwritten comparison
 
 | Kernel | Why not paired |
 |---|---|
@@ -136,6 +114,7 @@ on efficiency.
 
 | Issue | Kernels affected | Fix | Where |
 |---|---|---|---|
+| Compiled kernels were rescheduled by the simulator, producing optimistic and previously nondeterministic packet counts. | all compiled kernels | Compile with `-p`, encode with `--prepacked`, and preserve all-NOP stall rows. Two repeated full runs produced identical static packet counts. | compiler validation harness |
 | Simulator packetizer ignored dependencies of mask compares (`mgt/mlt/meq/mneq` `.mvv/.mvs`): it checked for type names `MVV`/`MVS`, but the opcode table calls them `VMV`/`VMS`, so compares could move ahead of the instructions they depend on. | relu, make_mask_gt_scalar | Use the opcode table's type names. | functional_sim `75dba64` |
 | Simulator vector spill (`vreg_ld`/`vreg_st` with sid 3) used the previous instruction's address before reading the current one, so a spill also overwrote whatever the last vector load touched. | load_weights_lane0_dot | Read the address before using it; error if a sid 3 access is outside the spill area. | functional_sim `75dba64` |
 | The simulator changed `gemm.vv` to matmul only (`vd = vs1 @ W`) in April, but the compiler still relied on it adding the accumulator. | conv_baseline, conv_pipelined, conv_pipelined_unrolled, gemm_passthrough_lane0 | `gemm(a, acc, mask)` now emits `gemm_vv` followed by `add_vv`. | compiler `e2ba24ea` |
