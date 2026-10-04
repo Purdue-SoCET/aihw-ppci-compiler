@@ -20,13 +20,13 @@ class LoadAfterStorePass(BlockPass):
     """
 
     def find_store_backwards(
-        self, i, ty, stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store)
+        self, i, ty, stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.InlineAsm)
     ):
         """Go back from this instruction to beginning"""
         block = i.block
         instructions = block.instructions
         pos = instructions.index(i)
-        for x in range(pos - 1, 0, -1):
+        for x in range(pos - 1, -1, -1):
             i2 = instructions[x]
             if isinstance(i2, ir.Store) and ty is i2.value.ty:
                 # Got first store!
@@ -39,9 +39,42 @@ class LoadAfterStorePass(BlockPass):
                 return None
         return None
 
+    def find_load_backwards(
+        self, i, ty, stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.InlineAsm)
+    ):
+        """Go back from this load to find an identical preceding load with no intervening stores/calls."""
+        block = i.block
+        instructions = block.instructions
+        pos = instructions.index(i)
+        for x in range(pos - 1, -1, -1):
+            i2 = instructions[x]
+            if isinstance(i2, ir.Load) and ty is i2.ty and not i2.volatile:
+                if i2.address is i.address:
+                    return i2
+            elif isinstance(i2, stop_on):
+                return None
+        return None
+
     def on_block(self, block):
         self.replace_load_after_store(block)
+        self.replace_redundant_loads(block)
         self.remove_redundant_stores(block)
+
+    def replace_redundant_loads(self, block):
+        """Replace repeated loads from the same address when no stores/calls intervene."""
+        load_instructions = [
+            ins
+            for ins in block
+            if isinstance(ins, ir.Load) and not ins.volatile
+        ]
+        count = 0
+        for load in load_instructions:
+            earlier_load = self.find_load_backwards(load, load.ty)
+            if earlier_load is not None and earlier_load is not load:
+                load.replace_by(earlier_load)
+                count += 1
+        if count > 0:
+            self.logger.debug("Replaced %s redundant loads", count)
 
     def replace_load_after_store(self, block):
         """Replace load after store with the value of the store"""
