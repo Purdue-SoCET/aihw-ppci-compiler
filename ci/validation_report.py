@@ -49,6 +49,29 @@ def fmt_float(value: float | None, precision: int = 1) -> str:
     return "-" if value is None else f"{value:.{precision}f}"
 
 
+def fmt_diff(current: float | None, baseline: float | None, unit: str = "", invert: bool = False) -> str:
+    """Format difference between current and baseline.
+    By default (invert=False), lower is better (e.g. cycles, memory ops, spills).
+    When invert=True, higher is better (e.g. slot density, throughput).
+    """
+    if current is None or baseline is None:
+        return "-"
+    diff = current - baseline
+    if diff == 0:
+        return "0 (unchanged)"
+
+    pct = (diff / baseline) * 100 if baseline != 0 else 0
+    sign = "+" if diff > 0 else ""
+
+    is_better = (diff < 0) if not invert else (diff > 0)
+    tag = "[IMPROVED]" if is_better else "[REGRESSED]"
+
+    if abs(pct) >= 0.1:
+        return f"{sign}{int(diff):,}{unit} ({sign}{pct:.1f}%) {tag}"
+    else:
+        return f"{sign}{int(diff):,}{unit} {tag}"
+
+
 def fmt_ratio(compiled: float | None, handwritten: float | None) -> str:
     if not compiled or not handwritten:
         return "n/a"
@@ -84,7 +107,93 @@ def first_line(text: str | None) -> str:
     return (text or "").strip().splitlines()[0] if text else ""
 
 
-def render(unit: list[dict], kernel: list[dict]) -> str:
+def render_baseline_comparison(current: list[dict], baseline: list[dict]) -> list[str]:
+    if not baseline:
+        return []
+
+    base_map = {r["test"]: r for r in baseline}
+    lines = [
+        "",
+        "---",
+        "",
+        "## 2. Commit Delta & Improvements (vs Previous Commit)",
+        "",
+        "Comparison of compilation and performance metrics against the previous commit or baseline branch.",
+        "",
+        "| Kernel | Status (Prev -> Now) | Cycles (Prev -> Now) | Cycle Delta | Scalar Mem (Prev -> Now) | Mem Delta | Stack Spills (Prev -> Now) |",
+        "|---|---|---|---|---|---|---|",
+    ]
+
+    total_curr_cycles = 0
+    total_base_cycles = 0
+    total_curr_mem = 0
+    total_base_mem = 0
+    total_curr_spills = 0
+    total_base_spills = 0
+    count_compared = 0
+    improved_count = 0
+    regressed_count = 0
+
+    for r in current:
+        test = r["test"]
+        base = base_map.get(test)
+        if not base:
+            continue
+
+        c_pk = perf_value(r, "packets_executed")
+        b_pk = perf_value(base, "packets_executed")
+
+        c_sm = perf_value(r, "dyn_retired_scalar_mem")
+        b_sm = perf_value(base, "dyn_retired_scalar_mem")
+
+        c_spills = stack_value(r, "loop_spills")
+        b_spills = stack_value(base, "loop_spills")
+
+        status_str = f"{STATUS_LABEL.get(base.get('status', 'n/a'), base.get('status', 'n/a'))} -> {STATUS_LABEL.get(r['status'], r['status'])}"
+
+        cycle_str = f"{fmt_int(b_pk)} -> {fmt_int(c_pk)}"
+        cycle_delta = fmt_diff(c_pk, b_pk)
+
+        mem_str = f"{fmt_int(b_sm)} -> {fmt_int(c_sm)}"
+        mem_delta = fmt_diff(c_sm, b_sm, unit=" ops")
+
+        spill_str = f"{fmt_spills(b_spills)} -> {fmt_spills(c_spills)}"
+
+        lines.append(
+            f"| `{test}` | {status_str} | {cycle_str} | {cycle_delta} | {mem_str} | {mem_delta} | {spill_str} |"
+        )
+
+        if c_pk is not None and b_pk is not None:
+            total_curr_cycles += c_pk
+            total_base_cycles += b_pk
+            count_compared += 1
+            if c_pk < b_pk:
+                improved_count += 1
+            elif c_pk > b_pk:
+                regressed_count += 1
+
+        if c_sm is not None and b_sm is not None:
+            total_curr_mem += c_sm
+            total_base_mem += b_sm
+
+        if c_spills is not None and b_spills is not None:
+            total_curr_spills += c_spills
+            total_base_spills += b_spills
+
+    if count_compared > 0:
+        lines += [
+            "",
+            "### Summary of Changes Across Suite:",
+            f"- **Kernels Faster:** {improved_count} | **Kernels Regressed:** {regressed_count} | **Unchanged:** {count_compared - improved_count - regressed_count}",
+            f"- **Total Suite Cycles:** {fmt_int(total_base_cycles)} -> {fmt_int(total_curr_cycles)} ({fmt_diff(total_curr_cycles, total_base_cycles)})",
+            f"- **Total Dynamic Scalar Memory:** {fmt_int(total_base_mem)} -> {fmt_int(total_curr_mem)} ({fmt_diff(total_curr_mem, total_base_mem, unit=' ops')})",
+            f"- **Total Stack Loop Spills:** {fmt_int(total_base_spills)} -> {fmt_int(total_curr_spills)} ({fmt_diff(total_curr_spills, total_base_spills, unit=' spills')})",
+        ]
+
+    return lines
+
+
+def render(unit: list[dict], kernel: list[dict], baseline: list[dict] | None = None) -> str:
     lines: list[str] = ["# Compiler Validation & Performance Report", ""]
     ref = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
     sha = os.environ.get("GITHUB_SHA", "")[:8]
@@ -144,11 +253,16 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
             f"| {slot_util} | {sm_ops} | {fmt_spills(spills)} |"
         )
 
+    if baseline:
+        lines += render_baseline_comparison(kernel, baseline)
+
+    sec_num = 3 if baseline else 2
+
     lines += [
         "",
         "---",
         "",
-        "## 2. Memory Traffic & Bandwidth Analysis",
+        f"## {sec_num}. Memory Traffic & Bandwidth Analysis",
         "",
         "Monitors dynamic memory traffic (scratchpad / DRAM / scalar register accesses). Zero stack spills and low dynamic scalar memory instructions indicate optimal register allocation without memory thrashing.",
         "",
@@ -168,12 +282,13 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
             f"| {fmt_int(bytes_moved)} B | {fmt_float(ai, 1)} |"
         )
 
+    sec_num += 1
     lines += [
         "",
         "---",
         "",
         "<details>",
-        "<summary><b>3. Detailed Dynamic Instruction Breakdown (Click to Expand)</b></summary>",
+        f"<summary><b>{sec_num}. Detailed Dynamic Instruction Breakdown (Click to Expand)</b></summary>",
         "",
         "Dynamic counts of hardware instructions retired by functional unit execution category:",
         "",
@@ -208,13 +323,14 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
             f"| {fmt_int(c_br)} / {fmt_int(h_br)} |"
         )
 
+    sec_num += 1
     lines += [
         "",
         "</details>",
         "",
         "---",
         "",
-        "## 4. Unit Feature Tests",
+        f"## {sec_num}. Unit Feature Tests",
         "",
         "| Test | Status | Packets Executed | Total Instructions |",
         "|---|---|---|---|",
@@ -228,7 +344,8 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
 
     known = [r for r in kernel if r.get("known_bug")]
     if known:
-        lines += ["", "---", "", "## 5. Known Compiler Bugs", "", "| Kernel | Status | Root Cause / Note |", "|---|---|---|"]
+        sec_num += 1
+        lines += ["", "---", "", f"## {sec_num}. Known Compiler Bugs", "", "| Kernel | Status | Root Cause / Note |", "|---|---|---|"]
         for r in known:
             lines.append(f"| `{r['test']}` | {STATUS_LABEL[r['status']]} | {r['known_bug']} |")
 
@@ -239,7 +356,8 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         if r.get("handwritten", {}).get("error")
     ]
     if problems:
-        lines += ["", "---", "", "## 6. Error Diagnostic Traces", ""]
+        sec_num += 1
+        lines += ["", "---", "", f"## {sec_num}. Error Diagnostic Traces", ""]
         for test, kind, error in problems:
             lines += [
                 f"<details><summary><code>{test}</code> ({kind}): {first_line(error)}</summary>",
@@ -258,10 +376,21 @@ def main() -> int:
     ap.add_argument(
         "--kernel", type=Path, help="JSON from test_validation_kernels/run_kernel_validation.py"
     )
+    ap.add_argument(
+        "--baseline", type=Path, help="Optional previous JSON to compare against for deltas/improvements"
+    )
     ap.add_argument("--out", type=Path, required=True, help="Markdown report path")
     args = ap.parse_args()
 
-    report = render(load(args.unit), load(args.kernel))
+    baseline_path = args.baseline
+    if baseline_path is None:
+        default_baseline = Path("validation_results/previous.json")
+        if default_baseline.exists():
+            baseline_path = default_baseline
+
+    baseline_results = load(baseline_path) if baseline_path else None
+
+    report = render(load(args.unit), load(args.kernel), baseline_results)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")

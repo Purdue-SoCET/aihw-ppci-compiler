@@ -97,6 +97,15 @@ jobs:
         continue-on-error: true
         run: python test_validation/run_all_validation.py --json validation_results/unit.json
 
+      - name: Restore previous benchmark results
+        uses: actions/cache/restore@v4
+        with:
+          path: validation_results/previous.json
+          key: compiler-perf-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            compiler-perf-${{ github.ref_name }}-
+            compiler-perf-atalla-arch-
+
       - name: Kernels (numeric goldens + handwritten comparison)
         id: kernels
         continue-on-error: true
@@ -108,7 +117,22 @@ jobs:
           python ci/validation_report.py \
             --unit validation_results/unit.json \
             --kernel validation_results/kernel.json \
+            --baseline validation_results/previous.json \
             --out validation_results/report.md
+
+      - name: Prepare benchmark cache for next run
+        if: always()
+        run: |
+          if [ -f validation_results/kernel.json ]; then
+            cp validation_results/kernel.json validation_results/previous.json
+          fi
+
+      - name: Save benchmark cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: validation_results/previous.json
+          key: compiler-perf-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload report and per-kernel artifacts
         if: always()
