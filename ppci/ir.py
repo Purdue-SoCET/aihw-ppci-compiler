@@ -748,11 +748,17 @@ class Instruction:
         """
         # TODO: update reference
         # assert old in self._var_map.values()
-        for name in self._var_map:
-            if self._var_map[name] is old:
-                self.del_use(old)
-                self._var_map[name] = new
-                self.add_use(new)
+        # One value can fill several operand slots. The use set records it
+        # once, so drop that use a single time and then retarget every slot.
+        names = [
+            name for name in self._var_map if self._var_map[name] is old
+        ]
+        if not names:
+            return
+        self.del_use(old)
+        for name in names:
+            self._var_map[name] = new
+        self.add_use(new)
 
     def remove_from_block(self):
         for use in list(self.uses):

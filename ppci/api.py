@@ -45,6 +45,7 @@ from .opt import (
     CommonSubexpressionEliminationPass,
     ConstantFolder,
     LoadAfterStorePass,
+    LoopUnrollPass,
 )
 from .opt.cjmp import CJumpPass
 from .opt.mem2reg import Mem2RegPromotor
@@ -232,6 +233,7 @@ def optimize(ir_module, level=0, reporter=None):
         LoadAfterStorePass(),
         DeleteUnusedInstructionsPass(),
         CleanPass(),
+        LoopUnrollPass(),
     ] * 3
 
     if level == "3":

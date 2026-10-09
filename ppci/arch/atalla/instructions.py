@@ -13,6 +13,7 @@ from ..generic_instructions import (
     Alignment,
     ArtificialInstruction,
     Global,
+    Label,
     RegisterUseDef,
     SectionInstruction,
 )
@@ -553,6 +554,28 @@ def pattern_const_i32_large(context, tree):
     context.emit(Addis(d, d, c0 & 0x7F))
     return d
 
+def _const_reg(context, value):
+    """One scalar register per constant, loaded once at function entry.
+
+    Vector load and store take the column count in a register. Matching each
+    use on its own emitted a fresh li_s, and that load could not share a
+    packet with the vector op that reads it.
+    """
+    cache = context.frame.__dict__.setdefault("atalla_const_reg", {})
+    if value in cache:
+        return cache[value]
+    reg = context.new_reg(AtallaRegister)
+    li = Lis(reg, value)
+    insns = context.frame.instructions
+    label_at = [i for i, ins in enumerate(insns) if isinstance(ins, Label)]
+    if len(label_at) <= 1:
+        context.emit(li)
+    else:
+        insns.insert(label_at[0] + 1, li)
+    cache[value] = reg
+    return reg
+
+
 @isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)
 @isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value < 2**25)
 @isa.pattern("reg", "CONSTI16", size=4)
@@ -574,10 +597,7 @@ def pattern_const_i32_large(context, tree):
 )
 @isa.pattern("reg", "CONSTU8", size=2, condition=lambda t: t.value < 256)
 def pattern_const_i32(context, tree):
-    d = context.new_reg(AtallaRegister)
-    c0 = tree.value
-    context.emit(Lis(d, c0)) #This might be out of date since Lis is a pseudoinstruction, should it be a lui and then addi?
-    return d
+    return _const_reg(context, tree.value)
 
 
 # @isa.pattern("reg", "CONSTF32", size=10)
