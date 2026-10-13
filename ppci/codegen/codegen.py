@@ -565,8 +565,14 @@ class CodeGenerator:
                     base = ins.rs1.num if hasattr(ins.rs1, "num") else ins.rs1
                     ins_mem_key[i] = (base, ins.imm12)
 
-            last_def = {}       # reg.num -> producer index
-            last_read = {}      # reg.num -> most recent consumer index since last def
+            def reg_key(reg):
+                # Register numbers overlap across scalar, vector, and mask
+                # files. Keep the class in the key so x1, v1, and m1 do not
+                # create false dependencies.
+                return (type(reg), reg.num)
+
+            last_def = {}       # typed register key -> producer index
+            last_read = {}      # typed register key -> all readers since last def
             last_mem = None     # most recent memory-touching op index (chain head)
             last_store_at = {}  # scalar mem_key -> last store index
 
@@ -578,26 +584,26 @@ class CodeGenerator:
 
                 # RAW: depend on the most recent writer of each read register.
                 for r in reads:
-                    rn = r.num
+                    rn = reg_key(r)
                     if rn in last_def:
                         j = last_def[rn]
                         deps[i].append((j, ins_lat[j]))
 
                 # WAW + WAR for each written register.
                 for r in writes:
-                    rn = r.num
+                    rn = reg_key(r)
                     if rn in last_def:
                         j = last_def[rn]
                         deps[i].append((j, ins_lat[j]))
                     if rn in last_read:
-                        j = last_read[rn]
-                        deps[i].append((j, 1))
+                        deps[i].extend((j, 1) for j in last_read[rn])
 
                 for r in writes:
-                    last_def[r.num] = i
-                    last_read.pop(r.num, None)
+                    rn = reg_key(r)
+                    last_def[rn] = i
+                    last_read.pop(rn, None)
                 for r in reads:
-                    last_read[r.num] = i
+                    last_read.setdefault(reg_key(r), set()).add(i)
 
                 if is_mem:
                     if last_mem is not None:
@@ -708,9 +714,12 @@ class CodeGenerator:
 
                     reads = ins_reads[i]
                     writes = ins_writes[i]
-                    if any(r.num in packet_writes for r in reads):
+                    if any(reg_key(r) in packet_writes for r in reads):
                         continue
-                    if any(d.num in packet_reads or d.num in packet_writes for d in writes):
+                    if any(
+                        reg_key(d) in packet_reads or reg_key(d) in packet_writes
+                        for d in writes
+                    ):
                         continue
 
                     result.append(real_insts[i])
@@ -719,9 +728,9 @@ class CodeGenerator:
                     count += 1
 
                     for r in reads:
-                        packet_reads.add(r.num)
+                        packet_reads.add(reg_key(r))
                     for r in writes:
-                        packet_writes.add(r.num)
+                        packet_writes.add(reg_key(r))
 
                     if fu in SCALAR_FUS:
                         scalar_fu_used.add(fu)

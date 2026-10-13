@@ -572,7 +572,10 @@ def run_one(
         str(image_path),
     ]
     if handwritten:
-        bc.append("--expand-li-pseudo")
+        # Handwritten generators emit unpacked assembly. Apply the compiler's
+        # packetizer policy through build_compiler's textual-assembly adapter,
+        # bypassing the simulator's more permissive legacy scheduler.
+        bc.append("--shaunak-packetize")
     else:
         bc.append("--prepacked")
     run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
