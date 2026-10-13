@@ -574,6 +574,8 @@ def run_one(
         "-o",
         str(image_path),
     ]
+    if handwritten:
+        bc.append("--expand-li-pseudo")
     run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}

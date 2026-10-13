@@ -92,6 +92,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . numpy pydot
 
+      - name: Atalla architecture unit tests
+        run: python -m unittest -v test.arch.test_atalla
+
       - name: Unit tests (x10 checks)
         id: unit
         continue-on-error: true

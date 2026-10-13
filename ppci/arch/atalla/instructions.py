@@ -245,6 +245,11 @@ class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
 
+
+class PseudoAtallaInstruction(ArtificialInstruction):
+    isa = isa
+
+
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     imm25 = Operand("imm25", int)
@@ -266,8 +271,23 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101111) # TODO: make pseudo
 Luis = make_mi("lui_s", 0b0110000)
+
+
+def materialize_i32(rd, value):
+    """Build the real instructions for the ``li_s`` pseudo-instruction."""
+    value &= 0xFFFFFFFF
+    return Luis(rd, value >> 7), Addis(rd, rd, value & 0x7F)
+
+
+class Lis(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["li_s", " ", rd, ",", " ", imm])
+
+    def render(self):
+        yield from materialize_i32(self.rd, self.imm)
+
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -344,9 +364,6 @@ def dcd(v):
 #     def relocations(self):
 #         return [AbsAddr32Relocation(self.v)]
 
-class PseudoAtallaInstruction(ArtificialInstruction):
-    isa = isa
-    pass
 class Align(PseudoAtallaInstruction):
     imm = Operand("imm", int)
     syntax = Syntax([".", "align", " ", imm])
@@ -546,38 +563,16 @@ def pattern_32_to_8_16(context, tree, c0):
     return c0
 
 
-@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: not (-2**25 <= t.value < 2**25))
-@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value >= 2**25)
-def pattern_const_i32_large(context, tree):
-    d = context.new_reg(AtallaRegister)
-    c0 = tree.value & 0xFFFFFFFF
-    context.emit(Lis(d, c0))
-    return d
-
-@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)
-@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value < 2**25)
-@isa.pattern("reg", "CONSTI16", size=4)
-@isa.pattern("reg", "CONSTU16", size=4)
-@isa.pattern(
-    "reg",
-    "CONSTI32",
-    size=2,
-    condition=lambda t: t.value in range(-2048, 2048),
-)
-@isa.pattern(
-    "reg",
-    "CONSTI16",
-    size=2,
-    condition=lambda t: t.value in range(-2048, 2048),
-)
-@isa.pattern(
-    "reg", "CONSTI8", size=2, condition=lambda t: t.value in range(-128, 128)
-)
-@isa.pattern("reg", "CONSTU8", size=2, condition=lambda t: t.value < 256)
+@isa.pattern("reg", "CONSTI32", size=10)
+@isa.pattern("reg", "CONSTU32", size=10)
+@isa.pattern("reg", "CONSTI16", size=10)
+@isa.pattern("reg", "CONSTU16", size=10)
+@isa.pattern("reg", "CONSTI8", size=10)
+@isa.pattern("reg", "CONSTU8", size=10)
 def pattern_const_i32(context, tree):
     d = context.new_reg(AtallaRegister)
-    c0 = tree.value
-    context.emit(Lis(d, c0)) #This might be out of date since Lis is a pseudoinstruction, should it be a lui and then addi?
+    for instruction in materialize_i32(d, tree.value):
+        context.emit(instruction)
     return d
 
 
@@ -590,8 +585,9 @@ def pattern_const_f16(context, tree):
 
     d = context.new_reg(AtallaRegister)
 
-    # Emit the *16-bit* immediate, not a 32-bit float
-    context.emit(Lis(d, bits16)) # Should this be a pseudoinstruction?
+    # Emit the *16-bit* immediate, not a 32-bit float.
+    for instruction in materialize_i32(d, bits16):
+        context.emit(instruction)
 
     return d
 
