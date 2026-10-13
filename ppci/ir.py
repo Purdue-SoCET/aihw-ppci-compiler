@@ -1217,7 +1217,6 @@ class InlineAsm(Instruction):
         self.template = template
         self.clobbers = clobbers
         self.input_values = []
-        self.output_values = []
         self.output_operands = []
 
     def add_input_variable(self, value):
@@ -1226,7 +1225,6 @@ class InlineAsm(Instruction):
         self.add_use(value)
 
     def add_output_variable(self, value):
-        self.output_values.append(value)
         self.output_operands.append(("address", value))
         self.add_use(value)
 
@@ -1235,10 +1233,21 @@ class InlineAsm(Instruction):
 
     def replace_use(self, old, new):
         super().replace_use(old, new)
-        if old in self.input_values:
-            idx = self.input_values.index(old)
+        replace_input = any(value is old for value in self.input_values)
+        replace_address = any(
+            kind == "address" and value is old
+            for kind, value in self.output_operands
+        )
+        if replace_input or replace_address:
             self.del_use(old)
-            self.input_values[idx] = new
+            self.input_values = [
+                new if value is old else value
+                for value in self.input_values
+            ]
+            self.output_operands = [
+                (kind, new if kind == "address" and value is old else value)
+                for kind, value in self.output_operands
+            ]
             self.add_use(new)
 
     def __str__(self):
