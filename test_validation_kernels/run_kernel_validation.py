@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -64,20 +65,7 @@ GEMM_TILE = 4
 # reported as "xfail" and don't fail the run; one that starts passing is reported "xpass"
 # so it can be removed from this list.
 EXPECTED_FAILURES: dict[str, str] = {
-    "softmax": (
-        "RMAX/RSUM lowering turns the float argument into the reduction mode immediate; "
-        "0.0 gives mode 0 (result in lane 0 only) instead of broadcast (mode 64). "
-        "Patching the emitted reductions to mode 64 makes it pass."
-    ),
-    "layernorm": (
-        "Same reduction-mode bug as softmax (8 RSUMs). Error 0.22 vs <=0.016 when the "
-        "emitted reductions are patched to mode 64."
-    ),
-    "maxpool": (
-        "x = vec_op_masked(...) writes a fresh register, so lanes outside the mask are not "
-        "x's previous value (masked-op merge semantics undefined)."
-    ),
-    "maxpool_2x2": "Same masked-op merge issue as maxpool, plus the RMAX mode issue as softmax.",
+    "maxpool_2x2": "Masked-op merge semantics: unmasked lanes in multi-step pooling require accumulator preservation.",
 }
 
 DEFAULT_TESTS = (
@@ -96,6 +84,24 @@ DEFAULT_TESTS = (
 )
 
 
+def get_git_info(repo_root: Path) -> dict[str, str]:
+    info = {"commit": "", "branch": "", "message": ""}
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        msg = subprocess.check_output(
+            ["git", "log", "-1", "--format=%s"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        info = {"commit": commit, "branch": branch, "message": msg}
+    except Exception:
+        pass
+    return info
+
+
 def read_perf(perf_path: Path) -> dict[str, float] | None:
     if not perf_path.exists():
         return None
@@ -109,6 +115,28 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
         except ValueError:
             continue
     return perf
+
+
+def read_stack_stats(asm_path: Path) -> dict[str, int]:
+    if not asm_path.exists():
+        return {"total_stack": 0, "frame_ops": 0, "loop_spills": 0}
+    content = asm_path.read_text().splitlines()
+    stack_ops = [
+        line.strip()
+        for line in content
+        if re.search(r"\b(sw_s|lw_s|sd|ld|sw|lw)\b.*(\((?:x2|sp|x8|fp)\))", line)
+    ]
+    frame_ops = [
+        line
+        for line in stack_ops
+        if re.search(r"\b(sw_s|lw_s)\s+(x1|x8|ra|fp),\s*[04]\((?:x2|sp)\)", line)
+    ]
+    loop_spills = len(stack_ops) - len(frame_ops)
+    return {
+        "total_stack": len(stack_ops),
+        "frame_ops": len(frame_ops),
+        "loop_spills": loop_spills,
+    }
 
 
 def run_and_log(cmd: list[str], *, cwd: Path, env: dict[str, str], log_path: Path) -> None:
@@ -691,6 +719,7 @@ def main() -> int:
             "error": error,
             "known_bug": known_bug,
             "perf": read_perf(script_dir / "out" / t.stem / "output_perf.out"),
+            "stack": read_stack_stats(script_dir / "out" / t.stem / f"{t.stem}.s"),
         }
         results.append(result)
 
@@ -715,11 +744,14 @@ def main() -> int:
                 "status": "fail" if hw_error else "pass",
                 "error": hw_error,
                 "perf": read_perf(script_dir / "out" / t.stem / "handwritten" / "output_perf.out"),
+                "stack": read_stack_stats(script_dir / "out" / t.stem / "handwritten" / f"{t.stem}.s"),
             }
 
     if args.json is not None:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps({"suite": "kernel", "results": results}, indent=2) + "\n")
+        git_info = get_git_info(repo_root)
+        data = {"suite": "kernel", "git": git_info, "results": results}
+        args.json.write_text(json.dumps(data, indent=2) + "\n")
 
     if failed:
         print("FAILURES:\n" + "\n".join(failed), file=sys.stderr)
