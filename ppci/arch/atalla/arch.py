@@ -255,7 +255,7 @@ class AtallaArch(Architecture):
         self._ret_reg = R10
 
         self.callee_save = tuple()
-        self.caller_save = (R10, R12, R13, R14, R15, R16, R17)
+        self.caller_save = (R5, R6, R7, R10, R12, R13, R14, R15, R16, R17, R28, R29, R30, R31)
 
     def make_nop(self):
         """
