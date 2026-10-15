@@ -7,6 +7,7 @@ The selection dag is splitted into trees by this module.
 import logging
 
 from .. import ir
+from ..utils.collections import OrderedSet
 from ..utils.tree import Tree
 
 
@@ -48,9 +49,7 @@ class DagSplitter:
     def split_group_into_trees(self, sgraph, function_info, group):
         nodes = sgraph.get_group(group)
         # Get rid of ENTRY and EXIT:
-        nodes = set(
-            filter(lambda x: x.name.op not in ["ENTRY", "EXIT"], nodes)
-        )
+        nodes = [x for x in nodes if x.name.op not in ["ENTRY", "EXIT"]]
 
         tail_node = function_info.block_tails[group]
         return self.make_trees(nodes, tail_node)
@@ -147,13 +146,14 @@ class DagSplitter:
 
 def topological_sort_modified(nodes, start):
     """Modified topological sort, start at the end and work back"""
-    unmarked = set(nodes)
+    unmarked = OrderedSet(nodes)
+    node_set = set(nodes) if not isinstance(nodes, (set, OrderedSet)) else nodes
     marked = set()
     temp_marked = set()
     L = []
 
     def visit(n):
-        if n not in nodes:
+        if n not in node_set:
             return
         assert n not in temp_marked, "DAG has cycles"
         if n in unmarked:

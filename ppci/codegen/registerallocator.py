@@ -308,6 +308,7 @@ class GraphColoringRegisterAllocator:
         self.frame = frame
 
         cfg = FlowGraph(self.frame.instructions)
+        cfg.calculate_loop_depth()
         self.logger.debug(
             "Constructed flowgraph with %s nodes", len(cfg.nodes)
         )
@@ -685,8 +686,14 @@ class GraphColoringRegisterAllocator:
         p = []
         for n in self.spill_worklist:
             assert not n.is_colored
-            d = sum(len(self.frame.ig.defs(t)) for t in n.temps)
-            u = sum(len(self.frame.ig.uses(t)) for t in n.temps)
+            d = sum(
+                sum(getattr(ins, "weight", 1) for ins in self.frame.ig.defs(t))
+                for t in n.temps
+            )
+            u = sum(
+                sum(getattr(ins, "weight", 1) for ins in self.frame.ig.uses(t))
+                for t in n.temps
+            )
             priority = (u + d) / n.degree
             self.logger.debug("%s has spill priority=%s", n, priority)
             p.append((n, priority))

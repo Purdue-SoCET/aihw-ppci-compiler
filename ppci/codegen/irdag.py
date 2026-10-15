@@ -142,12 +142,16 @@ class SelectionGraphBuilder:
 
         Selection graph is divided into groups for each basic block.
         """
+        self.ir_function = ir_function
         self.debug_db = debug_db
         self.sgraph = SelectionGraph()
         self.function_info = function_info
 
         # TODO: fix this total mess with vreg, block and chains:
         self.current_block = None
+        
+        # { Address : Register holding value (SGValue) }
+        self.mem_map = {}
 
         # Create maps for global variables:
         for variable in itertools.chain(
@@ -483,6 +487,10 @@ class SelectionGraphBuilder:
 
     def do_load(self, node):
         """Create dag node for load operation"""
+        if node.address in self.mem_map:
+            self.add_map(node, self.mem_map[node.address])
+            return
+        
         address = self.get_address(node.address)
         sgnode = self.new_node("LDR", node.ty, address)
         # Make sure a data dependence is added to this node
@@ -492,6 +500,9 @@ class SelectionGraphBuilder:
 
     def do_store(self, node):
         """Create a DAG node for the store operation"""
+        if node.address in self.mem_map:
+            del self.mem_map[node.address]
+        
         address = self.get_address(node.address)
         value = self.get_value(node.value)
         if node.value.ty.is_blob:
@@ -501,6 +512,26 @@ class SelectionGraphBuilder:
             sgnode = self.new_node("STR", node.value.ty, address, value)
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
+        
+    def _can_skip_stack_store(self, addr, node):
+        """Check if an inline asm output address can safely live purely in a register without being stored to the stack."""
+        if not (isinstance(addr, ir.AddressOf) and isinstance(addr.src, ir.Alloc)):
+            return False
+
+        alloc = addr.src
+        if len(alloc.used_by) != 1:
+            return False
+
+        for user in addr.used_by:
+            if user is node:
+                continue
+            if not isinstance(user, ir.Load):
+                return False
+            if user.block is not node.block:
+                if node.block not in (self.ir_function.entry, alloc.block):
+                    return False
+
+        return True
 
     def do_inline_asm(self, node):
         input_registers = []
@@ -573,10 +604,18 @@ class SelectionGraphBuilder:
 
             param_node = self.new_node("REG", ty, value=reg)
             output = param_node.new_output(f"ret_{i}")
-            output.wants_vreg = False
+            output.wants_vreg = True
+            output.vreg = reg
+            self.chain(param_node)
 
-            store_node = self.new_node("STR", ty, address, output)
-            self.chain(store_node)
+            if self._can_skip_stack_store(addr, node):
+                self.mem_map[addr] = output
+            else:
+                store_node = self.new_node("STR", ty, address, output)
+                self.chain(store_node)
+
+    def do_inline_asm_result(self, node):
+        assert node in self.function_info.value_map
 
     def do_inline_asm_result(self, node):
         assert node in self.function_info.value_map

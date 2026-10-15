@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
 
+from ..graph.algorithm.fixed_point_dominator import calculate_dominators
 from ..graph.digraph import DiGraph, DiNode
 
 
@@ -162,3 +163,53 @@ class FlowGraph(DiGraph):
         self.logger.debug(
             "Iterations: %s,  nodes: %s", n_iterations, len(self)
         )
+
+    def calculate_loop_depth(self):
+        """Calculate loop nesting depth and execution weight for all instructions in the CFG."""
+        if not self.nodes:
+            return
+
+        entry_node = self.nodes[0]
+
+        # Find all reachable nodes from entry
+        reachable = set()
+        stack = [entry_node]
+        while stack:
+            curr = stack.pop()
+            if curr not in reachable:
+                reachable.add(curr)
+                for succ in curr.successors:
+                    if succ not in reachable:
+                        stack.append(succ)
+
+        _dom = calculate_dominators(self.nodes, entry_node)
+
+        # Detect back-edges: (n -> succ) where succ dominates n.
+        # Group loops by header so multiple back-edges to the same header form one loop.
+        loops_by_header = defaultdict(set)
+        for node in reachable:
+            for succ in node.successors:
+                if succ in reachable and succ in _dom.get(node, set()):
+                    # Back-edge found: node -> succ (succ is loop header)
+                    header = succ
+                    loop_nodes = {header, node}
+                    back_stack = []
+                    if node != header:
+                        back_stack.append(node)
+                    while back_stack:
+                        curr = back_stack.pop()
+                        for pred in curr.predecessors:
+                            if pred in reachable and pred not in loop_nodes:
+                                loop_nodes.add(pred)
+                                back_stack.append(pred)
+                    loops_by_header[header].update(loop_nodes)
+
+        loops = list(loops_by_header.values())
+
+        # For each node and instruction, compute depth and weight:
+        for node in self.nodes:
+            depth = sum(1 for loop in loops if node in loop)
+            weight = 10 ** min(depth, 4)
+            for ins in node.instructions:
+                ins.loop_depth = depth
+                ins.weight = weight
