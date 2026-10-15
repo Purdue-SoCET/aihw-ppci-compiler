@@ -11,6 +11,7 @@ from ..arch.arch import Architecture
 from ..arch.arch_info import Endianness
 from ..arch.data_instructions import DByte, DZero
 from ..arch.encoding import Instruction
+from ..arch.atalla.instructions import *
 from ..arch.generic_instructions import (
     Alignment,
     ArtificialInstruction,
@@ -31,7 +32,7 @@ from .instructionselector import InstructionSelector1
 from .irdag import SelectionGraphBuilder
 from .peephole import PeepHoleStream
 from .registerallocator import GraphColoringRegisterAllocator
-
+from ..graph.cfg import ControlFlowGraph, ir_function_to_graph
 
 class CodeGenerator:
     """Machine code generator"""
@@ -176,6 +177,20 @@ class CodeGenerator:
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame)
+
+        for ins in frame.instructions:
+            print("Frame:", ins)
+
+        # Run the software pipelining algorith,
+        print("--- Loops ---")
+        cfg, block_map = ir_function_to_graph(ir_function)
+        loops = cfg.calculate_loops()
+        print(loops)
+
+        self.sw_pipeline(frame, loops)
+        
+        for ins in frame.instructions:
+            print("Frame:", ins)
 
         self.reporter.dump_frame(frame)
 
@@ -407,6 +422,64 @@ class CodeGenerator:
         if value.binding == ir.Binding.GLOBAL:
             output_stream.emit(Global(value.name))
 
+    def sw_pipeline(self, frame, loops):
+        print("unimplemented")
+
+        def sort_loop_blocks(blocks):
+            while True:
+                switches = 0
+                for i in range(len(blocks)-1):
+                    if not (blocks[i].dominates(blocks[i+1])):
+                        temp = blocks[i]
+                        blocks[i] = blocks[i+1]
+                        blocks[i+1] = temp
+                        switches += 1
+                if (switches == 0):
+                    return blocks
+        
+        def merge_blocks(loop):
+            [header, loopback] = get_block(loop.header.name, True)
+
+            body = loop.rest
+            body = sort_loop_blocks(body)
+
+            # Sort by domination
+            loop_body = header
+            
+            # Get loop body code
+            for block in loop.rest:
+                name = block.name
+                loop_body.extend(get_block(name)[0])
+
+            # Attach loopback
+            loopback[0].imm10 = loop.header.name
+            loop_body.extend(loopback)
+
+            for ins in loop_body:
+                print(ins)
+        
+        def get_block(block_name, header=False):
+            block_instrs = []
+            loop_tail = []
+            found = False
+            for ins in frame.instructions:
+                if isinstance(ins, Label):
+                    if not found and ins.name == block_name:
+                        if header:
+                            block_instrs.append(ins)
+                        found = True
+                    elif found:
+                        break
+                elif found:
+                    # Remove jal at end of block, and jal and blt from header block
+                    if not (isinstance(ins, Jal) or (header and isinstance(ins, BranchBase))):
+                        block_instrs.append(ins)
+                    elif header:
+                        loop_tail.append(ins)
+            return [block_instrs, loop_tail]
+        
+        merge_blocks(loops[0])
+
     def _pack_flat_vliw(self, instructions, max_width=4):
         import sys, os
         sys.path.insert(0, os.path.abspath(
@@ -506,6 +579,9 @@ class CodeGenerator:
             real_insts = [ins for ins in block if not isinstance(ins, (Label, VirtualInstruction))]
             result.extend(labels)
 
+            # for label in labels:
+                # print(label)
+
             if not real_insts:
                 continue
 
@@ -556,6 +632,7 @@ class CodeGenerator:
             for i, ins in enumerate(real_insts):
                 fu = ins_fu[i]
                 op = ins_op[i]
+                # print("Instr:", ins, "FU:", fu)
                 is_load = fu == FU_SCALAR_LDST and op.startswith("lw")
                 is_store = fu == FU_SCALAR_LDST and op.startswith("sw")
                 ins_is_load[i] = is_load
