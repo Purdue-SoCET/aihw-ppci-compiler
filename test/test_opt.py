@@ -206,6 +206,135 @@ class TailCallTestCase(unittest.TestCase):
         self.assertTrue(function.is_leaf())
 
 
+from ppci.opt.licm import LoopInvariantCodeMotionPass
+
+
+class LicmTestCase(unittest.TestCase):
+    """Test Loop Invariant Code Motion (LICM) pass."""
+
+    def test_licm_hoist_binary_op(self):
+        builder = irutils.Builder()
+        module = ir.Module("test_licm")
+        builder.set_module(module)
+        function = builder.new_function("test_func", ir.Binding.GLOBAL, ir.i32)
+        builder.set_function(function)
+        entry = builder.new_block("entry")
+        function.entry = entry
+        a = ir.Parameter("a", ir.i32)
+        b = ir.Parameter("b", ir.i32)
+        function.add_parameter(a)
+        function.add_parameter(b)
+
+        header = builder.new_block("header")
+        body = builder.new_block("body")
+        exit_block = builder.new_block("exit")
+
+        builder.set_block(entry)
+        zero = builder.emit(ir.Const(0, "zero", ir.i32))
+        builder.emit(ir.Jump(header))
+
+        builder.set_block(header)
+        phi_i = builder.emit(ir.Phi("i", ir.i32))
+        ten = builder.emit(ir.Const(10, "ten", ir.i32))
+        builder.emit(ir.CJump(phi_i, "<", ten, body, exit_block))
+
+        builder.set_block(body)
+        # Loop-invariant calculation: a * b
+        inv = builder.emit(ir.Binop(a, "*", b, "inv", ir.i32))
+        one = builder.emit(ir.Const(1, "one", ir.i32))
+        next_i = builder.emit(ir.Binop(phi_i, "+", one, "next_i", ir.i32))
+        builder.emit(ir.Jump(header))
+
+        phi_i.set_incoming(entry, zero)
+        phi_i.set_incoming(body, next_i)
+
+        builder.set_block(exit_block)
+        builder.emit(ir.Return(phi_i))
+
+        verify_module(module)
+
+        # Before LICM, 'inv' is in body
+        self.assertIn(inv, body.instructions)
+        self.assertNotIn(inv, entry.instructions)
+
+        # Run LICM
+        licm = LoopInvariantCodeMotionPass()
+        licm.run(module)
+        verify_module(module)
+
+        # After LICM, 'inv' must be hoisted to entry (preheader)
+        self.assertNotIn(inv, body.instructions)
+        self.assertIn(inv, entry.instructions)
+
+
+from ppci.opt.load_after_store import LoadAfterStorePass
+
+
+class LoadAfterStoreTestCase(unittest.TestCase):
+    """Test LoadAfterStorePass optimizations."""
+
+    def test_load_first_instruction_store(self):
+        """Test off-by-one fix when store is at index 0 of the block."""
+        builder = irutils.Builder()
+        module = ir.Module("test_las")
+        builder.set_module(module)
+        func = builder.new_function("func", ir.Binding.GLOBAL, ir.i32)
+        builder.set_function(func)
+        entry = builder.new_block("entry")
+        func.entry = entry
+        ptr = ir.Parameter("ptr", ir.ptr)
+        val = ir.Parameter("val", ir.i32)
+        func.add_parameter(ptr)
+        func.add_parameter(val)
+
+        builder.set_block(entry)
+        # Store is first instruction at index 0 of the block
+        st = builder.emit(ir.Store(val, ptr))
+        ld = builder.emit(ir.Load(ptr, "loaded", ir.i32))
+        ret = builder.emit(ir.Return(ld))
+
+        verify_module(module)
+        self.assertEqual(ret.result, ld)
+
+        pas = LoadAfterStorePass()
+        pas.run(module)
+        verify_module(module)
+
+        # ld uses should be replaced by val
+        self.assertEqual(ret.result, val)
+        self.assertEqual(len(ld.used_by), 0)
+
+    def test_redundant_load_elimination(self):
+        """Test CSE for consecutive loads from the same address."""
+        builder = irutils.Builder()
+        module = ir.Module("test_rle")
+        builder.set_module(module)
+        func = builder.new_function("func", ir.Binding.GLOBAL, ir.i32)
+        builder.set_function(func)
+        entry = builder.new_block("entry")
+        func.entry = entry
+        ptr = ir.Parameter("ptr", ir.ptr)
+        func.add_parameter(ptr)
+
+        builder.set_block(entry)
+        ld1 = builder.emit(ir.Load(ptr, "ld1", ir.i32))
+        dummy = builder.emit(ir.Binop(ld1, "+", ld1, "dummy", ir.i32))
+        ld2 = builder.emit(ir.Load(ptr, "ld2", ir.i32))
+        ret = builder.emit(ir.Binop(dummy, "+", ld2, "ret", ir.i32))
+        builder.emit(ir.Return(ret))
+
+        verify_module(module)
+        self.assertEqual(ret.b, ld2)
+
+        pas = LoadAfterStorePass()
+        pas.run(module)
+        verify_module(module)
+
+        # ld2 should be replaced by ld1
+        self.assertEqual(ret.b, ld1)
+        self.assertEqual(len(ld2.used_by), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
     sys.exit()
