@@ -453,10 +453,35 @@ class CodeGenerator:
 
             # Attach loopback
             loopback[0].imm10 = loop.header.name
+            loopback[0].jumps = [header[0]]
             loop_body.extend(loopback)
+
+            replace_loop(loop, loop_body)
 
             for ins in loop_body:
                 print(ins)
+        
+        def replace_loop(loop, loop_body):
+            loop_block_names = {loop.header.name} | {block.name for block in loop.rest}
+            new_instructions = []
+            loop_inserted = False
+            in_loop = False
+
+            for ins in frame.instructions:
+                if isinstance(ins, Label):
+                    if ins.name in loop_block_names:
+                        if not loop_inserted:
+                            new_instructions.extend(loop_body)
+                            loop_inserted = True
+                        in_loop = True
+                    else:
+                        in_loop = False
+                        new_instructions.append(ins)
+                else:
+                    if not in_loop:
+                        new_instructions.append(ins)
+
+            frame.instructions = new_instructions
         
         def get_block(block_name, header=False):
             block_instrs = []
