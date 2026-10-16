@@ -126,9 +126,9 @@ change, inverted branches would have been skipped by its control-flow check.
 - **Why:** inversion moves the far target, often the loop exit, from `jal`
   (±16M instructions) onto the conditional branch (−512..511). The guard
   allows at most 128 real instructions between the branch and its new target.
-  That leaves 4x headroom for NOP padding from a packetizer: the one on
-  `origin/atalla-shaunak` (`_pack_flat_vliw`), or the emulator's text-based
-  `vliw_packetizer.py`.
+  Historically, that allowed 4x headroom for packetizer NOP padding. Current
+  compiled and handwritten validation paths share `ppci/arch/atalla/packetizer.py`;
+  the compiler also relaxes out-of-range branches after final packet layout.
 - **Breaks if:** a packetizer pads more than about 4x, or the constant is
   raised. With the relocation fix this is a loud **link error**
   ("target is N instructions away"), not a miscompile. The fix is to lower the
