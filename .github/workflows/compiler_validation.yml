@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: compiler-validation-${{ github.ref }}
@@ -30,7 +31,7 @@ concurrency:
 
 jobs:
   compiler_validation:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_owner == 'SoCETOrganization' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 30
 
     steps:
@@ -59,7 +60,7 @@ jobs:
       - name: Checkout functional_sim branch
         uses: actions/checkout@v4
         with:
-          repository: Purdue-SoCET/atalla-functional-sim
+          repository: ${{ github.repository_owner }}/atalla-functional-sim
           ref: ${{ steps.sim.outputs.branch }}
           path: functional_sim
           ssh-key: ${{ secrets.FUNCTIONAL_SIM_DEPLOY_KEY }}
@@ -81,11 +82,21 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Python
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
+
+      - name: Ensure Python environment
+        run: |
+          if ! command -v python &> /dev/null || ! python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" 2>/dev/null; then
+            PYTHON_BIN=$(which python3.12 || which python3.11 || which python3.10 || which python3)
+            echo "Initializing virtualenv from $PYTHON_BIN"
+            $PYTHON_BIN -m venv "$HOME/validation_venv"
+            echo "$HOME/validation_venv/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Install validation dependencies
         run: |
@@ -100,6 +111,48 @@ jobs:
         continue-on-error: true
         run: python test_validation/run_all_validation.py --json validation_results/unit.json
 
+      - name: Restore macro baseline (atalla-arch)
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: validation_results/baseline_atalla_arch.json
+          key: compiler-perf-atalla-arch-${{ github.run_id }}
+          restore-keys: |
+            compiler-perf-atalla-arch-
+
+      - name: Restore micro baseline (previous commit)
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: validation_results/baseline_prev.json
+          key: compiler-perf-${{ github.head_ref || github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            compiler-perf-${{ github.head_ref || github.ref_name }}-
+
+      - name: Restore legacy benchmark results fallback
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: validation_results/previous.json
+          key: compiler-perf-legacy-${{ github.run_id }}
+          restore-keys: |
+            compiler-perf-atalla-arch-
+            compiler-perf-${{ github.head_ref || github.ref_name }}-
+
+      - name: Migrate baseline files if needed
+        run: |
+          mkdir -p validation_results
+          if [ ! -f validation_results/baseline_atalla_arch.json ]; then
+            if [ -f ci/baselines/baseline_atalla_arch.json ]; then
+              cp ci/baselines/baseline_atalla_arch.json validation_results/baseline_atalla_arch.json
+            elif [ -f validation_results/previous.json ]; then
+              cp validation_results/previous.json validation_results/baseline_atalla_arch.json
+            fi
+          fi
+          if [ ! -f validation_results/baseline_prev.json ] && [ -f validation_results/previous.json ]; then
+            cp validation_results/previous.json validation_results/baseline_prev.json
+          fi
+
       - name: Kernels (numeric goldens + handwritten comparison)
         id: kernels
         continue-on-error: true
@@ -111,10 +164,85 @@ jobs:
           python ci/validation_report.py \
             --unit validation_results/unit.json \
             --kernel validation_results/kernel.json \
+            --macro-baseline validation_results/baseline_atalla_arch.json \
+            --micro-baseline validation_results/baseline_prev.json \
+            --csv validation_results/kernel_metrics.csv \
             --out validation_results/report.md
+
+      - name: Post PR Summary Comment
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'validation_results/report.md';
+            if (!fs.existsSync(reportPath)) {
+              console.log('No report.md found at ' + reportPath);
+              return;
+            }
+            const body = fs.readFileSync(reportPath, 'utf8');
+            const marker = '<!-- compiler-validation-report -->';
+            const commentBody = `${marker}\n${body}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.body && comment.body.includes(marker)
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody,
+              });
+              console.log(`Updated existing PR comment ${botComment.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+              console.log('Created new PR comment');
+            }
+
+      - name: Prepare benchmark cache for next run
+        if: always()
+        run: |
+          mkdir -p validation_results
+          if [ -f validation_results/kernel.json ]; then
+            cp validation_results/kernel.json validation_results/baseline_prev.json
+            if [ "${{ github.ref_name }}" = "atalla-arch" ]; then
+              cp validation_results/kernel.json validation_results/baseline_atalla_arch.json
+            fi
+          fi
+
+      - name: Save micro benchmark cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: validation_results/baseline_prev.json
+          key: compiler-perf-${{ github.head_ref || github.ref_name }}-${{ github.run_id }}
+
+      - name: Save macro benchmark cache (atalla-arch only)
+        if: always() && github.ref_name == 'atalla-arch'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: validation_results/baseline_atalla_arch.json
+          key: compiler-perf-atalla-arch-${{ github.run_id }}
 
       - name: Upload report and per-kernel artifacts
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: compiler-validation-${{ github.run_number }}
