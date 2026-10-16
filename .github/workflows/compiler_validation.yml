@@ -78,6 +78,7 @@ jobs:
           functional_sim/tests/unit/test_packetizer.py
           functional_sim/tests/unit/test_control_offsets.py
           functional_sim/tests/unit/test_build_compiler_li.py
+          functional_sim/tests/unit/test_conv_generator.py
 
       - name: Unit tests (x10 checks)
         id: unit

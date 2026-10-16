@@ -483,6 +483,7 @@ HANDWRITTEN_KERNELS: dict[str, tuple[str, tuple[str, ...]]] = {
     "softmax": ("build_softmax_row32.py", ()),
     "conv_baseline": ("build_conv.py", ("--H", "4", "--W", "4")),
     "conv_pipelined": ("build_conv_pipelined.py", ("--H", "4", "--W", "4")),
+    "conv_pipelined_unrolled": ("build_conv_unrolled_pipelined.py", ("--H", "4", "--W", "4")),
     "gemm_tiled_baseline": ("build_gemm_tiled.py", GEMM_ARGS),
     "gemm_tiled_pipelined": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k",)),
     "gemm_tiled_pipelined_unrolled": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k", "--unroll")),
@@ -671,6 +672,10 @@ def main() -> int:
         help="Skip running the matching handwritten functional_sim kernels for comparison",
     )
     args = ap.parse_args()
+
+    missing = {Path(name).stem for name in DEFAULT_TESTS} - HANDWRITTEN_KERNELS.keys()
+    if args.handwritten and missing:
+        ap.error(f"Missing handwritten comparisons: {', '.join(sorted(missing))}")
 
     if args.test is not None:
         tests = [args.test.resolve()]

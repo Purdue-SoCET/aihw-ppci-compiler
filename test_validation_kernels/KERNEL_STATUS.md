@@ -2,7 +2,7 @@
 
 Status of every test run by the `compiler_validation` CI workflow
 (`.github/workflows/compiler_validation.yml`), what was wrong with it, what was
-fixed, and what is still broken. Last updated 2026-10-15.
+fixed, and what is still broken. Last updated 2026-10-16.
 
 ## How the checks work
 
@@ -39,14 +39,14 @@ CI checks out the exact simulator commit recorded by this repository's
 | relu | PASS | PASS | none |
 | conv_baseline | PASS | PASS | none |
 | conv_pipelined | PASS | PASS | none |
-| conv_pipelined_unrolled | PASS | not paired | no handwritten equivalent |
-| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see D) |
-| gemm_tiled_pipelined | PASS | not paired | none |
-| gemm_tiled_pipelined_unrolled | PASS | not paired | none |
+| conv_pipelined_unrolled | PASS | PASS | none |
+| gemm_tiled_baseline | PASS | PASS | none |
+| gemm_tiled_pipelined | PASS | PASS | none |
+| gemm_tiled_pipelined_unrolled | PASS | PASS | none |
 | softmax | KNOWN BUG | PASS | A (reduction mode) |
-| layernorm | KNOWN BUG | not paired | A (reduction mode) |
-| maxpool | PASS | not paired | none in current kernel |
-| maxpool_2x2 | KNOWN BUG | not paired | A and B |
+| layernorm | KNOWN BUG | PASS | A (reduction mode) |
+| maxpool | PASS | PASS | none in current kernel |
+| maxpool_2x2 | KNOWN BUG | PASS | A and B |
 | All 12 unit tests | PASS | n/a | none |
 
 ## Open issues
@@ -106,14 +106,18 @@ restriction) and a deliberately conservative chain across all memory-touching
 operations. Packet counts are now comparable between these two paths, but they
 should not be presented as RTL-final throughput estimates.
 
-### D. Kernels without a handwritten comparison
+### D. Handwritten comparison coverage
 
-| Kernel | Why not paired |
-|---|---|
-| layernorm | `build_layernorm_param.py` expects an N-wide tile in memory; the C kernel uses a 4x32 tile. Passing the right stride was not enough (output still skewed). |
-| gemm_tiled_* | `build_gemm_tiled.py --tile 4` writes nothing to C on this memory image. |
-| maxpool, maxpool_2x2 | `build_maxpool.py` has no `--emit-asm-only` mode. |
-| conv_pipelined_unrolled, gemm_tiled_pipelined_unrolled | no matching generator. |
+All 12 kernels have a handwritten comparison. `HANDWRITTEN_KERNELS` in
+`run_kernel_validation.py` supplies each generator's shape and layout options.
+The unrolled convolution uses `build_conv_unrolled_pipelined.py`; tiled GEMMs
+use `build_gemm_tiled.py` with prefetch/unroll options; layernorm supplies its
+32-column GMEM stride; and maxpool selects vertical or 2x2 pooling.
+
+Generators emit unpacked assembly with `--emit-asm-only`. The harness applies
+the shared packetizer once, seeds the same image as the compiled kernel, and
+checks the same golden. Missing default pairings or failing handwritten
+goldens fail validation.
 
 ## Fixed issues
 
@@ -137,5 +141,5 @@ The Spring 2026 report's handwritten packet counts were produced by an older,
 more permissive scheduler and are not directly comparable to the new
 shared-packetizer results. Historical numbers should remain labeled with their
 scheduler version. The report's claim that compiled layernorm is more accurate
-than the handwritten one is likely the same memory-layout mismatch described in
-D.
+than the handwritten one may reflect the historical memory-layout mismatch;
+the current comparisons use matched layouts and goldens.
