@@ -104,6 +104,9 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
             perf[key.strip()] = float(value)
         except ValueError:
             continue
+    metrics_path = perf_path.parent / "packetization.json"
+    if metrics_path.exists():
+        perf.update(json.loads(metrics_path.read_text()))
     return perf
 
 
@@ -575,9 +578,10 @@ def run_one(
         # Handwritten generators emit unpacked assembly. Apply the compiler's
         # packetizer policy through build_compiler's textual-assembly adapter,
         # bypassing the simulator's more permissive legacy scheduler.
-        bc.append("--shaunak-packetize")
+        bc.append("--packetize")
     else:
         bc.append("--prepacked")
+    bc.extend(["--metrics", str(out_dir / "packetization.json")])
     run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}
@@ -610,6 +614,9 @@ def run_one(
         log_path=run_log,
     )
 
+    from ppci.arch.atalla.packetizer import check_metrics
+
+    check_metrics(read_perf(output_perf))
     check_fn(output_mem)
     kind = "handwritten" if handwritten else "compiled"
     print(f"OK {test_path.name} ({kind})  artifacts: {out_dir}")

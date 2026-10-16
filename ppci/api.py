@@ -53,8 +53,6 @@ from .opt.transform import DeleteUnusedInstructionsPass, RemoveAddZeroPass
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .wasm import read_wasm, wasm_to_ir
 
-from vliw_packetizer import vliw_packetizer
-from instruction_latency import latency
 
 __all__ = [
     "asm",
@@ -269,8 +267,6 @@ def ir_to_stream(
     # Code generation:
     ir_module.display()
     code_generator.generate(ir_module, output_stream, debug=debug)
-    if march == "atalla":
-        output_stream = vliw_packetizer(output_stream, latency)
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):

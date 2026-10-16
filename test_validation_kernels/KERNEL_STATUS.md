@@ -2,17 +2,18 @@
 
 Status of every test run by the `compiler_validation` CI workflow
 (`.github/workflows/compiler_validation.yml`), what was wrong with it, what was
-fixed, and what is still broken. Last updated 2026-10-04.
+fixed, and what is still broken. Last updated 2026-10-15.
 
 ## How the checks work
 
 Each compiled kernel is packetized by this branch's `atalla_cc -p`, encoded
 without rescheduling by `functional_sim/build_compiler.py --prepacked`, run on
 the functional simulator, and compared against a **golden** computed with numpy
-from the same seeded inputs. Handwritten kernels are parsed and packetized with
-the same functional-unit limits, dependency rules, critical-path priority, and
-latency table through `build_compiler.py --shaunak-packetize`; the simulator's
-legacy scheduler and peephole optimizer are bypassed.
+from the same seeded inputs. Handwritten kernels are parsed by
+`build_compiler.py --packetize` and call the same implementation in
+`ppci/arch/atalla/packetizer.py`, with a single latency table in
+`ppci/arch/atalla/latency.py`. Neither validation path uses the legacy simulator
+scheduler. Unit validation also uses compiler `-p` and encoder `--prepacked`.
 
 - `test_validation/*.c` (unit tests): each checks one feature; the expected
   result is in register `x10` (`EXPECT_X10` in the file header).
@@ -27,9 +28,8 @@ the gate; any other failure does. When a fix makes a listed kernel pass, the
 report shows `FIXED?`: remove it from `EXPECTED_FAILURES` so the gate protects
 it from then on.
 
-CI runs the simulator from the tip of the branch named in `.gitmodules`
-(currently `vecreg-spill-seth`) and records the simulator commit in the job
-summary.
+CI checks out the exact simulator commit recorded by this repository's
+`functional_sim` gitlink, verifies the hash, and records it in the job summary.
 
 ## Summary
 
@@ -97,7 +97,7 @@ rewrite these kernels accordingly.
 The simulator's legacy `schedule_program` remains more permissive than the
 hardware, but neither side of the kernel comparison uses it now. Compiled
 kernels arrive through `--prepacked`; handwritten kernels use the textual
-assembly adapter selected by `--shaunak-packetize`.
+assembly adapter selected by `--packetize`.
 
 Both adapters now isolate control operations, retain every outstanding WAR
 reader, and distinguish scalar, vector, and mask register files. Remaining
@@ -121,7 +121,7 @@ should not be presented as RTL-final throughput estimates.
 |---|---|---|---|
 | Scalar peephole folding removed a live K-loop increment when the next instruction copied the incremented value into another register. Both pipelined GEMMs then repeated the same tile until timeout. | gemm_tiled_pipelined, gemm_tiled_pipelined_unrolled | Fold adjacent `addi.s` or `li.s` instructions only when both write the same register. Both kernels now pass their numerical goldens. | functional_sim `build_compiler.py` |
 | Packetizer dependency keys used only `reg.num`, making `x1`, `v1`, and `m1` conflict, and WAR tracking retained only the latest reader. | all compiler-packetized code | Use typed register keys and retain all readers since the last definition; mirror the all-reader rule in the handwritten adapter. | compiler packetizer + functional_sim adapter |
-| Handwritten kernels used the simulator's permissive scheduler, so their packet counts were not comparable to compiler output. | add, relu, softmax, conv_baseline, conv_pipelined | Add `--shaunak-packetize`: parse unpacked assembly, use Shaunak's FU/dependency/critical-path policy and compiler latency table, relocate labels after block reordering, and bypass simulator peepholes. All five handwritten goldens pass. | functional_sim + compiler validation harness |
+| Handwritten kernels used the simulator's permissive scheduler, so their packet counts were not comparable to compiler output. | add, relu, softmax, conv_baseline, conv_pipelined | Add `--packetize`: parse unpacked assembly, use the shared compiler packetizer and compiler latency table, relocate labels after block reordering, and bypass simulator peepholes. All five handwritten goldens pass. | functional_sim + compiler validation harness |
 | Compiled kernels were rescheduled by the simulator, producing optimistic and previously nondeterministic packet counts. | all compiled kernels | Compile with `-p`, encode with `--prepacked`, and preserve all-NOP stall rows. Two repeated full runs produced identical static packet counts. | compiler validation harness |
 | Simulator packetizer ignored dependencies of mask compares (`mgt/mlt/meq/mneq` `.mvv/.mvs`): it checked for type names `MVV`/`MVS`, but the opcode table calls them `VMV`/`VMS`, so compares could move ahead of the instructions they depend on. | relu, make_mask_gt_scalar | Use the opcode table's type names. | functional_sim `75dba64` |
 | Simulator vector spill (`vreg_ld`/`vreg_st` with sid 3) used the previous instruction's address before reading the current one, so a spill also overwrote whatever the last vector load touched. | load_weights_lane0_dot | Read the address before using it; error if a sid 3 access is outside the spill area. | functional_sim `75dba64` |
@@ -135,7 +135,7 @@ should not be presented as RTL-final throughput estimates.
 
 The Spring 2026 report's handwritten packet counts were produced by an older,
 more permissive scheduler and are not directly comparable to the new
-Shaunak-policy results. Historical numbers should remain labeled with their
+shared-packetizer results. Historical numbers should remain labeled with their
 scheduler version. The report's claim that compiled layernorm is more accurate
 than the handwritten one is likely the same memory-layout mismatch described in
 D.

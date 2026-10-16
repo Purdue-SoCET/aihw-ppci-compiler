@@ -93,7 +93,7 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         "not fail the gate; `FIXED?` is listed as a known bug but passes now.",
         "",
         "| Kernel | Compiled | Handwritten | Packets executed (C / HW) | Ratio "
-        "| Instructions (C / HW) | Slot util (C / HW) |",
+        "| Instructions executed, excluding NOPs (C / HW) | Slot util (C / HW) |",
         "|---|---|---|---|---|---|---|",
     ]
     for r in kernel:
@@ -112,6 +112,26 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
             f"| {fmt_pct(perf_value(r, 'packet_slot_utilization_executed_pct'))} / "
             f"{fmt_pct(perf_value(hw, 'packet_slot_utilization_executed_pct'))} |"
         )
+
+    lines += [
+        "",
+        "## Static packetization",
+        "",
+        "Instructions are counted before scheduling, excluding NOPs and directives. "
+        "Packet totals include latency stalls and exclude simulator bootstrap packets (main and halt). "
+        "These static counts are separate from loop-dependent execution counts above.",
+        "",
+        "| Kernel | Instructions before packetization (C / HW) | Packets (C / HW) "
+        "| All-NOP packets (C / HW) |",
+        "|---|---|---|---|",
+    ]
+    for result in kernel:
+        hw = result.get("handwritten")
+        values = [
+            f"{fmt_int(perf_value(result, key))} / {fmt_int(perf_value(hw, key))}"
+            for key in ("instructions_before_packetization", "packets_before_encoding", "nop_packets")
+        ]
+        lines.append(f"| `{result['test']}` | " + " | ".join(values) + " |")
 
     lines += [
         "",

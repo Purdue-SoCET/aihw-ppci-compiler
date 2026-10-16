@@ -1,6 +1,6 @@
 import re
 from collections import defaultdict
-from instruction_latency import latency
+from ppci.arch.atalla.latency import latency
 
 def _int_or_none(tok):
     try:

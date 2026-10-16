@@ -5,7 +5,7 @@
 #
 # Vector latencies come from "ISA -- Atalla - Updated Instr Latency.csv".
 # Scalar latencies are from micro-architecture conventions; div/mod are
-# estimated (not in the CSV).
+# estimated.
 
 latency = {
     # ── Scalar ALU (Unit 1) ────────────────────────────────────────────────

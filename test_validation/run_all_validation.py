@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 
 EXPECT_X10_RE = re.compile(r"EXPECT_X10:\s*([+-]?(?:0x[0-9A-Fa-f]+|\d+))")
 INPUT_BASE_RE = re.compile(r"INPUT_GMEM_BASE:\s*([+-]?(?:0x[0-9A-Fa-f]+|\d+))")
@@ -59,6 +61,9 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
             perf[key.strip()] = float(value)
         except ValueError:
             continue
+    metrics_path = perf_path.parent / "packetization.json"
+    if metrics_path.exists():
+        perf.update(json.loads(metrics_path.read_text()))
     return perf
 
 
@@ -147,6 +152,7 @@ def validate_test(test_path: Path, *, repo_root: Path, sim_root: Path, out_root:
             "ppci.cli.atalla_cc",
             "--machine",
             "atalla",
+            "-p",
             "-S",
             str(test_path),
             "-o",
@@ -161,6 +167,9 @@ def validate_test(test_path: Path, *, repo_root: Path, sim_root: Path, out_root:
         [
             sys.executable,
             str(sim_root / "build_compiler.py"),
+            "--prepacked",
+            "--metrics",
+            str(out_dir / "packetization.json"),
             "-i",
             str(asm_path),
             "-o",
@@ -205,6 +214,9 @@ def validate_test(test_path: Path, *, repo_root: Path, sim_root: Path, out_root:
         log_path=run_log,
     )
 
+    from ppci.arch.atalla.packetizer import check_metrics
+
+    check_metrics(read_perf(output_perf))
     observed_x10 = parse_x10(output_sregs)
     if observed_x10 != expected_x10:
         raise RuntimeError(
