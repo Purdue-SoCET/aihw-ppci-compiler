@@ -277,7 +277,21 @@ Luis = make_mi("lui_s", 0b0110000)
 def materialize_i32(rd, value):
     """Build the real instructions for the ``li_s`` pseudo-instruction."""
     value &= 0xFFFFFFFF
+    signed_value = value if value < 0x80000000 else value - 0x100000000
+    if value & 0x7F == 0:
+        return (Luis(rd, value >> 7),)
+    if -0x800 <= signed_value < 0x800:
+        return (Addis(rd, R0, signed_value),)
     return Luis(rd, value >> 7), Addis(rd, rd, value & 0x7F)
+
+
+def _single_instruction_i32(tree):
+    return len(materialize_i32(R0, tree.value)) == 1
+
+
+def _single_instruction_bf16(tree):
+    bits = _f32_to_f16_bits(float(tree.value))
+    return len(materialize_i32(R0, bits)) == 1
 
 
 class Lis(PseudoAtallaInstruction):
@@ -569,6 +583,12 @@ def pattern_32_to_8_16(context, tree, c0):
 @isa.pattern("reg", "CONSTU16", size=10)
 @isa.pattern("reg", "CONSTI8", size=10)
 @isa.pattern("reg", "CONSTU8", size=10)
+@isa.pattern("reg", "CONSTI32", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU32", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTI16", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU16", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTI8", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU8", size=5, condition=_single_instruction_i32)
 def pattern_const_i32(context, tree):
     d = context.new_reg(AtallaRegister)
     for instruction in materialize_i32(d, tree.value):
@@ -579,6 +599,12 @@ def pattern_const_i32(context, tree):
 # @isa.pattern("reg", "CONSTF32", size=10)
 # @isa.pattern("reg", "CONSTF64", size=10)
 @isa.pattern("reg", "CONSTBF16", size=10)
+@isa.pattern(
+    "reg",
+    "CONSTBF16",
+    size=5,
+    condition=_single_instruction_bf16,
+)
 def pattern_const_f16(context, tree):
     # Convert Python float to IEEE-754 binary16 bits
     bits16 = _f32_to_f16_bits(float(tree.value))  # returns an int 0–65535
