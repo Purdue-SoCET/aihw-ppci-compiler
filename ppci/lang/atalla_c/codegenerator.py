@@ -1602,8 +1602,9 @@ class CCodeGenerator:
         mask = self.gen_expr(expr.mask, rvalue=True)
         op = expr.op
         ir_typ = self.get_ir_type(expr.typ)
+        merge = self.gen_expr(expr.merge, rvalue=True) if expr.merge is not None else None
         value = self.builder.emit_vec_op_masked(
-            op, arg1, arg2, mask, ir_typ
+            op, arg1, arg2, mask, ir_typ, merge=merge
         )
         return value
     

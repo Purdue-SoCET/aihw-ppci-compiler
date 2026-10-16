@@ -1212,9 +1212,12 @@ class CParser(RecursiveDescentParser):
                     args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
-            if len(args) != 4:
-                self.error(f"vec_op_masked(...) expects 4 arguments, got {len(args)}")
-            expr = self.semantics.on_vec_op_masked(args[0], args[1], args[2], args[3], location)
+            if len(args) not in (4, 5):
+                self.error(f"vec_op_masked(...) expects 4 or 5 arguments, got {len(args)}")
+            expr = self.semantics.on_vec_op_masked(
+                args[0], args[1], args[2], args[3], location,
+                merge=args[4] if len(args) == 5 else None,
+            )
             self.consume(")")
         elif self.peek == "make_mask":
             location = self.consume("make_mask").loc

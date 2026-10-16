@@ -289,7 +289,14 @@ class SelectionGraphBuilder:
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
         mask_output = self.prepare_mask(scalar_mask)
-        sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        if node.op in {"RSUM", "RMIN", "RMAX"}:
+            sgnode = self.new_node(op, node.ty, vs1, mask_output)
+        elif isinstance(node.mask, ir.Const) and node.mask.value & 0xffffffff == 0xffffffff:
+            # No inactive lanes: avoid a redundant merge copy and dependency.
+            sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        else:
+            merge = self.get_value(node.merge)
+            sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output, merge)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 

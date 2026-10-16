@@ -160,9 +160,9 @@ class Builder:
         """Emit a vector index instruction."""
         return self.emit(ir.VecIndex(base, index, "tmp_vec_index", ty))
     
-    def emit_vec_op_masked(self, op, a, b, mask, ty):
+    def emit_vec_op_masked(self, op, a, b, mask, ty, merge=None):
         """Emit a vector operation with mask instruction."""
-        return self.emit(ir.VecOpMasked(op, a, b, mask, "tmp_vec_op_masked", ty))
+        return self.emit(ir.VecOpMasked(op, a, b, mask, "tmp_vec_op_masked", ty, merge=merge))
     
     def emit_make_mask(self, op, a, b, mask, ty):
         """Emit a make mask instruction."""

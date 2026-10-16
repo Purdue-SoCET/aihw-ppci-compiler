@@ -75,6 +75,7 @@ jobs:
           PYTHONPATH: .:functional_sim
         run: >-
           python -m pytest -q test/codegen/test_atalla_packetizer.py test/test_validation_report.py
+          test/codegen/test_atalla_masked.py
           functional_sim/tests/unit/test_packetizer.py
           functional_sim/tests/unit/test_control_offsets.py
           functional_sim/tests/unit/test_build_compiler_li.py

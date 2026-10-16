@@ -43,54 +43,13 @@ CI checks out the exact simulator commit recorded by this repository's
 | gemm_tiled_baseline | PASS | PASS | none |
 | gemm_tiled_pipelined | PASS | PASS | none |
 | gemm_tiled_pipelined_unrolled | PASS | PASS | none |
-| softmax | KNOWN BUG | PASS | A (reduction mode) |
-| layernorm | KNOWN BUG | PASS | A (reduction mode) |
+| softmax | PASS | PASS | none |
+| layernorm | PASS | PASS | none |
 | maxpool | PASS | PASS | none in current kernel |
-| maxpool_2x2 | KNOWN BUG | PASS | A and B |
+| maxpool_2x2 | PASS | PASS | none |
 | All 12 unit tests | PASS | n/a | none |
 
 ## Open issues
-
-### A. Reductions only write lane 0 (softmax, layernorm, maxpool_2x2)
-
-**Symptom.** softmax outputs are up to 64% off (they still sum to 1, which is
-why the old "sums to about 1" check passed). layernorm is off by 0.22 on
-outputs up to 2.2.
-
-**Cause.** `rsum_vi` / `rmax_vi` / `rmin_vi` take an 8-bit mode immediate. In
-the simulator (`apply_imm_vector_op` in `functional_sim/src/functional_sim.py`),
-bit 6 (value 64) broadcasts the result to every lane; mode 0 writes the result to
-lane 0 and leaves the other lanes holding the input. Every kernel assumes
-broadcast. The compiler builds the immediate from the intrinsic's float argument
-(`vec_op_masked("RSUM", v, 0.0, mask)`) by converting it to BF16 bits, so `0.0`
-becomes mode 0, and no float value can produce 64.
-
-**Where.** `patt_rsum_vi`, `patt_rmin_vi`, `patt_rmax_vi` in
-`ppci/arch/atalla/vector_instructions.py`.
-
-**Verified fix.** Rewriting the emitted reductions to mode 64 makes softmax pass
-its golden and brings layernorm to 0.0156 max error (the bound for a correct
-BF16 implementation is 0.016; the golden allows 0.03). The fix is to emit mode 64
-for these patterns, and decide what, if anything, the float argument should mean
-for reductions.
-
-### B. Masked-op merge semantics remain undefined (maxpool_2x2)
-
-The original `maxpool` kernel now passes exactly with compiler-owned
-packetization. `maxpool_2x2` still fails, although its reduction-mode bug is
-intertwined with the masked-lane behavior described below.
-
-**Cause.** The kernels rely on
-`best = vec_op_masked("+", zero_vec, v1, mask)` leaving `best` unchanged in lanes
-where the mask is 0. The compiler treats the result as a new value and picks a
-fresh register (in maxpool it reuses the register holding `v1`), so the unmasked
-lanes hold whatever was in that register. The README only gives the intrinsic's
-signature; the behavior for unmasked lanes is not defined anywhere.
-
-**Needed.** A language decision: either define that `x = vec_op_masked(...)`
-merges into `x`'s previous value (the compiler must then use `x`'s register as
-the destination), or define unmasked lanes as coming from the first operand and
-rewrite these kernels accordingly.
 
 ### C. Packetizer model limitations
 
@@ -123,6 +82,9 @@ goldens fail validation.
 
 | Issue | Kernels affected | Fix | Where |
 |---|---|---|---|
+| Reduction lowering encoded the float placeholder as a mode, writing the result only into lane 0. | softmax, layernorm, maxpool_2x2 | Emit broadcast mode 64 for RSUM/RMIN/RMAX; require a constant-zero placeholder. | compiler vector instruction selection |
+| Masked assignments had no dependency on the previous destination; optimization removed earlier maxpool pair results. | maxpool, maxpool_2x2 | Optional fifth merge operand carried through AST, IR, and allocation; four-argument elementwise calls preserve the first vector operand. Initialize and track the destination as read/write. | compiler frontend, IR, vector lowering, kernel sources |
+| Instruction selection matched only a prefix of a tree's operands, allowing a rule to discard merge dependencies. | masked vector operations | Require matching terminal arities; correct the REGVEC/REGMASK leaf patterns. | compiler tree matcher + Atalla patterns |
 | Scalar peephole folding removed a live K-loop increment when the next instruction copied the incremented value into another register. Both pipelined GEMMs then repeated the same tile until timeout. | gemm_tiled_pipelined, gemm_tiled_pipelined_unrolled | Fold adjacent `addi.s` or `li.s` instructions only when both write the same register. Both kernels now pass their numerical goldens. | functional_sim `build_compiler.py` |
 | Packetizer dependency keys used only `reg.num`, making `x1`, `v1`, and `m1` conflict, and WAR tracking retained only the latest reader. | all compiler-packetized code | Use typed register keys and retain all readers since the last definition; mirror the all-reader rule in the handwritten adapter. | compiler packetizer + functional_sim adapter |
 | Handwritten kernels used the simulator's permissive scheduler, so their packet counts were not comparable to compiler output. | add, relu, softmax, conv_baseline, conv_pipelined | Add `--packetize`: parse unpacked assembly, use the shared compiler packetizer and compiler latency table, relocate labels after block reordering, and bypass simulator peepholes. All five handwritten goldens pass. | functional_sim + compiler validation harness |
