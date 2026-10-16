@@ -1,4 +1,5 @@
 [submodule "functional_sim"]
 	path = functional_sim
-	url = git@github.com:Purdue-SoCET/atalla-functional-sim.git
+	url = git@github.itap.purdue.edu:SoCETOrganization/atalla-functional-sim.gt
 	branch = vecreg-spill-seth
+	
