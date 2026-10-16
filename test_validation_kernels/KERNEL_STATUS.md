@@ -2,7 +2,7 @@
 
 Status of every test run by the `compiler_validation` CI workflow
 (`.github/workflows/compiler_validation.yml`), what was wrong with it, what was
-fixed, and what is still broken. Last updated 2026-09-28.
+fixed, and what is still broken. Last updated 2026-09-29.
 
 ## How the checks work
 
@@ -37,12 +37,12 @@ summary.
 | conv_baseline | PASS | PASS | none |
 | conv_pipelined | PASS | PASS | none |
 | conv_pipelined_unrolled | PASS | not paired | no handwritten equivalent |
-| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see F) |
-| gemm_tiled_pipelined | KNOWN BUG | not paired | C (undiagnosed) |
-| gemm_tiled_pipelined_unrolled | KNOWN BUG | not paired | C (undiagnosed) |
+| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see E) |
+| gemm_tiled_pipelined | PASS | not paired | none |
+| gemm_tiled_pipelined_unrolled | PASS | not paired | none |
 | softmax | KNOWN BUG | PASS | A (reduction mode) |
 | layernorm | KNOWN BUG | not paired | A (reduction mode) |
-| maxpool | KNOWN BUG | not paired | B (masked-op merge) |
+| maxpool | XPASS | not paired | B (masked-op merge) |
 | maxpool_2x2 | KNOWN BUG | not paired | A and B |
 | All 12 unit tests | PASS | n/a | none |
 
@@ -88,18 +88,7 @@ merges into `x`'s previous value (the compiler must then use `x`'s register as
 the destination), or define unmasked lanes as coming from the first operand and
 rewrite these kernels accordingly.
 
-### C. gemm_tiled_pipelined and gemm_tiled_pipelined_unrolled are wrong
-
-**Symptom.** Every 4x4 output tile is wrong (max error about 0.037), while
-gemm_tiled_baseline, run on the same data, matches `A @ W` to 0.0002.
-
-**Cause.** Not diagnosed. The C source is logically equivalent to the baseline
-(it only moves the W tile load to before the K loop and prefetches the next one),
-and the output does not match simple hypotheses such as "only one K tile
-counted". Suspects: miscompiled loop around the prefetch, or instruction
-reordering around `scpad_ld` / `lw_vi`.
-
-### D. The simulator's packetizer is too permissive (affects efficiency numbers)
+### C. The simulator's packetizer is too permissive (affects efficiency numbers)
 
 `schedule_program` in `functional_sim/build_compiler.py` allows up to four scalar
 ALU ops in one packet and has no functional-unit model, which the hardware does
@@ -116,14 +105,14 @@ packetizer's own bugs are fixed:
 `build_compiler.py --prepacked` already exists to encode compiler-made packets
 as-is once the compiler owns packetization.
 
-### E. Compiled output varies between runs
+### D. Compiled output varies between runs
 
 Packet counts for the gemm_tiled kernels differ slightly from run to run
 (for example 1,252 vs 1,244 for gemm_tiled_pipelined) with identical inputs.
 Harmless for the accuracy gate, but it must be made deterministic before gating
 on efficiency.
 
-### F. Kernels without a handwritten comparison
+### E. Kernels without a handwritten comparison
 
 | Kernel | Why not paired |
 |---|---|
@@ -136,6 +125,7 @@ on efficiency.
 
 | Issue | Kernels affected | Fix | Where |
 |---|---|---|---|
+| Scalar peephole folding removed a live K-loop increment when the next instruction copied the incremented value into another register. Both pipelined GEMMs then repeated the same tile until timeout. | gemm_tiled_pipelined, gemm_tiled_pipelined_unrolled | Fold adjacent `addi.s` or `li.s` instructions only when both write the same register. Both kernels now pass their numerical goldens. | functional_sim `build_compiler.py` |
 | Simulator packetizer ignored dependencies of mask compares (`mgt/mlt/meq/mneq` `.mvv/.mvs`): it checked for type names `MVV`/`MVS`, but the opcode table calls them `VMV`/`VMS`, so compares could move ahead of the instructions they depend on. | relu, make_mask_gt_scalar | Use the opcode table's type names. | functional_sim `75dba64` |
 | Simulator vector spill (`vreg_ld`/`vreg_st` with sid 3) used the previous instruction's address before reading the current one, so a spill also overwrote whatever the last vector load touched. | load_weights_lane0_dot | Read the address before using it; error if a sid 3 access is outside the spill area. | functional_sim `75dba64` |
 | The simulator changed `gemm.vv` to matmul only (`vd = vs1 @ W`) in April, but the compiler still relied on it adding the accumulator. | conv_baseline, conv_pipelined, conv_pipelined_unrolled, gemm_passthrough_lane0 | `gemm(a, acc, mask)` now emits `gemm_vv` followed by `add_vv`. | compiler `e2ba24ea` |
@@ -152,4 +142,4 @@ dependency bug above put back, and then produced wrong output, so the report's
 relu numbers came from a mis-scheduled program. Handwritten softmax has been 27
 packets at every simulator commit since the April 19 refactor; the report's 22
 predates it. The report's claim that compiled layernorm is more accurate than the
-handwritten one is likely the same memory-layout mismatch described in F.
+handwritten one is likely the same memory-layout mismatch described in E.

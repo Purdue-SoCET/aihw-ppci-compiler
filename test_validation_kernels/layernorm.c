@@ -7,8 +7,8 @@ int main() {
     int cfg = CFG_BASE;
     int IN_GMEM;
     int SCPAD_BASE;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_GMEM)    : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(SCPAD_BASE)  : "r"(cfg));
+    IN_GMEM = *(volatile int *)(cfg + 0);
+    SCPAD_BASE = *(volatile int *)(cfg + 4);
 
     int eps_addr = EPS_ADDR;
     int inv_addr = INV_N2_ADDR;
@@ -16,7 +16,7 @@ int main() {
     int sp = 0;
     int mask_val = MASK_ALL;
     int sdma_ctl;
-    asm("li_s %0, 133169183" : "=r"(sdma_ctl));
+    sdma_ctl = 133169183u;
 
     scpad_load(sp, IN_GMEM, sdma_ctl);
 
@@ -35,7 +35,7 @@ int main() {
     vec sum_rows = vec_op_masked("+", vec_op_masked("+", s0, s1, mask_val), vec_op_masked("+", s2, s3, mask_val), mask_val);
 
     float inv_mean;
-    asm("lw_s %0, 0(%1)" : "=r"(inv_mean) : "r"(inv_addr));
+    inv_mean = *(volatile float *)(inv_addr + 0);
     vec mean = vec_op_masked("*", sum_rows, inv_mean, mask_val);
 
     vec c0 = vec_op_masked("-", r0, mean, mask_val);
@@ -54,11 +54,11 @@ int main() {
     vec sum_sq = vec_op_masked("+", vec_op_masked("+", t0, t1, mask_val), vec_op_masked("+", t2, t3, mask_val), mask_val);
 
     float inv_var;
-    asm("lw_s %0, 0(%1)" : "=r"(inv_var) : "r"(inv_addr));
+    inv_var = *(volatile float *)(inv_addr + 0);
     vec variance = vec_op_masked("*", sum_sq, inv_var, mask_val);
 
     float eps_den;
-    asm("lw_s %0, 0(%1)" : "=r"(eps_den) : "r"(eps_addr));
+    eps_den = *(volatile float *)(eps_addr + 0);
     vec denom_seed = vec_op_masked("+", variance, eps_den, mask_val);
     float var_eps = denom_seed[0];
     float denom_f = sqrt(var_eps);
@@ -76,6 +76,6 @@ int main() {
 
     scpad_store(sp, IN_GMEM, sdma_ctl);
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }

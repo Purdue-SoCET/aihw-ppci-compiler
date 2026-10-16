@@ -99,6 +99,7 @@ class CParser(RecursiveDescentParser):
             "vector_load",
             "vector_store",
             "sqrt",
+            "atalla_halt",
             "struct",
             "union",
             "enum",
@@ -1179,6 +1180,11 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
+        elif self.peek == "atalla_halt":
+            location = self.consume("atalla_halt").loc
+            self.consume("(")
+            self.consume(")")
+            expr = self.semantics.on_atalla_halt(location)
         elif self.peek == "gemm":
             location = self.consume("gemm").loc
             self.consume("(")

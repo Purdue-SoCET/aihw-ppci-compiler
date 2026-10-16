@@ -28,18 +28,18 @@ int main() {
     int cfg = CFG_BASE;
     int IN_BASE;
     int OUT_BASE;
-    asm("lw_s %0, 0(%1)" : "=r"(IN_BASE)  : "r"(cfg));
-    asm("lw_s %0, 4(%1)" : "=r"(OUT_BASE) : "r"(cfg));
+    IN_BASE = *(volatile int *)(cfg + 0);
+    OUT_BASE = *(volatile int *)(cfg + 4);
 
     int sp = 0;
     int lane_mask = LANE_MASK;
 
     int sdma_in;
-    asm("li_s %0, 242221063" : "=r"(sdma_in));
+    sdma_in = 242221063u;
 
     int sdma_out;
     /* NR=NC=3 (4x4 tile), full DRAM stride = 4 cols => raw_fc = 3 */
-    asm("li_s %0, 103809027" : "=r"(sdma_out));
+    sdma_out = 103809027u;
 
     vec zero_vec = vector_load(0, 0, WIDTH_M1, 0);
     zero_vec = vec_op_masked("*", zero_vec, 0.0, lane_mask);
@@ -89,6 +89,6 @@ int main() {
         ch = ch + 1;
     }
 
-    asm("halt");
+    atalla_halt();
     return 0;
 }

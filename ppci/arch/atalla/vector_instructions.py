@@ -1,6 +1,6 @@
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP, materialize_i32
 
 from .tokens import (
     AtallaVMVToken,
@@ -17,7 +17,6 @@ from .tokens import (
 from .vector_registers import AtallaVectorRegister, V0
 from .mask_registers import M0, AtallaMaskRegister
 from .registers import R0, AtallaRegister
-from .instructions import Lis
 
 class AtallaVVInstruction(Instruction):
     tokens = [AtallaVVToken]
@@ -296,8 +295,8 @@ def pattern_store_vecreg(context, tree, c0, v1):
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
-    code = Lis(c, 1)
-    context.emit(code)
+    for code in materialize_i32(c, 1):
+        context.emit(code)
     code = VregSt(v1, addr_reg, c, 31, 3)
     code.fprel = True
     context.emit(code)
@@ -315,8 +314,8 @@ def pattern_load_vecreg(context, tree, c0):
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
-    code = Lis(c, 1)
-    context.emit(code)
+    for code in materialize_i32(c, 1):
+        context.emit(code)
     code = VregLd(d, addr_reg, c, 31, 3)
     code.fprel = True
     context.emit(code)
