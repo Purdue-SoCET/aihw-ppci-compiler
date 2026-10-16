@@ -459,4 +459,9 @@ class CodeGenerator:
             result.extend(self.arch.make_nop() for _ in range(max_width - len(packet)))
         result.extend(Label(name) for name in trailing_labels)
         result.extend(suffix)
+        from ..arch.atalla.branch_layout import relax_branches
+        result, added = relax_branches(result, self.arch.make_nop, max_width)
+        if added:
+            self.packetization_stats["branch_lowering_instructions"] = added
+            self.packetization_stats["packets"] += added
         return result

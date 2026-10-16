@@ -65,10 +65,19 @@ jobs:
       - name: Install validation dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e . numpy pydot
+          python -m pip install -e . numpy pydot pytest
 
       - name: Atalla architecture unit tests
         run: python -m unittest -v test.arch.test_atalla
+
+      - name: Packetization and control-flow regression tests
+        env:
+          PYTHONPATH: .:functional_sim
+        run: >-
+          python -m pytest -q test/codegen/test_atalla_packetizer.py test/test_validation_report.py
+          functional_sim/tests/unit/test_packetizer.py
+          functional_sim/tests/unit/test_control_offsets.py
+          functional_sim/tests/unit/test_build_compiler_li.py
 
       - name: Unit tests (x10 checks)
         id: unit

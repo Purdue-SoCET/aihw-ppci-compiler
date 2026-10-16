@@ -15,7 +15,8 @@ class AtallaBRToken(Token):
     incr_imm7 = bit_range(7, 14)
     rs1_rd    = bit_range(15, 23)
     rs2       = bit_range(23, 31)
-    imm10     = bit_concat(bit_range(31, 40), bit_range(14,15))
+    # ISA concatenation is {imm1, imm9}; bit 14 carries the sign bit.
+    imm10     = bit_concat(bit_range(14, 15), bit_range(31, 40))
 
 class AtallaIToken(Token):
     class Info:

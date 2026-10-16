@@ -14,7 +14,10 @@ def pc_rel_offset(name, sym_value, reloc_value, bits):
     accepts up to 2**bits-1, which would silently turn a far forward
     branch into a backward one.
     """
-    offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
+    delta = sym_value - reloc_value
+    if delta % ATALLA_INSN_ALIGNMENT:
+        raise ValueError(f"{name}: target offset {delta} is not instruction aligned")
+    offset = delta // ATALLA_INSN_ALIGNMENT
     limit = 1 << (bits - 1)
     if not -limit <= offset < limit:
         raise ValueError(

@@ -475,16 +475,20 @@ KERNEL_REGISTRY: dict[str, KernelSpec] = {
 
 # Handwritten (systems-team) generator in functional_sim/kernels that matches each C kernel's
 # shape and cfg layout, so both run on the same seeded image and the same checker.
-# Not paired yet, because the generator's memory layout doesn't match the C kernel's:
-#   layernorm   build_layernorm_param.py assumes an N-wide GMEM tile; C uses a 4x32 tile.
-#   gemm_tiled  build_gemm_tiled.py --tile 4 writes nothing to C on this image.
-# maxpool has no --emit-asm-only generator.
+GEMM_ARGS = ("--M", "8", "--N", "8", "--K", "8", "--tile", "4", "--cfg-base", "0x3c")
+POOL_ARGS = ("--H", "8", "--W", "8", "--validation-layout")
 HANDWRITTEN_KERNELS: dict[str, tuple[str, tuple[str, ...]]] = {
     "add": ("build_add.py", ("--rows", "4", "--width", "32")),
     "relu": ("build_relu.py", ("--rows", "4", "--width", "32")),
     "softmax": ("build_softmax_row32.py", ()),
     "conv_baseline": ("build_conv.py", ("--H", "4", "--W", "4")),
     "conv_pipelined": ("build_conv_pipelined.py", ("--H", "4", "--W", "4")),
+    "gemm_tiled_baseline": ("build_gemm_tiled.py", GEMM_ARGS),
+    "gemm_tiled_pipelined": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k",)),
+    "gemm_tiled_pipelined_unrolled": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k", "--unroll")),
+    "layernorm": ("build_layernorm_param.py", ("--n", "4", "--full-cols", "32")),
+    "maxpool": ("build_maxpool.py", POOL_ARGS),
+    "maxpool_2x2": ("build_maxpool.py", POOL_ARGS + ("--horizontal",)),
 }
 
 
@@ -706,7 +710,7 @@ def main() -> int:
         }
         results.append(result)
 
-        # Handwritten comparison is informational: it never fails the run.
+        # A paired reference must pass the same golden to be a useful comparison.
         if args.handwritten and t.stem in HANDWRITTEN_KERNELS:
             hw_error: str | None = None
             try:
@@ -720,6 +724,7 @@ def main() -> int:
                 )
             except Exception as e:
                 hw_error = str(e)
+                failed.append(f"{t.name} (handwritten): {hw_error}")
                 print(f"HANDWRITTEN FAIL {t.name}: {hw_error.splitlines()[0]}")
             script, gen_args = HANDWRITTEN_KERNELS[t.stem]
             result["handwritten"] = {

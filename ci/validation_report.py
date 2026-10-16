@@ -66,6 +66,8 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         lines += [f"Branch `{ref}` at `{sha}`", ""]
 
     failed = [r for r in unit + kernel if r["status"] == "fail"]
+    failed += [r["handwritten"] for r in kernel
+               if r.get("handwritten", {}).get("status") == "fail"]
     missing = [name for name, res in (("unit", unit), ("kernel", kernel)) if not res]
     if missing:
         verdict = (
@@ -81,7 +83,7 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         "",
         f"- Unit tests: {counts(unit)}",
         f"- Kernels (compiled): {counts(kernel)}",
-        f"- Kernels (handwritten, informational): "
+        f"- Kernels (handwritten): "
         f"{counts([r['handwritten'] for r in kernel if 'handwritten' in r])}",
         "",
         "## Kernels: compiled vs handwritten",
@@ -120,16 +122,19 @@ def render(unit: list[dict], kernel: list[dict]) -> str:
         "Instructions are counted before scheduling, excluding NOPs and directives. "
         "Packet totals include latency stalls and exclude simulator bootstrap packets (main and halt). "
         "These static counts are separate from loop-dependent execution counts above.",
+        "Branch-expansion instructions are counted separately from the original instructions; "
+        "packet totals include their packets.",
         "",
         "| Kernel | Instructions before packetization (C / HW) | Packets (C / HW) "
-        "| All-NOP packets (C / HW) |",
-        "|---|---|---|---|",
+        "| All-NOP packets (C / HW) | Branch-expansion instructions (C / HW) |",
+        "|---|---|---|---|---|",
     ]
     for result in kernel:
         hw = result.get("handwritten")
         values = [
             f"{fmt_int(perf_value(result, key))} / {fmt_int(perf_value(hw, key))}"
-            for key in ("instructions_before_packetization", "packets_before_encoding", "nop_packets")
+            for key in ("instructions_before_packetization", "packets_before_encoding", "nop_packets",
+                        "branch_lowering_instructions")
         ]
         lines.append(f"| `{result['test']}` | " + " | ".join(values) + " |")
 

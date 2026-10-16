@@ -47,5 +47,29 @@ class AtallaImmediateTestCase(unittest.TestCase):
         self.assertEqual([Addis], [type(inst) for inst in pseudo.render()])
 
 
+class AtallaBranchEncodingTestCase(unittest.TestCase):
+    def test_split_branch_field_and_disassembly(self):
+        from disassemble import decode_one
+        from ppci.arch.atalla.instructions import Beqs
+
+        for words in (-512, -4, -1, 0, 1, 4, 511):
+            with self.subTest(words=words):
+                ins = Beqs(R0, LR, "target")
+                encoded = next(ins.relocations()).apply(5000 + words * 5, ins.encode(), 5000)
+                raw = int.from_bytes(encoded, "little")
+                self.assertEqual((words & 0x3ff) >> 9, (raw >> 14) & 1)
+                self.assertEqual(words & 0x1ff, (raw >> 31) & 0x1ff)
+                self.assertIn(f"0x{5000 + words * 5:X}", decode_one("beq_s", "BR", raw, 5000))
+
+    def test_relocations_reject_far_and_unaligned_targets(self):
+        from ppci.arch.atalla.instructions import Beqs, Jal
+
+        for ins, deltas in ((Beqs(R0, LR, "target"), (-2565, 2560, 6)),
+                            (Jal(R0, "target"), (-(1 << 24) * 5 - 5, (1 << 24) * 5, 6))):
+            for delta in deltas:
+                with self.subTest(instruction=ins, delta=delta), self.assertRaises(ValueError):
+                    next(ins.relocations()).apply(100 + delta, ins.encode(), 100)
+
+
 if __name__ == "__main__":
     unittest.main()

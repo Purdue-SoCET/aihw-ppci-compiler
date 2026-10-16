@@ -165,8 +165,8 @@ def decode_one(mnemonic, fmt, insn_int, offset):
         rs2 = extract_bits(insn_int, 23, 31)
         imm9 = extract_bits(insn_int, 31, 40)
         
-        # Reconstruct imm10 = {imm9, i1}
-        imm10 = (imm9 << 1) | i1
+        # Reconstruct imm10 = {imm1, imm9} (ISA bit 14 is the sign bit).
+        imm10 = (i1 << 9) | imm9
         imm10_signed = sign_extend(imm10, 10)
 
         # PC-relative offset in instruction words (ISA_BYTES-byte instruction)
