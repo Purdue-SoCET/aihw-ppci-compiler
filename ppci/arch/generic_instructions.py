@@ -117,6 +117,15 @@ class InlineAssembly(VirtualInstruction):
     def defined_registers(self):
         return self.output_registers
 
+    def replace_register(self, old, new):
+        self.output_registers = [
+            new if reg is old else reg for reg in self.output_registers
+        ]
+        self.input_registers = [
+            new if reg is old else reg for reg in self.input_registers
+        ]
+        self.extra_uses = list(self.input_registers)
+
 
 class Comment(PseudoInstruction):
     """Assembly language comment"""

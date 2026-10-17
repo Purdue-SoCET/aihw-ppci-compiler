@@ -99,6 +99,7 @@ class CParser(RecursiveDescentParser):
             "vector_load",
             "vector_store",
             "sqrt",
+            "atalla_halt",
             "struct",
             "union",
             "enum",
@@ -1179,6 +1180,11 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
+        elif self.peek == "atalla_halt":
+            location = self.consume("atalla_halt").loc
+            self.consume("(")
+            self.consume(")")
+            expr = self.semantics.on_atalla_halt(location)
         elif self.peek == "gemm":
             location = self.consume("gemm").loc
             self.consume("(")
@@ -1206,9 +1212,12 @@ class CParser(RecursiveDescentParser):
                     args.append(self.parse_assignment_expression())
                 if self.peek != ")":
                     self.consume(",")
-            if len(args) != 4:
-                self.error(f"vec_op_masked(...) expects 4 arguments, got {len(args)}")
-            expr = self.semantics.on_vec_op_masked(args[0], args[1], args[2], args[3], location)
+            if len(args) not in (4, 5):
+                self.error(f"vec_op_masked(...) expects 4 or 5 arguments, got {len(args)}")
+            expr = self.semantics.on_vec_op_masked(
+                args[0], args[1], args[2], args[3], location,
+                merge=args[4] if len(args) == 5 else None,
+            )
             self.consume(")")
         elif self.peek == "make_mask":
             location = self.consume("make_mask").loc

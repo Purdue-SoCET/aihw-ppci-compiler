@@ -812,12 +812,22 @@ class CCodeGenerator:
             asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
             inline_asm.add_input_variable(asm_input_ir)
 
-        for _, asm_output_expr in stmt.output_operands:
+        register_results = []
+        for constraint, asm_output_expr in stmt.output_operands:
             asm_output_ir = self.gen_expr(asm_output_expr)
-            inline_asm.add_output_variable(asm_output_ir)
+            ir_typ = self.get_ir_type(asm_output_expr.typ)
+            if constraint == "=r" and ir_typ in (ir.i32, ir.u32, ir.bf16):
+                result = ir.InlineAsmResult("asm_result", ir_typ)
+                inline_asm.add_output_result(result)
+                register_results.append((result, asm_output_ir))
+            else:
+                inline_asm.add_output_variable(asm_output_ir)
 
         # Emit inline assembly:
         self.emit(inline_asm)
+        for result, address in register_results:
+            self.emit(result)
+            self.emit(ir.Store(result, address))
 
     def gen_condition(self, condition, yes_block, no_block):
         """Generate switch based on condition."""
@@ -1031,6 +1041,9 @@ class CCodeGenerator:
                 value = self.gen_array_index(expr)
             elif isinstance(expr, expressions.BuiltIn):
                 value = self.gen_builtin(expr)
+            elif isinstance(expr, expressions.AtallaHalt):
+                self.emit(ir.Halt())
+                value = None
             elif isinstance(expr, expressions.Gemm):
                 value = self.gen_gemm(expr)
             elif isinstance(expr, expressions.VecOpMasked):
@@ -1330,7 +1343,24 @@ class CCodeGenerator:
                 value = None
             else:
                 lhs = self.gen_expr(expr.a, rvalue=False)
-                rhs = self.gen_expr(expr.b, rvalue=True)
+                if (
+                    expr.op == "="
+                    and isinstance(expr.b, expressions.VecOpMasked)
+                    and expr.b.merge is None
+                    and expr.b.op not in {"RSUM", "RMIN", "RMAX"}
+                    and types.is_vector(expr.a.typ)
+                ):
+                    # masked vector ops keep the destination's previous
+                    # value in inactive lanes. for reassignment
+                    # (best = vec_op_masked(...)), pass it as the merge
+                    # operand so the result register can be coalesced
+                    with self.builder.use_location(expr.b.location):
+                        old_dst = self._load_value(lhs, expr.a.typ)
+                        rhs = self.gen_vec_op_masked(
+                            expr.b, merge_value=old_dst
+                        )
+                else:
+                    rhs = self.gen_expr(expr.b, rvalue=True)
 
                 if expr.op == "=":
                     value = rhs
@@ -1583,14 +1613,22 @@ class CCodeGenerator:
         value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
         return value
 
-    def gen_vec_op_masked(self, expr: expressions.VecOpMasked):
+    def gen_vec_op_masked(
+        self, expr: expressions.VecOpMasked, merge_value=None
+    ):
         arg1 = self.gen_expr(expr.arg1, rvalue=True)
         arg2 = self.gen_expr(expr.arg2, rvalue=True)
         mask = self.gen_expr(expr.mask, rvalue=True)
         op = expr.op
         ir_typ = self.get_ir_type(expr.typ)
+        if merge_value is not None:
+            merge = merge_value
+        elif expr.merge is not None:
+            merge = self.gen_expr(expr.merge, rvalue=True)
+        else:
+            merge = None
         value = self.builder.emit_vec_op_masked(
-            op, arg1, arg2, mask, ir_typ
+            op, arg1, arg2, mask, ir_typ, merge=merge
         )
         return value
     

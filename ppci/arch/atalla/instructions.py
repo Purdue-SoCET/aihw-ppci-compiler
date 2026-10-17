@@ -1,3 +1,4 @@
+from ppci.arch.stack import StackKind
 from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
@@ -21,6 +22,7 @@ from .relocations import (
     AtallaMI_JAL_Imm25_Relocation,
     AtallaMI_Abs_Imm25_Relocation,
     AtallaI_JALR_Imm12_Relocation,
+    AtallaI_Abs_Imm7_Relocation,
 )
 import struct
 
@@ -30,6 +32,7 @@ isa.register_relocation(AtallaBR_Imm10_Relocation)
 isa.register_relocation(AtallaMI_JAL_Imm25_Relocation)
 isa.register_relocation(AtallaMI_Abs_Imm25_Relocation)
 isa.register_relocation(AtallaI_JALR_Imm12_Relocation)
+isa.register_relocation(AtallaI_Abs_Imm7_Relocation)
 
 class AtallaRInstruction(Instruction):
     tokens = [AtallaRToken]
@@ -139,10 +142,9 @@ class AtallaBRInstruction(Instruction):
     tokens = [AtallaBRToken]
     isa = isa
 
-
 class BranchBase(AtallaBRInstruction):
     def relocations(self):
-        return [AtallaBR_Imm10_Relocation(self.imm10)]
+        yield AtallaBR_Imm10_Relocation(self.imm10)
     
     def encode(self):
         tokens = self.get_tokens()
@@ -167,6 +169,7 @@ def make_br(mnemonic, opcode):
         "opcode": opcode,
     }
     return type(mnemonic + "_ins", (BranchBase,), members)
+    # return type(mnemonic + "_ins", (AtallaBRInstruction,), members)
 
 # These are the opcodes that are in the Atalla ISA sheet - James
 Beqs = make_br("beq_s", 0b0100011)  # WAS: 0b0001110
@@ -242,6 +245,11 @@ class AtallaMIInstruction(Instruction):
     tokens = [AtallaMIToken]
     isa = isa
 
+
+class PseudoAtallaInstruction(ArtificialInstruction):
+    isa = isa
+
+
 def make_mi(mnemonic, opcode):
     rd = Operand("rd", AtallaRegister, write=True)
     imm25 = Operand("imm25", int)
@@ -263,8 +271,37 @@ def make_mi(mnemonic, opcode):
     return type(mnemonic + "_ins", (AtallaMIInstruction,), members)
 
 
-Lis = make_mi("li_s", 0b0101111) # TODO: make pseudo
 Luis = make_mi("lui_s", 0b0110000)
+
+
+def materialize_i32(rd, value):
+    """Build the real instructions for the ``li_s`` pseudo-instruction."""
+    value &= 0xFFFFFFFF
+    signed_value = value if value < 0x80000000 else value - 0x100000000
+    if value & 0x7F == 0:
+        return (Luis(rd, value >> 7),)
+    if -0x800 <= signed_value < 0x800:
+        return (Addis(rd, R0, signed_value),)
+    return Luis(rd, value >> 7), Addis(rd, rd, value & 0x7F)
+
+
+def _single_instruction_i32(tree):
+    return len(materialize_i32(R0, tree.value)) == 1
+
+
+def _single_instruction_bf16(tree):
+    bits = _f32_to_f16_bits(float(tree.value))
+    return len(materialize_i32(R0, bits)) == 1
+
+
+class Lis(PseudoAtallaInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["li_s", " ", rd, ",", " ", imm])
+
+    def render(self):
+        yield from materialize_i32(self.rd, self.imm)
+
 
 class AtallaNOPInstruction(Instruction):
     tokens = [AtallaSToken]
@@ -297,7 +334,7 @@ class Jal(AtallaMIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [AtallaMI_JAL_Imm25_Relocation(self.imm25)]
+        yield AtallaMI_JAL_Imm25_Relocation(self.imm25)
 
 class Jalr(AtallaIInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -314,6 +351,10 @@ class Jalr(AtallaIInstruction):
 
 Halt = make_nop("halt", 0b0110010)
 Nop = make_nop("nop", 0b0110001)
+
+@isa.pattern("stm", "HALT", size=1)
+def pattern_halt(context, tree):
+    context.emit(Halt())
 
 # Because I need dcd so it does not throw errors but I don't think it needs a relocation class and is probably integers only
 def dcd(v):
@@ -337,9 +378,6 @@ def dcd(v):
 #     def relocations(self):
 #         return [AbsAddr32Relocation(self.v)]
 
-class PseudoAtallaInstruction(ArtificialInstruction):
-    isa = isa
-    pass
 class Align(PseudoAtallaInstruction):
     imm = Operand("imm", int)
     syntax = Syntax([".", "align", " ", imm])
@@ -356,7 +394,7 @@ class Section(PseudoAtallaInstruction):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
 
-class Adrl(AtallaIInstruction):
+class Adrl(AtallaIInstruction): #This is wrong due to the 64 bit encoding but was fine because it was not used
     rd = Operand("rd", AtallaRegister, write=True)
     rs1 = Operand("rs1", AtallaRegister, read=True)
     imm12 = Operand("imm12", str)
@@ -371,7 +409,8 @@ class Adrl(AtallaIInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [AtallaI_JALR_Imm12_Relocation(self.imm12)]
+        yield AtallaI_JALR_Imm12_Relocation(self.imm12)
+    
 
 class Labelrel(PseudoAtallaInstruction):
     rd = Operand("rd", AtallaRegister, write=True)
@@ -380,8 +419,44 @@ class Labelrel(PseudoAtallaInstruction):
 
     def render(self):
         raise NotImplementedError("label bs")
+        # Should it be like auipc and lw here like risc-v?  We also don't have an auipc so cooked
+        # Okay, it should be the lui then addi here because we only have absolute addressing only difference is no lw at the end
         yield Adrurel(self.rd, self.label)
         yield Loadlrel(self.rd, self.label, self.rd)
+
+# This class is for LUI but for Labels
+class Luil(AtallaMIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    label = Operand("label", str)
+    syntax = Syntax(["lui_s", " ", rd, ",", " ", label])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0110000 # lui_s opcode
+        tokens[0][7:15] = self.rd.num
+        # imm25 will be filled in by relocation
+        return tokens[0].encode()
+
+    def relocations(self):
+        yield AtallaMI_Abs_Imm25_Relocation(self.label)
+
+# This class is for ADDI but for labels in conjunction with Luil
+class Addil(AtallaIInstruction):
+    rd = Operand("rd", AtallaRegister, write=True)
+    rs1 = Operand("rs1", AtallaRegister, read=True)
+    label = Operand("label", str)
+    syntax = Syntax(["addi_s", " ", rd, ",", " ", rs1, ",", " ", label])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010110  # addi_s opcode
+        tokens[0][7:15] = self.rd.num
+        tokens[0][15:23] = self.rs1.num
+        # imm7 will be filled in by relocation
+        return tokens[0].encode()
+
+    def relocations(self):
+        yield AtallaI_Abs_Imm7_Relocation(self.label)
 
 @isa.pattern("stm", "MOVI16(reg)", size=2)
 @isa.pattern("stm", "MOVU16(reg)", size=2)
@@ -502,52 +577,43 @@ def pattern_32_to_8_16(context, tree, c0):
     return c0
 
 
-@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value >= 2**25)
-def pattern_const_i32_large(context, tree):
-    d = context.new_reg(AtallaRegister)
-    c0 = tree.value
-    context.emit(Luis(d, c0 >> 7))
-    context.emit(Addis(d, d, c0 & 0x7F))
-    return d
-
-@isa.pattern("reg", "CONSTI32", size=4, condition=lambda t: t.value < 2**25 and t.value >= -2**25)
-@isa.pattern("reg", "CONSTU32", size=4, condition=lambda t: t.value < 2**25)
-@isa.pattern("reg", "CONSTI16", size=4)
-@isa.pattern("reg", "CONSTU16", size=4)
-@isa.pattern(
-    "reg",
-    "CONSTI32",
-    size=2,
-    condition=lambda t: t.value in range(-2048, 2048),
-)
-@isa.pattern(
-    "reg",
-    "CONSTI16",
-    size=2,
-    condition=lambda t: t.value in range(-2048, 2048),
-)
-@isa.pattern(
-    "reg", "CONSTI8", size=2, condition=lambda t: t.value in range(-128, 128)
-)
-@isa.pattern("reg", "CONSTU8", size=2, condition=lambda t: t.value < 256)
+@isa.pattern("reg", "CONSTI32", size=10)
+@isa.pattern("reg", "CONSTU32", size=10)
+@isa.pattern("reg", "CONSTI16", size=10)
+@isa.pattern("reg", "CONSTU16", size=10)
+@isa.pattern("reg", "CONSTI8", size=10)
+@isa.pattern("reg", "CONSTU8", size=10)
+@isa.pattern("reg", "CONSTI32", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU32", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTI16", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU16", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTI8", size=5, condition=_single_instruction_i32)
+@isa.pattern("reg", "CONSTU8", size=5, condition=_single_instruction_i32)
 def pattern_const_i32(context, tree):
     d = context.new_reg(AtallaRegister)
-    c0 = tree.value
-    context.emit(Lis(d, c0))
+    for instruction in materialize_i32(d, tree.value):
+        context.emit(instruction)
     return d
 
 
 # @isa.pattern("reg", "CONSTF32", size=10)
 # @isa.pattern("reg", "CONSTF64", size=10)
 @isa.pattern("reg", "CONSTBF16", size=10)
+@isa.pattern(
+    "reg",
+    "CONSTBF16",
+    size=5,
+    condition=_single_instruction_bf16,
+)
 def pattern_const_f16(context, tree):
     # Convert Python float to IEEE-754 binary16 bits
     bits16 = _f32_to_f16_bits(float(tree.value))  # returns an int 0–65535
 
     d = context.new_reg(AtallaRegister)
 
-    # Emit the *16-bit* immediate, not a 32-bit float
-    context.emit(Lis(d, bits16))
+    # Emit the *16-bit* immediate, not a 32-bit float.
+    for instruction in materialize_i32(d, bits16):
+        context.emit(instruction)
 
     return d
 
@@ -674,31 +740,21 @@ def pattern_sub_i32_reg_const(context, tree, c0):
     context.emit(Subis(d, c0, c1))
     return d
 
-'''
-# TODO: configure for globals
+
 @isa.pattern("reg", "LABEL", size=6)
 def pattern_label1(context, tree):
     d = context.new_reg(AtallaRegister)
-    ln = context.frame.add_constant(tree.value)
-    context.emit(Ands(d, ln))
-    context.emit(Adrl(d, d, ln))
+    ln = tree.value
+    context.emit(Luil(d, ln)) # Modified Luis class for relocation
+    context.emit(Addil(d, d, ln)) # Modified Addis class for relocation
     context.emit(Lws(d, 0, d))
     return d
-
-
-@isa.pattern("reg", "LABEL", size=4)
-def pattern_label2(context, tree):
-    d = context.new_reg(AtallaRegister)
-    ln = context.frame.add_constant(tree.value)
-    context.emit(Labelrel(d, ln))
-    return d
-'''
 
 @isa.pattern(
     "reg",
     "FPRELU32",
     size=4,
-    condition=lambda t: t.value.offset in range(-2048, 2048),
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.NORMAL,
 )
 def pattern_fpreli32(context, tree):
     d = context.new_reg(AtallaRegister)
@@ -714,11 +770,38 @@ def pattern_fpreli32(context, tree):
     "mem",
     "FPRELU32",
     size=0,
-    condition=lambda t: t.value.offset in range(-2048, 2048),
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.NORMAL,
 )
 def pattern_mem_fpreli32(context, tree):
     offset = tree.value.offset
     return FP, offset
+
+@isa.pattern(
+    "reg",
+    "FPRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
+)
+def pattern_fpreli32_scpad(context, tree):
+    d = context.new_reg(AtallaRegister)
+    offset = tree.value.offset
+    Code = Addis(d, SCPADFP, offset)
+    Code.fprel = True
+    Code.scpadfprel = True
+    context.emit(Code)
+    return d
+
+
+# Memory patterns:
+@isa.pattern(
+    "mem",
+    "FPRELU32",
+    size=0,
+    condition=lambda t: t.value.offset in range(-2048, 2048) and t.value.kind == StackKind.SCPAD,
+)
+def pattern_mem_fpreli32_scpad(context, tree):
+    offset = tree.value.offset
+    return SCPADFP, offset
 
 
 @isa.pattern("mem", "reg", size=10)

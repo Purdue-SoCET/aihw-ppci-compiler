@@ -159,10 +159,14 @@ class Visitor:
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)
+            if node.merge is not None:
+                self.visit(node.merge)
         elif isinstance(node, expressions.MakeMask):
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)
+        elif isinstance(node, expressions.AtallaHalt):
+            pass
         elif isinstance(node, expressions.LoadWeights):
             self.visit(node.arg)
         elif isinstance(node, expressions.ScpadLoad):

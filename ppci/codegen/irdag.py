@@ -289,9 +289,21 @@ class SelectionGraphBuilder:
         vs2 = self.get_value(node.arg2)
         scalar_mask = self.get_value(node.mask)
         mask_output = self.prepare_mask(scalar_mask)
-        sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        if node.op in {"RSUM", "RMIN", "RMAX"}:
+            sgnode = self.new_node(op, node.ty, vs1, mask_output)
+        elif isinstance(node.mask, ir.Const) and node.mask.value & 0xffffffff == 0xffffffff:
+            # No inactive lanes: avoid a redundant merge copy and dependency.
+            sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output)
+        else:
+            merge = self.get_value(node.merge)
+            sgnode = self.new_node(op, node.ty, vs1, vs2, mask_output, merge)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
+
+    def do_halt(self, node):
+        sgnode = self.new_node("HALT", None)
+        self.debug_db.map(node, sgnode)
+        self.chain(sgnode)
 
     def do_load_weights(self, node):
         vec_arg = self.get_value(node.arg)
@@ -322,7 +334,16 @@ class SelectionGraphBuilder:
         arg4 = self.get_value(node.arg4)
         sgnode = self.new_node("VLOAD", node.ty, addr, arg2, arg3, arg4)
         self.debug_db.map(node, sgnode)
+        
+        # REPLACE WITH COMMENT
         self.add_map(node, sgnode.new_output(node.name))
+        
+        # # self.add_map(node, sgnode.new_output(node.name))
+        # output = sgnode.new_output(node.name)
+        # # Keep VLOAD as a first-class producer so the splitter does not
+        # # force a MOVVEC vreg copy purely because the node is chained.
+        # output.wants_vreg = False
+        # self.add_map(node, output)
         self.chain(sgnode)
 
     def do_vector_store(self, node):
@@ -489,7 +510,6 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        # TODO: Optimization needed: save output registers to map without storing to stack
         input_registers = []
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
@@ -502,7 +522,10 @@ class SelectionGraphBuilder:
             input_registers.append(reg_loc)
 
         output_registers = []
-        for out_val in node.output_values:
+        for kind, out_val in node.output_operands:
+            if kind == "result":
+                output_registers.append(self.new_vreg(out_val.ty))
+                continue
             # Determine the amount based on the type of out_val
             # AddressOf has .src.amount, while GlobalValue has .amount directly
             amount = None
@@ -531,9 +554,15 @@ class SelectionGraphBuilder:
         self.chain(asm_node)
         self.debug_db.map(node, asm_node)
 
-        for i, (reg, addr) in enumerate(
-            zip(output_registers, node.output_values)
+        for i, (reg, (kind, addr)) in enumerate(
+            zip(output_registers, node.output_operands)
         ):
+            if kind == "result":
+                result_node = self.new_node("REG", addr.ty, value=reg)
+                output = result_node.new_output(addr.name)
+                output.vreg = reg
+                self.add_map(addr, output)
+                continue
             address = self.get_address(addr)
             # Determine the amount based on the type of addr
             # AddressOf has .src.amount, while GlobalValue has .amount directly
@@ -555,6 +584,9 @@ class SelectionGraphBuilder:
 
             store_node = self.new_node("STR", ty, address, output)
             self.chain(store_node)
+
+    def do_inline_asm_result(self, node):
+        assert node in self.function_info.value_map
 
     def do_const(self, node):
         """Process constant instruction"""

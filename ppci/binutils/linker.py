@@ -628,6 +628,7 @@ class Linker:
         """
         sym_value = self.get_symbol_value(relocation.symbol_id)
         section = self.dst.get_section(relocation.section)
+        self.logger.debug("Relocation section: %s", section)
 
         # Determine address in memory of reloc patchup position:
         reloc_value = section.address + relocation.offset

@@ -33,6 +33,39 @@ class IrCodeTestCase(unittest.TestCase):
         self.assertEqual({c3, c4}, add.uses)
         self.assertEqual(c4, add.b)
 
+    def test_inline_asm_replace_use(self):
+        """Inline asm rewrites inputs and address outputs, not results."""
+        old = ir.Const(1, "old", ir.ptr)
+        new = ir.Const(2, "new", ir.ptr)
+        result = ir.InlineAsmResult("result", ir.i32)
+        replacement_result = ir.InlineAsmResult("replacement", ir.i32)
+        inline_asm = ir.InlineAsm("test %0, %1", [])
+
+        # Use the same value in multiple places to verify that the def-use set
+        # is updated once while every operand occurrence is replaced.
+        inline_asm.add_input_variable(old)
+        inline_asm.add_input_variable(old)
+        inline_asm.add_output_variable(old)
+        inline_asm.add_output_result(result)
+
+        inline_asm.replace_use(old, new)
+
+        self.assertEqual([new, new], inline_asm.input_values)
+        self.assertEqual(
+            [("address", new), ("result", result)],
+            inline_asm.output_operands,
+        )
+        self.assertEqual({new}, inline_asm.uses)
+        self.assertNotIn(inline_asm, old.used_by)
+        self.assertIn(inline_asm, new.used_by)
+
+        # Results are definitions of the inline asm, not its uses.
+        inline_asm.replace_use(result, replacement_result)
+        self.assertEqual(
+            [("address", new), ("result", result)],
+            inline_asm.output_operands,
+        )
+
 
 class IrBuilderTestCase(unittest.TestCase):
     def setUp(self):

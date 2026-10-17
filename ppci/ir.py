@@ -1202,6 +1202,13 @@ class Store(Instruction):
         return f"store {val}, {address}"
 
 
+class Halt(Instruction):
+    """Atalla machine halt, with a side effect that must be emitted."""
+
+    def __str__(self):
+        return "halt"
+
+
 class InlineAsm(Instruction):
     """Inline assembly code."""
 
@@ -1210,7 +1217,7 @@ class InlineAsm(Instruction):
         self.template = template
         self.clobbers = clobbers
         self.input_values = []
-        self.output_values = []
+        self.output_operands = []
 
     def add_input_variable(self, value):
         """Add an value as input to this assembly stuff."""
@@ -1218,19 +1225,38 @@ class InlineAsm(Instruction):
         self.add_use(value)
 
     def add_output_variable(self, value):
-        self.output_values.append(value)
+        self.output_operands.append(("address", value))
         self.add_use(value)
+
+    def add_output_result(self, result):
+        self.output_operands.append(("result", result))
 
     def replace_use(self, old, new):
         super().replace_use(old, new)
-        if old in self.input_values:
-            idx = self.input_values.index(old)
+        replace_input = any(value is old for value in self.input_values)
+        replace_address = any(
+            kind == "address" and value is old
+            for kind, value in self.output_operands
+        )
+        if replace_input or replace_address:
             self.del_use(old)
-            self.input_values[idx] = new
+            self.input_values = [
+                new if value is old else value
+                for value in self.input_values
+            ]
+            self.output_operands = [
+                (kind, new if kind == "address" and value is old else value)
+                for kind, value in self.output_operands
+            ]
             self.add_use(new)
 
     def __str__(self):
         return f"asm ({self.template})"
+
+
+class InlineAsmResult(LocalValue):
+    def __str__(self):
+        return f"{self.ty} {self.name} = asm result"
 
 
 class FinalInstruction(Instruction):
@@ -1414,14 +1440,15 @@ class Gemm(LocalValue):
     
 
 class VecOpMasked(LocalValue):
-    """Vector operation with a mask"""
+    """Masked operation with an explicit inactive-lane value; reductions broadcast."""
 
     arg1 = value_use("arg1")
     arg2 = value_use("arg2")
     mask = value_use("mask")
+    merge = value_use("merge")
     op = ["+","-", "|","<<","*","&",">>","/","^","GEMM","EXP","SQRT","~","RSUM","RMIN","RMAX",]
 
-    def __init__(self, op, arg1, arg2, mask, name, ty):
+    def __init__(self, op, arg1, arg2, mask, name, ty, merge=None):
         super().__init__(name, ty)
         
         if op not in VecOpMasked.op:
@@ -1438,9 +1465,24 @@ class VecOpMasked(LocalValue):
         self.arg2 = arg2
         self.mask = mask
         self.op = op
+        if merge is None:
+            merge = arg1 if isinstance(arg1.ty, VectorTyp) else arg2
+        if merge.ty is not ty:
+            raise TypeError("Masked merge operand must have the result vector type")
+        self.merge = merge
+
+    def replace_use(self, old, new):
+        # arg1 and the default merge may refer to the same SSA value.
+        names = [name for name, value in self._var_map.items() if value is old]
+        if names:
+            self.del_use(old)
+            for name in names:
+                self._var_map[name] = new
+            self.add_use(new)
 
     def __str__(self):
-        return f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+        return (f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, "
+                f"{self.mask.name}, merge {self.merge.name}")
     
 class VecIndex(LocalValue):
     """Extract an element from a vector"""

@@ -186,12 +186,13 @@ class Gemm(CExpression):
         return f"Gemm({self.arg1}, {self.arg2}, {self.mask})"
     
 class VecOpMasked(CExpression):
-    def __init__(self, op, arg1, arg2, mask, typ, lvalue, location):
+    def __init__(self, op, arg1, arg2, mask, typ, lvalue, location, merge=None):
         super().__init__(typ, lvalue, location)
         self.op = op
         self.arg1 = arg1
         self.arg2 = arg2
         self.mask = mask
+        self.merge = merge
     def __repr__(self):
         return f"VecOpMasked({self.op}, {self.arg1}, {self.arg2}, {self.mask})"
 
@@ -213,6 +214,14 @@ class LoadWeights(CExpression):
 
     def __repr__(self):
         return f"LoadWeights({self.arg})"
+
+
+class AtallaHalt(CExpression):
+    def __init__(self, typ, location):
+        super().__init__(typ, False, location)
+
+    def __repr__(self):
+        return "atalla_halt()"
 
 
 class ScpadLoad(CExpression):

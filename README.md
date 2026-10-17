@@ -49,6 +49,16 @@ We provide the following intrisic functions to be used by the programmer to perf
  */
 vec vec_op_masked(char* op, vec v1, vec v2, int mask);
 vec vec_op_masked(char* op, vec v1, float f1, int mask);
+vec vec_op_masked(char* op, vec v1, vec v2, int mask, vec merge);
+vec vec_op_masked(char* op, vec v1, float f1, int mask, vec merge);
+
+/* Elementwise operations preserve inactive lanes from v1 by default, or
+ * from the optional merge vector. Assignment does not implicitly preserve
+ * the old destination: use ..., mask, acc) when updating acc lane by lane.
+ * RSUM/RMIN/RMAX instead reduce the mask-selected input lanes and broadcast
+ * the result to all lanes. Their third argument must be the constant 0.0;
+ * these reductions do not accept a merge argument.
+ */
 
 
 /**
@@ -161,12 +171,12 @@ float sqrt(float x);
 
 Below is a list of what is currently not supported by the compiler, but is planned to be added in future releases.
 
-* Global variables
+* ~~Global variables~~ FIXED in release v0.9.2
 * Function inlining
 * ~~Void return functions broken~~ FIXED in release: v0.9.1
 * Passing non-scalar values to functions by value, such as `vec` datatype values
     * **Workaround**: pass vectors by address, not by value
-* Linking files with multiple functions in 1 file (works with -S flag)
+* ~~Linking files with multiple functions in 1 file (works with -S flag)~~ FIXED in release v0.9.2
 * ~~Some operations, such as SDMA and vreg_ld can only be called via inline ASM. Intrinsics will be added in the future.~~ FIXED in release: v0.9.1
 * Packetization is currently handled by the emulator's build file. Please run the -S output assembly through that to run the code on the emulator
 
