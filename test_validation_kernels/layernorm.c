@@ -26,8 +26,7 @@ int main() {
     vec r2 = vector_load(0, row2, 31, 0);
     vec r3 = vector_load(0, row3, 31, 0);
 
-    /* sum_rows vs sum_sq must be different C variables; reusing `acc` made IR tie
-       variance masked-add merge_base to the pre-mean row sum (wrong variance). */
+    /* Reductions broadcast the sum of the four mask-selected lanes. */
     vec s0 = vec_op_masked("RSUM", r0, 0.0, mask_val);
     vec s1 = vec_op_masked("RSUM", r1, 0.0, mask_val);
     vec s2 = vec_op_masked("RSUM", r2, 0.0, mask_val);

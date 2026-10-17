@@ -47,7 +47,7 @@ int main() {
             int r1 = in_row + 1;
             vec v1 = vector_load(0, r1, WIDTH_M1, 0);
             int gt1 = make_mask(">", v1, best, lane_mask);
-            best = vec_op_masked("+", zero_vec, v1, gt1);
+            best = vec_op_masked("+", zero_vec, v1, gt1, best);
 
             vector_store(best, 0, oh, WIDTH_M1, 0);
             oh = oh + 1;

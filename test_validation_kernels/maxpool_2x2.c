@@ -1,6 +1,6 @@
 /* 2x2 maxpool, stride 2, on an 8x8 BF16 tile (one channel).
  *
- * Vertical pass: same masked add idiom as maxpool.c (two rows -> one).
+ * Vertical pass: masked add with an explicit previous-best merge value.
  * Horizontal pass: four masked RMAX ops (masks 0x3, 0xC, 0x30, 0xC0) take
  * max over lane pairs (0,1),(2,3),(4,5),(6,7) without vmov.vts or scalar
  * compares — AtallaC bf16 branches / float ? : are currently miscompiled for
@@ -59,7 +59,7 @@ int main() {
             int r1 = in_row + 1;
             vec v1 = vector_load(0, r1, WIDTH_M1, 0);
             int gt1 = make_mask(">", v1, best, lane_mask);
-            best = vec_op_masked("+", zero_vec, v1, gt1);
+            best = vec_op_masked("+", zero_vec, v1, gt1, best);
 
             vector_store(best, 0, oh, WIDTH_M1, 0);
             oh = oh + 1;
@@ -73,13 +73,14 @@ int main() {
             vec acc = vec_op_masked("+", zero_vec, p01, 0x1);
 
             vec p23 = vec_op_masked("RMAX", r, 0.0, M23);
-            acc = vec_op_masked("+", zero_vec, p23, 0x2);
+            /* Carry the accumulated lanes explicitly through each update. */
+            acc = vec_op_masked("+", zero_vec, p23, 0x2, acc);
 
             vec p45 = vec_op_masked("RMAX", r, 0.0, M45);
-            acc = vec_op_masked("+", zero_vec, p45, 0x4);
+            acc = vec_op_masked("+", zero_vec, p45, 0x4, acc);
 
             vec p67 = vec_op_masked("RMAX", r, 0.0, M67);
-            acc = vec_op_masked("+", zero_vec, p67, 0x8);
+            acc = vec_op_masked("+", zero_vec, p67, 0x8, acc);
 
             vector_store(acc, 0, row, OUT_WIDTH_M1, 0);
             row = row + 1;

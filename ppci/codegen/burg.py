@@ -206,7 +206,7 @@ class BurgSystem:
     def tree_terminal_equal(self, t1, t2):
         """Check if the terminals of a tree match"""
         if t1.name in self.terminals and t2.name in self.terminals:
-            if t1.name == t2.name:
+            if t1.name == t2.name and len(t1.children) == len(t2.children):
                 # match children:
                 return all(
                     self.tree_terminal_equal(a, b)

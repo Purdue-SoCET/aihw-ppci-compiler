@@ -2,14 +2,18 @@
 
 Status of every test run by the `compiler_validation` CI workflow
 (`.github/workflows/compiler_validation.yml`), what was wrong with it, what was
-fixed, and what is still broken. Last updated 2026-09-29.
+fixed, and what is still broken. Last updated 2026-10-16.
 
 ## How the checks work
 
-Each kernel is compiled with this branch's `atalla_cc`, packetized and encoded by
-`functional_sim/build_compiler.py`, run on the functional simulator, and its
-output memory is compared against a **golden**: the expected result computed
-with numpy from the same seeded inputs.
+Each compiled kernel is packetized by this branch's `atalla_cc -p`, encoded
+without rescheduling by `functional_sim/build_compiler.py --prepacked`, run on
+the functional simulator, and compared against a **golden** computed with numpy
+from the same seeded inputs. Handwritten kernels are parsed by
+`build_compiler.py --packetize` and call the same implementation in
+`ppci/arch/atalla/packetizer.py`, with a single latency table in
+`ppci/arch/atalla/latency.py`. Neither validation path uses the legacy simulator
+scheduler. Unit validation also uses compiler `-p` and encoder `--prepacked`.
 
 - `test_validation/*.c` (unit tests): each checks one feature; the expected
   result is in register `x10` (`EXPECT_X10` in the file header).
@@ -24,9 +28,8 @@ the gate; any other failure does. When a fix makes a listed kernel pass, the
 report shows `FIXED?`: remove it from `EXPECTED_FAILURES` so the gate protects
 it from then on.
 
-CI runs the simulator from the tip of the branch named in `.gitmodules`
-(currently `vecreg-spill-seth`) and records the simulator commit in the job
-summary.
+CI checks out the exact simulator commit recorded by this repository's
+`functional_sim` gitlink, verifies the hash, and records it in the job summary.
 
 ## Summary
 
@@ -36,96 +39,56 @@ summary.
 | relu | PASS | PASS | none |
 | conv_baseline | PASS | PASS | none |
 | conv_pipelined | PASS | PASS | none |
-| conv_pipelined_unrolled | PASS | not paired | no handwritten equivalent |
-| gemm_tiled_baseline | PASS | not paired | handwritten pairing (see E) |
-| gemm_tiled_pipelined | PASS | not paired | none |
-| gemm_tiled_pipelined_unrolled | PASS | not paired | none |
-| softmax | KNOWN BUG | PASS | A (reduction mode) |
-| layernorm | KNOWN BUG | not paired | A (reduction mode) |
-| maxpool | XPASS | not paired | B (masked-op merge) |
-| maxpool_2x2 | KNOWN BUG | not paired | A and B |
+| conv_pipelined_unrolled | PASS | PASS | none |
+| gemm_tiled_baseline | PASS | PASS | none |
+| gemm_tiled_pipelined | PASS | PASS | none |
+| gemm_tiled_pipelined_unrolled | PASS | PASS | none |
+| softmax | PASS | PASS | none |
+| layernorm | PASS | PASS | none |
+| maxpool | PASS | PASS | none in current kernel |
+| maxpool_2x2 | PASS | PASS | none |
 | All 12 unit tests | PASS | n/a | none |
 
 ## Open issues
 
-### A. Reductions only write lane 0 (softmax, layernorm, maxpool_2x2)
+### C. Packetizer model limitations
 
-**Symptom.** softmax outputs are up to 64% off (they still sum to 1, which is
-why the old "sums to about 1" check passed). layernorm is off by 0.22 on
-outputs up to 2.2.
+The simulator's legacy `schedule_program` remains more permissive than the
+hardware, but neither side of the kernel comparison uses it now. Compiled
+kernels arrive through `--prepacked`; handwritten kernels use the textual
+assembly adapter selected by `--packetize`.
 
-**Cause.** `rsum_vi` / `rmax_vi` / `rmin_vi` take an 8-bit mode immediate. In
-the simulator (`apply_imm_vector_op` in `functional_sim/src/functional_sim.py`),
-bit 6 (value 64) broadcasts the result to every lane; mode 0 writes the result to
-lane 0 and leaves the other lanes holding the input. Every kernel assumes
-broadcast. The compiler builds the immediate from the intrinsic's float argument
-(`vec_op_masked("RSUM", v, 0.0, mask)`) by converting it to BF16 bits, so `0.0`
-becomes mode 0, and no float value can produce 64.
+Both adapters now isolate control operations, retain every outstanding WAR
+reader, and distinguish scalar, vector, and mask register files. Remaining
+model limitations include unmapped instructions (which currently have no FU
+restriction) and a deliberately conservative chain across all memory-touching
+operations. Packet counts are now comparable between these two paths, but they
+should not be presented as RTL-final throughput estimates.
 
-**Where.** `patt_rsum_vi`, `patt_rmin_vi`, `patt_rmax_vi` in
-`ppci/arch/atalla/vector_instructions.py`.
+### D. Handwritten comparison coverage
 
-**Verified fix.** Rewriting the emitted reductions to mode 64 makes softmax pass
-its golden and brings layernorm to 0.0156 max error (the bound for a correct
-BF16 implementation is 0.016; the golden allows 0.03). The fix is to emit mode 64
-for these patterns, and decide what, if anything, the float argument should mean
-for reductions.
+All 12 kernels have a handwritten comparison. `HANDWRITTEN_KERNELS` in
+`run_kernel_validation.py` supplies each generator's shape and layout options.
+The unrolled convolution uses `build_conv_unrolled_pipelined.py`; tiled GEMMs
+use `build_gemm_tiled.py` with prefetch/unroll options; layernorm supplies its
+32-column GMEM stride; and maxpool selects vertical or 2x2 pooling.
 
-### B. Masked ops don't preserve the destination's old lanes (maxpool, maxpool_2x2)
-
-**Symptom.** maxpool output is off by up to 1.04: lanes where the second row is
-not larger come out as the second row instead of the first.
-
-**Cause.** The kernels rely on
-`best = vec_op_masked("+", zero_vec, v1, mask)` leaving `best` unchanged in lanes
-where the mask is 0. The compiler treats the result as a new value and picks a
-fresh register (in maxpool it reuses the register holding `v1`), so the unmasked
-lanes hold whatever was in that register. The README only gives the intrinsic's
-signature; the behavior for unmasked lanes is not defined anywhere.
-
-**Needed.** A language decision: either define that `x = vec_op_masked(...)`
-merges into `x`'s previous value (the compiler must then use `x`'s register as
-the destination), or define unmasked lanes as coming from the first operand and
-rewrite these kernels accordingly.
-
-### C. The simulator's packetizer is too permissive (affects efficiency numbers)
-
-`schedule_program` in `functional_sim/build_compiler.py` allows up to four scalar
-ALU ops in one packet and has no functional-unit model, which the hardware does
-not support. Correctness results are unaffected, but packet counts and slot
-utilization for both compiled and handwritten kernels are optimistic. Planned fix:
-make its algorithm match Shaunak's packetizer (branch `atalla-shaunak`) after that
-packetizer's own bugs are fixed:
-
-- `halt` is not treated as control and gets hoisted to the top of its block.
-- WAR tracking only remembers the most recent reader of a register.
-- Registers are keyed by number only, so `x1`, `v1` and `m1` create false
-  dependencies.
-
-`build_compiler.py --prepacked` already exists to encode compiler-made packets
-as-is once the compiler owns packetization.
-
-### D. Compiled output varies between runs
-
-Packet counts for the gemm_tiled kernels differ slightly from run to run
-(for example 1,252 vs 1,244 for gemm_tiled_pipelined) with identical inputs.
-Harmless for the accuracy gate, but it must be made deterministic before gating
-on efficiency.
-
-### E. Kernels without a handwritten comparison
-
-| Kernel | Why not paired |
-|---|---|
-| layernorm | `build_layernorm_param.py` expects an N-wide tile in memory; the C kernel uses a 4x32 tile. Passing the right stride was not enough (output still skewed). |
-| gemm_tiled_* | `build_gemm_tiled.py --tile 4` writes nothing to C on this memory image. |
-| maxpool, maxpool_2x2 | `build_maxpool.py` has no `--emit-asm-only` mode. |
-| conv_pipelined_unrolled, gemm_tiled_pipelined_unrolled | no matching generator. |
+Generators emit unpacked assembly with `--emit-asm-only`. The harness applies
+the shared packetizer once, seeds the same image as the compiled kernel, and
+checks the same golden. Missing default pairings or failing handwritten
+goldens fail validation.
 
 ## Fixed issues
 
 | Issue | Kernels affected | Fix | Where |
 |---|---|---|---|
+| Reduction lowering encoded the float placeholder as a mode, writing the result only into lane 0. | softmax, layernorm, maxpool_2x2 | Emit broadcast mode 64 for RSUM/RMIN/RMAX; require a constant-zero placeholder. | compiler vector instruction selection |
+| Masked assignments had no dependency on the previous destination; optimization removed earlier maxpool pair results. | maxpool, maxpool_2x2 | Optional fifth merge operand carried through AST, IR, and allocation; four-argument elementwise calls preserve the first vector operand. Initialize and track the destination as read/write. | compiler frontend, IR, vector lowering, kernel sources |
+| Instruction selection matched only a prefix of a tree's operands, allowing a rule to discard merge dependencies. | masked vector operations | Require matching terminal arities; correct the REGVEC/REGMASK leaf patterns. | compiler tree matcher + Atalla patterns |
 | Scalar peephole folding removed a live K-loop increment when the next instruction copied the incremented value into another register. Both pipelined GEMMs then repeated the same tile until timeout. | gemm_tiled_pipelined, gemm_tiled_pipelined_unrolled | Fold adjacent `addi.s` or `li.s` instructions only when both write the same register. Both kernels now pass their numerical goldens. | functional_sim `build_compiler.py` |
+| Packetizer dependency keys used only `reg.num`, making `x1`, `v1`, and `m1` conflict, and WAR tracking retained only the latest reader. | all compiler-packetized code | Use typed register keys and retain all readers since the last definition; mirror the all-reader rule in the handwritten adapter. | compiler packetizer + functional_sim adapter |
+| Handwritten kernels used the simulator's permissive scheduler, so their packet counts were not comparable to compiler output. | add, relu, softmax, conv_baseline, conv_pipelined | Add `--packetize`: parse unpacked assembly, use the shared compiler packetizer and compiler latency table, relocate labels after block reordering, and bypass simulator peepholes. All five handwritten goldens pass. | functional_sim + compiler validation harness |
+| Compiled kernels were rescheduled by the simulator, producing optimistic and previously nondeterministic packet counts. | all compiled kernels | Compile with `-p`, encode with `--prepacked`, and preserve all-NOP stall rows. Two repeated full runs produced identical static packet counts. | compiler validation harness |
 | Simulator packetizer ignored dependencies of mask compares (`mgt/mlt/meq/mneq` `.mvv/.mvs`): it checked for type names `MVV`/`MVS`, but the opcode table calls them `VMV`/`VMS`, so compares could move ahead of the instructions they depend on. | relu, make_mask_gt_scalar | Use the opcode table's type names. | functional_sim `75dba64` |
 | Simulator vector spill (`vreg_ld`/`vreg_st` with sid 3) used the previous instruction's address before reading the current one, so a spill also overwrote whatever the last vector load touched. | load_weights_lane0_dot | Read the address before using it; error if a sid 3 access is outside the spill area. | functional_sim `75dba64` |
 | The simulator changed `gemm.vv` to matmul only (`vd = vs1 @ W`) in April, but the compiler still relied on it adding the accumulator. | conv_baseline, conv_pipelined, conv_pipelined_unrolled, gemm_passthrough_lane0 | `gemm(a, acc, mask)` now emits `gemm_vv` followed by `add_vv`. | compiler `e2ba24ea` |
@@ -136,10 +99,9 @@ on efficiency.
 
 ## Numbers from last semester's report
 
-The Spring 2026 report's handwritten packet counts cannot be reproduced with the
-current tools. Handwritten relu dropped from 32 to 28 packets with the mask
-dependency bug above put back, and then produced wrong output, so the report's
-relu numbers came from a mis-scheduled program. Handwritten softmax has been 27
-packets at every simulator commit since the April 19 refactor; the report's 22
-predates it. The report's claim that compiled layernorm is more accurate than the
-handwritten one is likely the same memory-layout mismatch described in E.
+The Spring 2026 report's handwritten packet counts were produced by an older,
+more permissive scheduler and are not directly comparable to the new
+shared-packetizer results. Historical numbers should remain labeled with their
+scheduler version. The report's claim that compiled layernorm is more accurate
+than the handwritten one may reflect the historical memory-layout mismatch;
+the current comparisons use matched layouts and goldens.
