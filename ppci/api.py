@@ -53,8 +53,6 @@ from .opt.transform import DeleteUnusedInstructionsPass, RemoveAddZeroPass
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .wasm import read_wasm, wasm_to_ir
 
-from vliw_packetizer import vliw_packetizer
-from instruction_latency import latency
 
 __all__ = [
     "asm",
@@ -254,7 +252,8 @@ def optimize(ir_module, level=0, reporter=None):
 
 
 def ir_to_stream(
-    ir_module, march, output_stream, reporter=None, debug=False, opt="speed"
+    ir_module, march, output_stream, reporter=None, debug=False, opt="speed",
+    packetize=False,
 ):
     """Translate IR module to output stream."""
     march = get_arch(march)
@@ -262,14 +261,12 @@ def ir_to_stream(
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    code_generator = CodeGenerator(march, reporter, optimize_for=opt)
+    code_generator = CodeGenerator(march, reporter, optimize_for=opt, packetize=packetize)
     verify_module(ir_module)
 
     # Code generation:
     ir_module.display()
     code_generator.generate(ir_module, output_stream, debug=debug)
-    if march == "atalla":
-        output_stream = vliw_packetizer(output_stream, latency)
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):
@@ -282,7 +279,8 @@ def ir_to_assembly(ir_modules, march, add_binary=False):
 
 
 def ir_to_object(
-    ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None
+    ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None,
+    packetize=False,
 ):
     """Translate IR-modules into code for the given architecture.
 
@@ -328,6 +326,7 @@ def ir_to_object(
             reporter=reporter,
             debug=debug,
             opt=opt,
+            packetize=packetize,
         )
 
     reporter.message("All modules generated!")

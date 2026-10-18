@@ -1,6 +1,5 @@
-from ppci.wasm.execution.runtime import _f32_to_f16_bits
 from ..encoding import Instruction, Operand, Syntax
-from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP
+from .instructions import isa, Addis, FP, SP, SCPADSP, SCPADFP, materialize_i32
 
 from .tokens import (
     AtallaVMVToken,
@@ -17,19 +16,29 @@ from .tokens import (
 from .vector_registers import AtallaVectorRegister, V0
 from .mask_registers import M0, AtallaMaskRegister
 from .registers import R0, AtallaRegister
-from .instructions import Lis
 
-class AtallaVVInstruction(Instruction):
+class AtallaVectorInstruction(Instruction):
+    preserves_lanes = False
+
+    @property
+    def used_registers(self):
+        uses = super().used_registers
+        if self.preserves_lanes:
+            uses.append(self.vd)
+        return uses
+
+
+class AtallaVVInstruction(AtallaVectorInstruction):
     tokens = [AtallaVVToken]
     isa = isa
 
 
-class AtallaVSInstruction(Instruction):
+class AtallaVSInstruction(AtallaVectorInstruction):
     tokens = [AtallaVSToken]
     isa = isa
 
 
-class AtallaVIInstruction(Instruction):
+class AtallaVIInstruction(AtallaVectorInstruction):
     tokens = [AtallaVIToken]
     isa = isa
 
@@ -200,7 +209,7 @@ def make_mts(mnemonic: str, opcode: int):
 MvStm = make_stm("mv_stm", 0b1001010)
 MvMts = make_mts("mv_mts", 0b1001001)
 
-@isa.pattern("maskreg", "REGMASK(maskreg)", size=1)
+@isa.pattern("maskreg", "REGMASK", size=1)
 def pattern_maskreg(context, tree):
     return tree.value
 
@@ -273,6 +282,17 @@ def pattern_mkmskneqvec_scalar(context, tree, v0, rs1, mask):
 def _new_v(context):
     return context.new_reg(AtallaVectorRegister)
 
+
+def emit_masked(context, instruction, operands, mask, merge):
+    """Tie the initialized destination's read/write lifetime through allocation."""
+    result = _new_v(context)
+    if merge is not None:
+        context.move(result, merge)
+    code = instruction(result, *operands, mask)
+    code.preserves_lanes = merge is not None
+    context.emit(code)
+    return result
+
 def _new_s(context):
     return context.new_reg(AtallaRegister)
 
@@ -296,8 +316,8 @@ def pattern_store_vecreg(context, tree, c0, v1):
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
-    code = Lis(c, 1)
-    context.emit(code)
+    for code in materialize_i32(c, 1):
+        context.emit(code)
     code = VregSt(v1, addr_reg, c, 31, 3)
     code.fprel = True
     context.emit(code)
@@ -315,8 +335,8 @@ def pattern_load_vecreg(context, tree, c0):
         context.emit(code)
 
     c = context.new_reg(AtallaRegister)
-    code = Lis(c, 1)
-    context.emit(code)
+    for code in materialize_i32(c, 1):
+        context.emit(code)
     code = VregLd(d, addr_reg, c, 31, 3)
     code.fprel = True
     context.emit(code)
@@ -352,7 +372,7 @@ def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
-@isa.pattern("vecreg", "REGVEC(vecreg)", size=1)
+@isa.pattern("vecreg", "REGVEC", size=1)
 def pattern_reg(context, tree):
     return tree.value
 
@@ -360,22 +380,22 @@ def pattern_reg(context, tree):
 # ---------- VV (vector-vector) ----------
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_add_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(AddVv(d, v0, v1, mask))
-    return d
+@isa.pattern("vecreg", "ADDVEC(vecreg, vecreg)", size=2)
+@isa.pattern("vecreg", "ADDVEC(vecreg, vecreg, maskreg, vecreg)", size=4)
+def patt_add_vv(ctx, tree, v0, v1, mask=M0, merge=None):
+    return emit_masked(ctx, AddVv, (v0, v1), mask, merge)
 
 @isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_sub_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(SubVv(d, v0, v1, mask))
-    return d
+@isa.pattern("vecreg", "SUBVEC(vecreg, vecreg)", size=2)
+@isa.pattern("vecreg", "SUBVEC(vecreg, vecreg, maskreg, vecreg)", size=4)
+def patt_sub_vv(ctx, tree, v0, v1, mask=M0, merge=None):
+    return emit_masked(ctx, SubVv, (v0, v1), mask, merge)
 
 @isa.pattern("vecreg", "MULVEC(vecreg, vecreg, maskreg)", size=2)
-def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MulVv(d, v0, v1, mask))
-    return d
+@isa.pattern("vecreg", "MULVEC(vecreg, vecreg)", size=2)
+@isa.pattern("vecreg", "MULVEC(vecreg, vecreg, maskreg, vecreg)", size=4)
+def patt_mul_vv(ctx, tree, v0, v1, mask=M0, merge=None):
+    return emit_masked(ctx, MulVv, (v0, v1), mask, merge)
 
 # @isa.pattern("vecreg", "DIVVEC(vecreg, vecreg, stm)", size=2)
 # def patt_div_vv(ctx, tree, v0, v1, mask = M0):
@@ -404,14 +424,13 @@ def patt_mul_vv(ctx, tree, v0, v1, mask = M0):
 #     return d
 
 @isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg)", size=4)
-def patt_gemm_vv(ctx, tree, v0, v1, mask):
+@isa.pattern("vecreg", "GEMMVEC(vecreg, vecreg, maskreg, vecreg)", size=6)
+def patt_gemm_vv(ctx, tree, v0, v1, mask, merge=None):
     # gemm.vv is matmul-only (vd = vs1 @ W); vs2 is ignored by hardware.
     # gemm(a, acc, mask) therefore needs an explicit add for the accumulator.
     prod = _new_v(ctx)
     ctx.emit(GemmVv(prod, v0, V0, mask))
-    d = _new_v(ctx)
-    ctx.emit(AddVv(d, prod, v1, mask))
-    return d
+    return emit_masked(ctx, AddVv, (prod, v1), mask, merge)
 
 # ---------- VI (vector-immediate) ----------
 
@@ -496,10 +515,9 @@ def patt_gemm_vv(ctx, tree, v0, v1, mask):
 # EXP (immediate exponent)
 @isa.pattern("vecreg", "EXPVEC(vecreg, CONSTBF16, maskreg)", size=2,
              condition=lambda t: -4096 <= t.children[1].value <= 4095)
-def patt_exp_vi(ctx, tree, vsrc, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(ExpiVi(d, vsrc, 0, mask))
-    return d
+@isa.pattern("vecreg", "EXPVEC(vecreg, CONSTBF16, maskreg, vecreg)", size=4)
+def patt_exp_vi(ctx, tree, vsrc, mask=M0, merge=None):
+    return emit_masked(ctx, ExpiVi, (vsrc, 0), mask, merge)
 
 # SQRT (mode/precision as imm if your ISA uses it)
 # @isa.pattern("vecreg", "SQRTVEC(vecreg, CONSTBF16, maskreg)", size=2,
@@ -528,48 +546,42 @@ def patt_exp_vi(ctx, tree, vsrc, mask = M0):
 #     ctx.emit(ShiftVi(d, vsrc, imm, mask))
 #     return d
 
-@isa.pattern("vecreg", "RSUMVEC(vecreg, CONSTBF16, maskreg)", size=2)
+@isa.pattern("vecreg", "RSUMVEC(vecreg, maskreg)", size=2)
 def patt_rsum_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(RsumVi(d, vsrc, imm, mask))
+    ctx.emit(RsumVi(d, vsrc, 64, mask))
     return d
 
-@isa.pattern("vecreg", "RMINVEC(vecreg, CONSTBF16, maskreg)", size=2)
+@isa.pattern("vecreg", "RMINVEC(vecreg, maskreg)", size=2)
 def patt_rmin_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(RminVi(d, vsrc, imm, mask))
+    ctx.emit(RminVi(d, vsrc, 64, mask))
     return d
 
-@isa.pattern("vecreg", "RMAXVEC(vecreg, CONSTBF16, maskreg)", size=2)
+@isa.pattern("vecreg", "RMAXVEC(vecreg, maskreg)", size=2)
 def patt_rmax_vi(ctx, tree, vsrc, mask = M0):
     d = _new_v(ctx)
-    assert isinstance(tree.children[1].value, float), "Expected a float immediate"
-    imm = _f32_to_f16_bits(tree.children[1].value)
-    ctx.emit(RmaxVi(d, vsrc, imm, mask))
+    ctx.emit(RmaxVi(d, vsrc, 64, mask))
     return d
 # # ---------- VS (vector-scalar) ----------
 
 @isa.pattern("vecreg", "ADDVEC(vecreg, reg, maskreg)", size=2)
-def patt_add_vs(ctx, tree, vsrc, rs1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(AddVs(d, vsrc, rs1, mask))
-    return d
+@isa.pattern("vecreg", "ADDVEC(vecreg, reg)", size=2)
+@isa.pattern("vecreg", "ADDVEC(vecreg, reg, maskreg, vecreg)", size=4)
+def patt_add_vs(ctx, tree, vsrc, rs1, mask=M0, merge=None):
+    return emit_masked(ctx, AddVs, (vsrc, rs1), mask, merge)
 
 @isa.pattern("vecreg", "SUBVEC(vecreg, reg, maskreg)", size=2)
-def patt_sub_vs(ctx, tree, vsrc, rs1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(SubVs(d, vsrc, rs1, mask))
-    return d
+@isa.pattern("vecreg", "SUBVEC(vecreg, reg)", size=2)
+@isa.pattern("vecreg", "SUBVEC(vecreg, reg, maskreg, vecreg)", size=4)
+def patt_sub_vs(ctx, tree, vsrc, rs1, mask=M0, merge=None):
+    return emit_masked(ctx, SubVs, (vsrc, rs1), mask, merge)
 
 @isa.pattern("vecreg", "MULVEC(vecreg, reg, maskreg)", size=2)
-def patt_mul_vs(ctx, tree, vsrc, rs1, mask = M0):
-    d = _new_v(ctx)
-    ctx.emit(MulVs(d, vsrc, rs1, mask))
-    return d
+@isa.pattern("vecreg", "MULVEC(vecreg, reg)", size=2)
+@isa.pattern("vecreg", "MULVEC(vecreg, reg, maskreg, vecreg)", size=4)
+def patt_mul_vs(ctx, tree, vsrc, rs1, mask=M0, merge=None):
+    return emit_masked(ctx, MulVs, (vsrc, rs1), mask, merge)
 
 # @isa.pattern("vecreg", "DIVVEC(vecreg, reg, stm)", size=2)
 # def patt_div_vs(ctx, tree, vsrc, rs1, mask = M0):

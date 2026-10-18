@@ -989,12 +989,25 @@ class CSemantics:
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
+    def on_atalla_halt(self, location):
+        typ = self.get_type(["void"])
+        return expressions.AtallaHalt(typ, location)
+
     def on_gemm(self, a, b, mask, location):
         expr = expressions.Gemm(a, b, mask, self.vec_type, False, location)
         return expr
     
-    def on_vec_op_masked(self, op, a, b, mask, location):
-        expr = expressions.VecOpMasked(op, a, b, mask, self.vec_type, False, location)
+    def on_vec_op_masked(self, op, a, b, mask, location, merge=None):
+        if merge is not None and not types.is_vector(merge.typ):
+            self.error("vec_op_masked merge operand must be a vector", location)
+        if op in {"RSUM", "RMIN", "RMAX"}:
+            if not isinstance(b, expressions.NumericLiteral) or b.value != 0:
+                self.error("Reduction placeholder must be the constant 0.0", location)
+            if merge is not None:
+                self.error("Broadcast reductions do not accept a merge operand", location)
+        expr = expressions.VecOpMasked(
+            op, a, b, mask, self.vec_type, False, location, merge=merge
+        )
         return expr
 
     def on_make_mask(self, op, a, b, mask, location):
