@@ -84,15 +84,35 @@ DEFAULT_TESTS = (
 
 def get_git_info(repo_root: Path) -> dict[str, str]:
     info = {"commit": "", "branch": "", "message": ""}
+    cwd = str(repo_root)
     try:
+        rev = "HEAD"
+        branch = ""
+        event_path = os.environ.get("GITHUB_EVENT_PATH")
+        if event_path and os.path.exists(event_path):
+            try:
+                with open(event_path) as f:
+                    event = json.load(f)
+                pr = event.get("pull_request")
+                if pr and "head" in pr:
+                    rev = pr["head"].get("sha", rev)
+                    branch = pr["head"].get("ref", "")
+            except Exception:
+                pass
+
         commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+            ["git", "rev-parse", "--short", rev], cwd=cwd, text=True, stderr=subprocess.DEVNULL
         ).strip()
-        branch = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
-        ).strip()
+        if not branch:
+            branch = (
+                os.environ.get("GITHUB_HEAD_REF")
+                or os.environ.get("GITHUB_REF_NAME")
+                or subprocess.check_output(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd, text=True, stderr=subprocess.DEVNULL
+                ).strip()
+            )
         msg = subprocess.check_output(
-            ["git", "log", "-1", "--format=%s"], cwd=str(repo_root), text=True, stderr=subprocess.DEVNULL
+            ["git", "log", "-1", "--format=%s", rev], cwd=cwd, text=True, stderr=subprocess.DEVNULL
         ).strip()
         info = {"commit": commit, "branch": branch, "message": msg}
     except Exception:

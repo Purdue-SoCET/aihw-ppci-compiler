@@ -45,14 +45,33 @@ def get_local_git_info() -> dict[str, str]:
     try:
         import subprocess
 
+        rev = "HEAD"
+        branch = ""
+        event_path = os.environ.get("GITHUB_EVENT_PATH")
+        if event_path and os.path.exists(event_path):
+            try:
+                with open(event_path) as f:
+                    event = json.load(f)
+                pr = event.get("pull_request")
+                if pr and "head" in pr:
+                    rev = pr["head"].get("sha", rev)
+                    branch = pr["head"].get("ref", "")
+            except Exception:
+                pass
+
         commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], text=True, stderr=subprocess.DEVNULL
+            ["git", "rev-parse", "--short", rev], text=True, stderr=subprocess.DEVNULL
         ).strip()
-        branch = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True, stderr=subprocess.DEVNULL
-        ).strip()
+        if not branch:
+            branch = (
+                os.environ.get("GITHUB_HEAD_REF")
+                or os.environ.get("GITHUB_REF_NAME")
+                or subprocess.check_output(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True, stderr=subprocess.DEVNULL
+                ).strip()
+            )
         msg = subprocess.check_output(
-            ["git", "log", "-1", "--format=%s"], text=True, stderr=subprocess.DEVNULL
+            ["git", "log", "-1", "--format=%s", rev], text=True, stderr=subprocess.DEVNULL
         ).strip()
         info = {"commit": commit, "branch": branch, "message": msg}
     except Exception:
