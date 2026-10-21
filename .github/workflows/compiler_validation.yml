@@ -80,13 +80,14 @@ jobs:
       - name: Packetization and control-flow regression tests
         env:
           PYTHONPATH: .:functional_sim
-        run: >-
-          python -m pytest -q test/codegen/test_atalla_packetizer.py test/test_validation_report.py
-          test/codegen/test_atalla_masked.py
-          functional_sim/tests/unit/test_packetizer.py
-          functional_sim/tests/unit/test_control_offsets.py
-          functional_sim/tests/unit/test_build_compiler_li.py
-          functional_sim/tests/unit/test_conv_generator.py
+        run: |
+          source $VENV_PATH/activate
+          python -m pytest -q test/codegen/test_atalla_packetizer.py test/test_validation_report.py \
+            test/codegen/test_atalla_masked.py \
+            functional_sim/tests/unit/test_packetizer.py \
+            functional_sim/tests/unit/test_control_offsets.py \
+            functional_sim/tests/unit/test_build_compiler_li.py \
+            functional_sim/tests/unit/test_conv_generator.py
 
       - name: Unit tests (x10 checks)
         id: unit
@@ -147,6 +148,7 @@ jobs:
       - name: Write report
         if: always()
         run: |
+          source $VENV_PATH/activate
           python ci/validation_report.py \
             --unit validation_results/unit.json \
             --kernel validation_results/kernel.json \
