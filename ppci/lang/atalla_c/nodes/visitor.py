@@ -159,6 +159,8 @@ class Visitor:
             self.visit(node.arg1)
             self.visit(node.arg2)
             self.visit(node.mask)
+            if node.merge is not None:
+                self.visit(node.merge)
         elif isinstance(node, expressions.MakeMask):
             self.visit(node.arg1)
             self.visit(node.arg2)

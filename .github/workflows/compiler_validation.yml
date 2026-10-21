@@ -1,8 +1,7 @@
 name: compiler_validation
 
 # Compile the validation C tests and kernels with this branch's atalla_cc, run them on
-# the latest functional simulator from the branch named in .gitmodules
-# (submodule.functional_sim.branch), and compare each kernel against the matching
+# the simulator revision pinned by this commit, and compare against matching
 # handwritten kernel. Fails only on accuracy.
 on:
   push:
@@ -38,55 +37,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # atalla-functional-sim is private, so GITHUB_TOKEN can't clone the submodule.
-      # A read-only deploy key on that repo (secret FUNCTIONAL_SIM_DEPLOY_KEY) is used
-      # to check out the tip of the sim branch named in .gitmodules.
-      - name: Resolve functional_sim branch
+      # The private simulator is checked out at this compiler commit's gitlink.
+      - name: Resolve functional_sim revision
         id: sim
-        env:
-          DEPLOY_KEY: ${{ secrets.FUNCTIONAL_SIM_DEPLOY_KEY }}
-        run: |
-          if [ -z "$DEPLOY_KEY" ]; then
-            echo "::error::Secret FUNCTIONAL_SIM_DEPLOY_KEY is not available (missing, or a PR from a fork)."
-            exit 1
-          fi
-          branch=$(git config -f .gitmodules submodule.functional_sim.branch)
-          if [ -z "$branch" ]; then
-            echo "::error::.gitmodules has no branch for submodule functional_sim."
-            exit 1
-          fi
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD:functional_sim)" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout functional_sim branch
+      - name: Checkout functional_sim
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/atalla-functional-sim
-          ref: ${{ steps.sim.outputs.branch }}
+          ref: ${{ steps.sim.outputs.sha }}
           path: functional_sim
           ssh-key: ${{ secrets.FUNCTIONAL_SIM_DEPLOY_KEY }}
           persist-credentials: false
 
-      # The branch tip moves independently of this repo, so record which sim commit
-      # these results came from.
-      - name: Record functional_sim commit
+      - name: Verify functional_sim revision
         run: |
-          sim_sha=$(git -C functional_sim rev-parse HEAD)
-          pinned=$(git rev-parse HEAD:functional_sim)
-          echo "functional_sim ${{ steps.sim.outputs.branch }} @ $sim_sha (submodule pointer: $pinned)"
-          {
-            echo "functional_sim: \`${{ steps.sim.outputs.branch }}\` at \`${sim_sha:0:8}\`"
-            if [ "$sim_sha" != "$pinned" ]; then
-              echo "(submodule pointer in this commit is \`${pinned:0:8}\`)"
-            fi
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
+          test "$(git -C functional_sim rev-parse HEAD)" = "${{ steps.sim.outputs.sha }}"
+          echo 'functional_sim: `${{ steps.sim.outputs.sha }}`' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install validation dependencies
         run: |
           python3.12 -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install -e . numpy pydot
+          python -m pip install -e . numpy pydot pytest
           # export the path so subsequent steps can use this venv
           echo "VENV_PATH=$PWD/.venv/bin" >> $GITHUB_ENV
 
@@ -101,6 +76,17 @@ jobs:
         run: |
           source $VENV_PATH/activate
           python -m unittest -v test.arch.test_atalla
+
+      - name: Packetization and control-flow regression tests
+        env:
+          PYTHONPATH: .:functional_sim
+        run: >-
+          python -m pytest -q test/codegen/test_atalla_packetizer.py test/test_validation_report.py
+          test/codegen/test_atalla_masked.py
+          functional_sim/tests/unit/test_packetizer.py
+          functional_sim/tests/unit/test_control_offsets.py
+          functional_sim/tests/unit/test_build_compiler_li.py
+          functional_sim/tests/unit/test_conv_generator.py
 
       - name: Unit tests (x10 checks)
         id: unit

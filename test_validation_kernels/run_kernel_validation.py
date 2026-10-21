@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kernel C validation: atalla_cc -> build_compiler -> seed .data -> functional_sim/run.py.
+"""Kernel C validation: atalla_cc -p -> build_compiler --prepacked -> functional_sim/run.py.
 
 Every kernel is checked against a numpy golden computed from the same seeded inputs:
 add/relu/maxpool/maxpool_2x2: exact BF16. softmax: numpy softmax. layernorm: numpy on the
@@ -64,9 +64,7 @@ GEMM_TILE = 4
 # Compiled kernels whose golden currently fails because of a known compiler bug. They are
 # reported as "xfail" and don't fail the run; one that starts passing is reported "xpass"
 # so it can be removed from this list.
-EXPECTED_FAILURES: dict[str, str] = {
-    "maxpool_2x2": "Masked-op merge semantics: unmasked lanes in multi-step pooling require accumulator preservation.",
-}
+EXPECTED_FAILURES: dict[str, str] = {}
 
 DEFAULT_TESTS = (
     "add.c",
@@ -114,6 +112,9 @@ def read_perf(perf_path: Path) -> dict[str, float] | None:
             perf[key.strip()] = float(value)
         except ValueError:
             continue
+    metrics_path = perf_path.parent / "packetization.json"
+    if metrics_path.exists():
+        perf.update(json.loads(metrics_path.read_text()))
     return perf
 
 
@@ -504,16 +505,21 @@ KERNEL_REGISTRY: dict[str, KernelSpec] = {
 
 # Handwritten (systems-team) generator in functional_sim/kernels that matches each C kernel's
 # shape and cfg layout, so both run on the same seeded image and the same checker.
-# Not paired yet, because the generator's memory layout doesn't match the C kernel's:
-#   layernorm   build_layernorm_param.py assumes an N-wide GMEM tile; C uses a 4x32 tile.
-#   gemm_tiled  build_gemm_tiled.py --tile 4 writes nothing to C on this image.
-# maxpool has no --emit-asm-only generator.
+GEMM_ARGS = ("--M", "8", "--N", "8", "--K", "8", "--tile", "4", "--cfg-base", "0x3c")
+POOL_ARGS = ("--H", "8", "--W", "8", "--validation-layout")
 HANDWRITTEN_KERNELS: dict[str, tuple[str, tuple[str, ...]]] = {
     "add": ("build_add.py", ("--rows", "4", "--width", "32")),
     "relu": ("build_relu.py", ("--rows", "4", "--width", "32")),
     "softmax": ("build_softmax_row32.py", ()),
     "conv_baseline": ("build_conv.py", ("--H", "4", "--W", "4")),
     "conv_pipelined": ("build_conv_pipelined.py", ("--H", "4", "--W", "4")),
+    "conv_pipelined_unrolled": ("build_conv_unrolled_pipelined.py", ("--H", "4", "--W", "4")),
+    "gemm_tiled_baseline": ("build_gemm_tiled.py", GEMM_ARGS),
+    "gemm_tiled_pipelined": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k",)),
+    "gemm_tiled_pipelined_unrolled": ("build_gemm_tiled.py", GEMM_ARGS + ("--pipelined-k", "--unroll")),
+    "layernorm": ("build_layernorm_param.py", ("--n", "4", "--full-cols", "32")),
+    "maxpool": ("build_maxpool.py", POOL_ARGS),
+    "maxpool_2x2": ("build_maxpool.py", POOL_ARGS + ("--horizontal",)),
 }
 
 
@@ -526,6 +532,7 @@ def compile_c(test_path: Path, asm_path: Path, *, repo_root: Path, env: dict[str
         "atalla",
         "-O",
         "2",
+        "-p",
         "-S",
         str(test_path),
         "-o",
@@ -603,7 +610,13 @@ def run_one(
         str(image_path),
     ]
     if handwritten:
-        bc.append("--expand-li-pseudo")
+        # Handwritten generators emit unpacked assembly. Apply the compiler's
+        # packetizer policy through build_compiler's textual-assembly adapter,
+        # bypassing the simulator's more permissive legacy scheduler.
+        bc.append("--packetize")
+    else:
+        bc.append("--prepacked")
+    bc.extend(["--metrics", str(out_dir / "packetization.json")])
     run_and_log(bc, cwd=sim_root, env=env, log_path=build_log)
 
     words: dict[int, int] = {}
@@ -636,6 +649,9 @@ def run_one(
         log_path=run_log,
     )
 
+    from ppci.arch.atalla.packetizer import check_metrics
+
+    check_metrics(read_perf(output_perf))
     check_fn(output_mem)
     kind = "handwritten" if handwritten else "compiled"
     print(f"OK {test_path.name} ({kind})  artifacts: {out_dir}")
@@ -648,6 +664,9 @@ def main() -> int:
     sim_root = repo_root / "functional_sim"
     env = os.environ.copy()
     env["PYTHONPATH"] = build_pythonpath(sim_root, repo_root)
+    # Compiler packetization owns latency stalls. Preserve its all-NOP packet
+    # rows when build_compiler encodes --prepacked assembly.
+    env["ATALLA_STRIP_NOP_PACKET_ROWS"] = "0"
     # functional_sim/build_compiler: avoid SDMA latency stall rows inflating PC distance
     # past BEQ/BNE range (see instruction_latency scpad.ld/st).
     env["ATALLA_FUNCTIONAL_SCHED_LATENCY"] = "1"
@@ -683,6 +702,10 @@ def main() -> int:
         help="Skip running the matching handwritten functional_sim kernels for comparison",
     )
     args = ap.parse_args()
+
+    missing = {Path(name).stem for name in DEFAULT_TESTS} - HANDWRITTEN_KERNELS.keys()
+    if args.handwritten and missing:
+        ap.error(f"Missing handwritten comparisons: {', '.join(sorted(missing))}")
 
     if args.test is not None:
         tests = [args.test.resolve()]
@@ -723,7 +746,7 @@ def main() -> int:
         }
         results.append(result)
 
-        # Handwritten comparison is informational: it never fails the run.
+        # A paired reference must pass the same golden to be a useful comparison.
         if args.handwritten and t.stem in HANDWRITTEN_KERNELS:
             hw_error: str | None = None
             try:
@@ -737,6 +760,7 @@ def main() -> int:
                 )
             except Exception as e:
                 hw_error = str(e)
+                failed.append(f"{t.name} (handwritten): {hw_error}")
                 print(f"HANDWRITTEN FAIL {t.name}: {hw_error.splitlines()[0]}")
             script, gen_args = HANDWRITTEN_KERNELS[t.stem]
             result["handwritten"] = {

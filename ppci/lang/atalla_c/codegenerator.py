@@ -1350,7 +1350,24 @@ class CCodeGenerator:
                 value = None
             else:
                 lhs = self.gen_expr(expr.a, rvalue=False)
-                rhs = self.gen_expr(expr.b, rvalue=True)
+                if (
+                    expr.op == "="
+                    and isinstance(expr.b, expressions.VecOpMasked)
+                    and expr.b.merge is None
+                    and expr.b.op not in {"RSUM", "RMIN", "RMAX"}
+                    and types.is_vector(expr.a.typ)
+                ):
+                    # masked vector ops keep the destination's previous
+                    # value in inactive lanes. for reassignment
+                    # (best = vec_op_masked(...)), pass it as the merge
+                    # operand so the result register can be coalesced
+                    with self.builder.use_location(expr.b.location):
+                        old_dst = self._load_value(lhs, expr.a.typ)
+                        rhs = self.gen_vec_op_masked(
+                            expr.b, merge_value=old_dst
+                        )
+                else:
+                    rhs = self.gen_expr(expr.b, rvalue=True)
 
                 if expr.op == "=":
                     value = rhs
@@ -1603,14 +1620,22 @@ class CCodeGenerator:
         value = self.builder.emit_gemm(arg1, arg2, mask, ir_typ)
         return value
 
-    def gen_vec_op_masked(self, expr: expressions.VecOpMasked):
+    def gen_vec_op_masked(
+        self, expr: expressions.VecOpMasked, merge_value=None
+    ):
         arg1 = self.gen_expr(expr.arg1, rvalue=True)
         arg2 = self.gen_expr(expr.arg2, rvalue=True)
         mask = self.gen_expr(expr.mask, rvalue=True)
         op = expr.op
         ir_typ = self.get_ir_type(expr.typ)
+        if merge_value is not None:
+            merge = merge_value
+        elif expr.merge is not None:
+            merge = self.gen_expr(expr.merge, rvalue=True)
+        else:
+            merge = None
         value = self.builder.emit_vec_op_masked(
-            op, arg1, arg2, mask, ir_typ
+            op, arg1, arg2, mask, ir_typ, merge=merge
         )
         return value
     

@@ -38,10 +38,11 @@ class CodeGenerator:
 
     logger = logging.getLogger("codegen")
 
-    def __init__(self, arch, reporter, optimize_for="size"):
+    def __init__(self, arch, reporter, optimize_for="size", packetize=False):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.reporter = reporter
+        self.packetize = packetize
         self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch)
         weights_map = {
@@ -194,20 +195,52 @@ class CodeGenerator:
             [FunctionOutputStream(instruction_list.append), output_stream]
         )
         peep_hole_stream = PeepHoleStream(output_stream)
-        if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
-            self._emit_packets_from_buckets(frame, peep_hole_stream, debug=debug, slots_per_packet=4)
-        else:
-            self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
-        peep_hole_stream.flush()
 
-        # Emit proper return / exit sequence at the end of function
-        if isinstance(ir_function, ir.Function):
-            if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
-                rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+        if self.arch.name == "atalla" and self.packetize:
+            # Collect ALL instructions (prologue + body + epilogue + exit) into
+            # a staging list so the packetizer sees the full hazard picture.
+            staging = []
+            staging_stream = PeepHoleStream(
+                MasterOutputStream([FunctionOutputStream(staging.append)])
+            )
+
+            if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
+                self._emit_packets_from_buckets(frame, staging_stream, debug=debug, slots_per_packet=4)
             else:
-                rv = None
-            for ins in self.arch.gen_function_exit(rv):
-                peep_hole_stream.emit(ins)
+                self.emit_frame_to_stream(frame, staging_stream, debug=debug)
+
+            if isinstance(ir_function, ir.Function):
+                if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                    rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+                else:
+                    rv = None
+                for ins in self.arch.gen_function_exit(rv):
+                    staging_stream.emit(ins)
+
+            staging_stream.flush()
+
+            # Now run packetization over the complete staged list and emit.
+            packed = self._pack_flat_vliw(staging, max_width=4)
+            import json
+            output_stream.emit(Comment(
+                "packetization: " + json.dumps(self.packetization_stats, sort_keys=True)
+            ))
+            for ins in packed:
+                output_stream.emit(ins)
+        else:
+            if hasattr(frame, "buckets_by_block") and frame.buckets_by_block:
+                self._emit_packets_from_buckets(frame, peep_hole_stream, debug=debug, slots_per_packet=4)
+            else:
+                self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
+            peep_hole_stream.flush()
+
+            if isinstance(ir_function, ir.Function):
+                if hasattr(ir_function, "return_ty") and ir_function.return_ty is not None:
+                    rv = (ir_function.return_ty, frame.rv_vreg if hasattr(frame, "rv_vreg") else None)
+                else:
+                    rv = None
+                for ins in self.arch.gen_function_exit(rv):
+                    peep_hole_stream.emit(ins)
 
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:
@@ -376,3 +409,59 @@ class CodeGenerator:
 
         if value.binding == ir.Binding.GLOBAL:
             output_stream.emit(Global(value.name))
+
+    def _pack_flat_vliw(self, instructions, max_width=4):
+        from ..arch.atalla.instructions import BranchBase, Halt, Jal, Jalr, Nop
+        from ..arch.atalla.packetizer import Operation, packetize
+        from ..arch.generic_instructions import PseudoInstruction
+
+        real, operations, labels = [], [], {}
+        prefix, suffix = [], []
+        expanded = []
+        FunctionOutputStream(expanded.append).emit_all(instructions)
+        for ins in expanded:
+            if isinstance(ins, Label):
+                labels[ins.name] = len(real)
+            elif isinstance(ins, PseudoInstruction):
+                (suffix if real else prefix).append(ins)
+            elif not isinstance(ins, (VirtualInstruction, Nop)):
+                mnemonic = str(ins).split()[0].replace("_", ".")
+                key = lambda reg: (type(reg), reg.num)
+                mem_key = None
+                if mnemonic in {"lw.s", "sw.s"} and hasattr(ins, "imm12"):
+                    mem_key = (ins.rs1.num, ins.imm12)
+                operations.append(Operation(
+                    mnemonic,
+                    {key(reg) for reg in ins.used_registers},
+                    {key(reg) for reg in ins.defined_registers},
+                    getattr(ins, "is_jump", False)
+                    or isinstance(ins, (BranchBase, Halt, Jal, Jalr)),
+                    mem_key,
+                ))
+                real.append(ins)
+
+        trailing_labels = [name for name, idx in labels.items() if idx == len(real)]
+        labels = {name: idx for name, idx in labels.items() if idx < len(real)}
+        _, packets = packetize(operations, labels, width=max_width)
+        self.packetization_stats = {
+            "instructions_before_packetization": len(real),
+            "packets": len(packets),
+            "nop_packets": sum(not packet for packet in packets),
+        }
+        result = list(prefix)
+        at_index = {}
+        for name, idx in labels.items():
+            at_index.setdefault(idx, []).append(name)
+        for packet in packets:
+            if packet:
+                result.extend(Label(name) for name in at_index.get(packet[0], []))
+            result.extend(real[idx] for idx in packet)
+            result.extend(self.arch.make_nop() for _ in range(max_width - len(packet)))
+        result.extend(Label(name) for name in trailing_labels)
+        result.extend(suffix)
+        from ..arch.atalla.branch_layout import relax_branches
+        result, added = relax_branches(result, self.arch.make_nop, max_width)
+        if added:
+            self.packetization_stats["branch_lowering_instructions"] = added
+            self.packetization_stats["packets"] += added
+        return result

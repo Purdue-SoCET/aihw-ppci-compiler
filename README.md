@@ -49,6 +49,16 @@ We provide the following intrisic functions to be used by the programmer to perf
  */
 vec vec_op_masked(char* op, vec v1, vec v2, int mask);
 vec vec_op_masked(char* op, vec v1, float f1, int mask);
+vec vec_op_masked(char* op, vec v1, vec v2, int mask, vec merge);
+vec vec_op_masked(char* op, vec v1, float f1, int mask, vec merge);
+
+/* Elementwise operations preserve inactive lanes from v1 by default, or
+ * from the optional merge vector. Assignment does not implicitly preserve
+ * the old destination: use ..., mask, acc) when updating acc lane by lane.
+ * RSUM/RMIN/RMAX instead reduce the mask-selected input lanes and broadcast
+ * the result to all lanes. Their third argument must be the constant 0.0;
+ * these reductions do not accept a merge argument.
+ */
 
 
 /**

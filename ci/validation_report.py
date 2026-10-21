@@ -155,12 +155,21 @@ def render(
         lines += [" | ".join(header_parts), ""]
 
     failed = [r for r in unit + kernel if r.get("status") == "fail"]
-    if not (unit or kernel):
-        verdict = "### Accuracy Gate: FAILED (no results found)"
+    failed += [
+        r["handwritten"]
+        for r in kernel
+        if r.get("handwritten", {}).get("status") == "fail"
+    ]
+    missing = [name for name, res in (("unit", unit), ("kernel", kernel)) if not res]
+    if missing:
+        verdict = (
+            f"**Accuracy gate: FAILED** (no {' or '.join(missing)} results; "
+            "the suite did not run, see the job log)"
+        )
     elif failed:
-        verdict = "### Accuracy Gate: FAILED"
+        verdict = "### Accuracy gate: FAILED"
     else:
-        verdict = "### Accuracy Gate: PASSED"
+        verdict = "### Accuracy gate: PASSED"
     lines += [
         verdict,
         "",
@@ -269,6 +278,31 @@ def render(
         )
 
     sec_num = 3 if (has_dual or has_macro or has_micro or has_baseline) else 2
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## Static packetization",
+        "",
+        "Instructions are counted before scheduling, excluding NOPs and directives. "
+        "Packet totals include latency stalls and exclude simulator bootstrap packets (main and halt). "
+        "These static counts are separate from loop-dependent execution counts above.",
+        "Branch-expansion instructions are counted separately from the original instructions; "
+        "packet totals include their packets.",
+        "",
+        "| Kernel | Instructions before packetization (C / HW) | Packets (C / HW) "
+        "| All-NOP packets (C / HW) | Branch-expansion instructions (C / HW) |",
+        "|---|---|---|---|---|",
+    ]
+    for result in kernel:
+        hw = result.get("handwritten")
+        values = [
+            f"{fmt_int(perf_value(result, key))} / {fmt_int(perf_value(hw, key))}"
+            for key in ("instructions_before_packetization", "packets_before_encoding", "nop_packets",
+                        "branch_lowering_instructions")
+        ]
+        lines.append(f"| `{result['test']}` | " + " | ".join(values) + " |")
 
     lines += [
         "",

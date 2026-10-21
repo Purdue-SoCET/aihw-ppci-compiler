@@ -1459,14 +1459,15 @@ class Gemm(LocalValue):
     
 
 class VecOpMasked(LocalValue):
-    """Vector operation with a mask"""
+    """Masked operation with an explicit inactive-lane value; reductions broadcast."""
 
     arg1 = value_use("arg1")
     arg2 = value_use("arg2")
     mask = value_use("mask")
+    merge = value_use("merge")
     op = ["+","-", "|","<<","*","&",">>","/","^","GEMM","EXP","SQRT","~","RSUM","RMIN","RMAX",]
 
-    def __init__(self, op, arg1, arg2, mask, name, ty):
+    def __init__(self, op, arg1, arg2, mask, name, ty, merge=None):
         super().__init__(name, ty)
         
         if op not in VecOpMasked.op:
@@ -1483,9 +1484,24 @@ class VecOpMasked(LocalValue):
         self.arg2 = arg2
         self.mask = mask
         self.op = op
+        if merge is None:
+            merge = arg1 if isinstance(arg1.ty, VectorTyp) else arg2
+        if merge.ty is not ty:
+            raise TypeError("Masked merge operand must have the result vector type")
+        self.merge = merge
+
+    def replace_use(self, old, new):
+        # arg1 and the default merge may refer to the same SSA value.
+        names = [name for name, value in self._var_map.items() if value is old]
+        if names:
+            self.del_use(old)
+            for name in names:
+                self._var_map[name] = new
+            self.add_use(new)
 
     def __str__(self):
-        return f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, {self.mask.name}"
+        return (f"vecop_masked {self.op} {self.arg1.name}, {self.arg2.name}, "
+                f"{self.mask.name}, merge {self.merge.name}")
     
 class VecIndex(LocalValue):
     """Extract an element from a vector"""
