@@ -43,10 +43,10 @@ latency = {
     # ── BF16 arithmetic (Unit 3) ───────────────────────────────────────────
     "add_bf": 5,
     "sub_bf": 5,
-    "mul_bf": 4,
+    "mul_bf": 5, #should be 4, just testing experiment rn
 
     # ── Scalar Mult (Unit 4) ──────────────────────────────────────────────
-    "mul_s":  3,
+    "mul_s":  1, #should be 3, changed to test experiment
     "muli_s": 3,
 
     # ── Scalar Ld/St (Unit 5) ─────────────────────────────────────────────
